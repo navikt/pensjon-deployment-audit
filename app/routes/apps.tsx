@@ -1,8 +1,8 @@
 import { Link, Form } from 'react-router';
 import { Alert, BodyShort, Button, Heading, Table } from '@navikt/ds-react';
-import { TrashIcon, ArrowsCirclepathIcon } from '@navikt/aksel-icons';
+import { TrashIcon, ArrowsCirclepathIcon, CheckmarkCircleIcon } from '@navikt/aksel-icons';
 import { getAllMonitoredApplications } from '../db/monitored-applications';
-import { syncDeploymentsForApplication } from '../lib/sync';
+import { syncDeploymentsFromNais, verifyDeploymentsFourEyes } from '../lib/sync';
 import type { Route } from './+types/apps';
 
 export function meta(_args: Route.MetaArgs) {
@@ -18,23 +18,50 @@ export async function action({ request }: Route.ActionArgs) {
   const formData = await request.formData();
   const intent = formData.get('intent');
 
-  if (intent === 'sync') {
+  if (intent === 'sync-nais') {
     const teamSlug = formData.get('team_slug') as string;
     const environmentName = formData.get('environment_name') as string;
     const appName = formData.get('app_name') as string;
 
     try {
-      const result = await syncDeploymentsForApplication(teamSlug, environmentName, appName);
+      const result = await syncDeploymentsFromNais(teamSlug, environmentName, appName);
 
       return {
-        success: `Synkroniserte ${result.newCount} nye deployments. ${result.alertsCreated > 0 ? `⚠️ ${result.alertsCreated} nye varsler opprettet.` : ''}`,
+        success: `Hentet ${result.newCount} nye deployments fra Nais. ${result.alertsCreated > 0 ? `⚠️ ${result.alertsCreated} nye varsler opprettet.` : ''} Kjør GitHub-verifisering for å sjekke four-eyes.`,
         error: null,
       };
     } catch (error) {
-      console.error('Sync error:', error);
+      console.error('Nais sync error:', error);
       return {
         success: null,
-        error: error instanceof Error ? error.message : 'Kunne ikke synkronisere deployments',
+        error: error instanceof Error ? error.message : 'Kunne ikke hente deployments fra Nais',
+      };
+    }
+  }
+
+  if (intent === 'verify-github') {
+    const monitoredAppId = Number(formData.get('monitored_app_id'));
+
+    try {
+      const result = await verifyDeploymentsFourEyes({
+        monitored_app_id: monitoredAppId,
+        limit: 100, // Verify max 100 deployments at a time
+      });
+
+      return {
+        success: `Verifiserte ${result.verified} deployments med GitHub. ${result.failed > 0 ? `❌ ${result.failed} feilet.` : ''}`,
+        error: null,
+      };
+    } catch (error) {
+      console.error('GitHub verify error:', error);
+      return {
+        success: null,
+        error:
+          error instanceof Error
+            ? error.message.includes('rate limit')
+              ? 'GitHub rate limit nådd. Vent litt før du prøver igjen.'
+              : error.message
+            : 'Kunne ikke verifisere deployments med GitHub',
       };
     }
   }
@@ -151,9 +178,9 @@ export default function Apps({ loaderData, actionData }: Route.ComponentProps) {
                       )}
                     </Table.DataCell>
                     <Table.DataCell>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                         <Form method="post">
-                          <input type="hidden" name="intent" value="sync" />
+                          <input type="hidden" name="intent" value="sync-nais" />
                           <input type="hidden" name="team_slug" value={app.team_slug} />
                           <input
                             type="hidden"
@@ -166,8 +193,22 @@ export default function Apps({ loaderData, actionData }: Route.ComponentProps) {
                             size="small"
                             variant="secondary"
                             icon={<ArrowsCirclepathIcon aria-hidden />}
+                            title="Hent deployments fra Nais (ingen GitHub-kall)"
                           >
-                            Synk
+                            Hent
+                          </Button>
+                        </Form>
+                        <Form method="post">
+                          <input type="hidden" name="intent" value="verify-github" />
+                          <input type="hidden" name="monitored_app_id" value={app.id} />
+                          <Button
+                            type="submit"
+                            size="small"
+                            variant="secondary"
+                            icon={<CheckmarkCircleIcon aria-hidden />}
+                            title="Verifiser four-eyes med GitHub (bruker rate limit)"
+                          >
+                            Verifiser
                           </Button>
                         </Form>
                       </div>

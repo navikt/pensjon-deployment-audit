@@ -5,28 +5,31 @@ import {
 import {
   createDeployment,
   getDeploymentByNaisId,
+  getDeploymentById,
+  getAllDeployments,
   updateDeploymentFourEyes,
   type CreateDeploymentParams,
+  type DeploymentFilters,
 } from '~/db/deployments';
 import { createRepositoryAlert } from '~/db/alerts';
 import { fetchApplicationDeployments } from '~/lib/nais';
 import { getCommit, getPullRequestForCommit, verifyPullRequestFourEyes } from '~/lib/github';
 
 /**
- * Sync deployments for a monitored application
- * Validates repository and creates alerts on mismatch
+ * Step 1: Sync deployments from Nais API to database
+ * This ONLY fetches from Nais and stores to DB - no GitHub calls
  */
-export async function syncDeploymentsForApplication(
+export async function syncDeploymentsFromNais(
   teamSlug: string,
   environmentName: string,
   appName: string
 ): Promise<{
   newCount: number;
-  updatedCount: number;
+  skippedCount: number;
   alertsCreated: number;
   totalProcessed: number;
 }> {
-  console.log('🔄 Starting sync for application:', {
+  console.log('📥 Syncing deployments from Nais (no GitHub verification):', {
     team: teamSlug,
     environment: environmentName,
     app: appName,
@@ -46,7 +49,7 @@ export async function syncDeploymentsForApplication(
   console.log(`📦 Processing ${naisDeployments.length} deployments from Nais`);
 
   let newCount = 0;
-  let updatedCount = 0;
+  let skippedCount = 0;
   let alertsCreated = 0;
   let totalProcessed = 0;
 
@@ -54,7 +57,6 @@ export async function syncDeploymentsForApplication(
     totalProcessed++;
 
     // Extract GitHub owner/repo from repository field
-    // Format: "navikt/repo-name" or "owner/repo-name"
     const repoParts = naisDep.repository.split('/');
     if (repoParts.length !== 2) {
       console.warn(`⚠️  Invalid repository format: ${naisDep.repository}`);
@@ -67,16 +69,8 @@ export async function syncDeploymentsForApplication(
     const existingDep = await getDeploymentByNaisId(naisDep.id);
 
     if (existingDep) {
-      // Skip if already approved - no need to re-check
-      if (existingDep.four_eyes_status === 'approved_pr') {
-        console.log(`⏭️  Skipping already approved deployment: ${naisDep.id}`);
-        continue;
-      }
-
-      console.log(`📝 Updating deployment: ${naisDep.id}`);
-      // Re-verify four-eyes status
-      await verifyAndUpdateFourEyes(existingDep.id, naisDep.commitSha, naisDep.repository);
-      updatedCount++;
+      console.log(`⏭️  Deployment already exists: ${naisDep.id}`);
+      skippedCount++;
       continue;
     }
 
@@ -103,7 +97,6 @@ export async function syncDeploymentsForApplication(
     }
 
     // If this is the first deployment for this app, auto-update detected repo
-    // (unless there's already a mismatch alert)
     if (!monitoredApp.detected_github_owner && !repositoryMismatch) {
       console.log(`📝 Auto-updating detected repository for first deployment`);
       await updateMonitoredApplicationRepository(
@@ -113,7 +106,7 @@ export async function syncDeploymentsForApplication(
       );
     }
 
-    // Create deployment record
+    // Create deployment record WITHOUT four-eyes verification
     console.log(`➕ Creating new deployment: ${naisDep.id}`);
 
     const deploymentParams: CreateDeploymentParams = {
@@ -128,44 +121,116 @@ export async function syncDeploymentsForApplication(
       resources: naisDep.resources.nodes,
     };
 
-    const newDeployment = await createDeployment(deploymentParams);
+    await createDeployment(deploymentParams);
     newCount++;
-
-    // Verify four-eyes status
-    await verifyAndUpdateFourEyes(
-      newDeployment.id,
-      naisDep.commitSha,
-      naisDep.repository
-    );
   }
 
-  console.log(`✅ Sync complete:`, {
+  console.log(`✅ Nais sync complete:`, {
     newCount,
-    updatedCount,
+    skippedCount,
     alertsCreated,
     totalProcessed,
   });
 
   return {
     newCount,
-    updatedCount,
+    skippedCount,
     alertsCreated,
     totalProcessed,
   };
 }
 
 /**
- * Verify and update four-eyes status for a deployment
+ * Step 2: Verify four-eyes status for deployments by checking GitHub
+ * This can be run separately to avoid rate limits
  */
-async function verifyAndUpdateFourEyes(
+export async function verifyDeploymentsFourEyes(
+  filters?: DeploymentFilters & { limit?: number }
+): Promise<{
+  verified: number;
+  failed: number;
+  skipped: number;
+}> {
+  console.log('🔍 Starting GitHub verification for deployments');
+
+  // Get deployments that need verification
+  const deploymentsToVerify = await getAllDeployments({
+    ...filters,
+    // Only verify deployments that haven't been verified yet or failed
+    // Skip 'approved_pr' and 'direct_push' statuses
+  });
+
+  // Filter to only unverified or pending
+  const needsVerification = deploymentsToVerify.filter(
+    (d) =>
+      d.four_eyes_status === 'pending' ||
+      d.four_eyes_status === 'missing' ||
+      d.four_eyes_status === 'error'
+  );
+
+  // Apply limit if specified
+  const toVerify = filters?.limit
+    ? needsVerification.slice(0, filters.limit)
+    : needsVerification;
+
+  console.log(
+    `📋 Found ${toVerify.length} deployments needing verification (out of ${deploymentsToVerify.length} total)`
+  );
+
+  let verified = 0;
+  let failed = 0;
+  let skipped = 0;
+
+  for (const deployment of toVerify) {
+    try {
+      console.log(`🔍 Verifying deployment ${deployment.nais_deployment_id}...`);
+
+      const success = await verifyDeploymentFourEyes(
+        deployment.id,
+        deployment.commit_sha,
+        `${deployment.detected_github_owner}/${deployment.detected_github_repo_name}`
+      );
+
+      if (success) {
+        verified++;
+      } else {
+        skipped++;
+      }
+
+      // Small delay to avoid rate limiting
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    } catch (error) {
+      console.error(`❌ Error verifying deployment ${deployment.nais_deployment_id}:`, error);
+      failed++;
+    }
+  }
+
+  console.log(`✅ Verification complete:`, {
+    verified,
+    failed,
+    skipped,
+  });
+
+  return {
+    verified,
+    failed,
+    skipped,
+  };
+}
+
+/**
+ * Verify and update four-eyes status for a single deployment
+ * Returns true if verification succeeded, false if skipped
+ */
+export async function verifyDeploymentFourEyes(
   deploymentId: number,
   commitSha: string,
   repository: string
-): Promise<void> {
+): Promise<boolean> {
   const repoParts = repository.split('/');
   if (repoParts.length !== 2) {
     console.warn(`⚠️  Invalid repository format for four-eyes check: ${repository}`);
-    return;
+    return false;
   }
 
   const [owner, repo] = repoParts;
@@ -186,7 +251,7 @@ async function verifyAndUpdateFourEyes(
         githubPrNumber: null,
         githubPrUrl: null,
       });
-      return;
+      return true;
     }
 
     // Check if PR has approval after last commit
@@ -203,14 +268,67 @@ async function verifyAndUpdateFourEyes(
       githubPrNumber: prInfo.number,
       githubPrUrl: prInfo.html_url,
     });
+
+    return true;
   } catch (error) {
     console.error(`❌ Error verifying four-eyes for deployment ${deploymentId}:`, error);
-    // On error, mark as missing to be safe
+
+    // Check if it's a rate limit error
+    if (error instanceof Error && error.message.includes('rate limit')) {
+      console.warn('⚠️  GitHub rate limit reached, stopping verification');
+      throw error; // Re-throw to stop batch processing
+    }
+
+    // On other errors, mark as error status
     await updateDeploymentFourEyes(deploymentId, {
       hasFourEyes: false,
-      fourEyesStatus: 'missing',
+      fourEyesStatus: 'error',
       githubPrNumber: null,
       githubPrUrl: null,
     });
+
+    return false;
   }
+}
+
+/**
+ * Combined sync: Fetch from Nais AND verify with GitHub
+ * Use this for small batches where rate limits are not a concern
+ */
+export async function syncAndVerifyDeployments(
+  teamSlug: string,
+  environmentName: string,
+  appName: string
+): Promise<{
+  newCount: number;
+  verified: number;
+  alertsCreated: number;
+}> {
+  console.log('🔄 Full sync (Nais + GitHub) for application:', {
+    team: teamSlug,
+    environment: environmentName,
+    app: appName,
+  });
+
+  // Step 1: Sync from Nais
+  const naisResult = await syncDeploymentsFromNais(teamSlug, environmentName, appName);
+
+  // Step 2: Verify new deployments with GitHub
+  const monitoredApp = await getMonitoredApplication(teamSlug, environmentName, appName);
+  if (!monitoredApp) {
+    throw new Error('Application not found after sync');
+  }
+
+  const verifyResult = await verifyDeploymentsFourEyes({
+    monitored_app_id: monitoredApp.id,
+    limit: 50, // Limit to avoid rate limits
+  });
+
+  console.log(`✅ Full sync complete`);
+
+  return {
+    newCount: naisResult.newCount,
+    verified: verifyResult.verified,
+    alertsCreated: naisResult.alertsCreated,
+  };
 }
