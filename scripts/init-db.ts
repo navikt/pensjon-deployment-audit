@@ -1,7 +1,11 @@
 import 'dotenv/config';
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { closePool, getPool } from '../app/db/connection';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 async function initDatabase() {
   console.log('Initializing database...');

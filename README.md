@@ -51,15 +51,66 @@ NAIS_GRAPHQL_URL=http://localhost:4242
 
 ### 3. Sett opp database
 
-Opprett en PostgreSQL database:
-\`\`\`bash
-createdb nais_audit
-\`\`\`
+#### Installer PostgreSQL
 
-Kjør database migrations:
-\`\`\`bash
+**macOS (med Homebrew):**
+```bash
+brew install postgresql@16
+brew services start postgresql@16
+```
+
+**Linux (Ubuntu/Debian):**
+```bash
+sudo apt-get update
+sudo apt-get install postgresql postgresql-contrib
+sudo systemctl start postgresql
+```
+
+**Docker (alternativ):**
+```bash
+docker run --name nais-audit-db \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=nais_audit \
+  -p 5432:5432 \
+  -d postgres:16
+```
+
+#### Opprett database
+
+**Hvis du bruker lokal PostgreSQL:**
+```bash
+createdb nais_audit
+```
+
+**Hvis du bruker Docker:**
+Databasen er allerede opprettet.
+
+#### Oppdater DATABASE_URL i .env
+
+```env
+# For lokal PostgreSQL (macOS/Linux)
+DATABASE_URL=postgresql://$(whoami)@localhost:5432/nais_audit
+
+# For Docker
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/nais_audit
+
+# Med passord
+DATABASE_URL=postgresql://username:password@localhost:5432/nais_audit
+```
+
+#### Kjør database migrations
+
+```bash
 npm run db:init
-\`\`\`
+```
+
+Du skal se:
+```
+Initializing database...
+✓ Database schema created successfully
+Database initialization complete
+```
+
 
 ### 4. Start utviklingsserver
 
@@ -210,3 +261,59 @@ For å committe uten å kjøre hooks (ikke anbefalt):
 git commit --no-verify
 ```
 
+
+## Troubleshooting
+
+### Database
+
+**Problem: "Connection refused" eller "Connection timeout"**
+```bash
+# Sjekk at PostgreSQL kjører
+brew services list  # macOS
+systemctl status postgresql  # Linux
+
+# Start PostgreSQL
+brew services start postgresql@16  # macOS
+sudo systemctl start postgresql  # Linux
+
+# Hvis Docker
+docker ps  # Sjekk at containeren kjører
+docker start nais-audit-db
+```
+
+**Problem: "database nais_audit does not exist"**
+```bash
+createdb nais_audit
+```
+
+**Problem: "authentication failed"**
+- Sjekk at DATABASE_URL stemmer med din PostgreSQL-konfigurasjon
+- På macOS uten passord: `postgresql://$(whoami)@localhost:5432/nais_audit`
+- Med Docker: `postgresql://postgres:postgres@localhost:5432/nais_audit`
+
+**Koble til database manuelt:**
+```bash
+psql nais_audit
+
+# Se tabeller
+\dt
+
+# Se en tabell
+\d repositories
+
+# Avslutt
+\q
+```
+
+### GitHub API
+
+**Problem: "Kunne ikke søke i GitHub"**
+- Sjekk at GITHUB_TOKEN er satt i `.env`
+- Verifiser at tokenet har `repo` scope
+- Test tokenet: `curl -H "Authorization: token YOUR_TOKEN" https://api.github.com/user`
+
+### Nais GraphQL
+
+**Problem: "Kunne ikke hente deployments"**
+- Sjekk at NAIS_GRAPHQL_URL er riktig (default: http://localhost:4242)
+- Verifiser at du har tilgang til Nais GraphQL API
