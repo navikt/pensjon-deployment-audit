@@ -13,7 +13,6 @@ import { useState } from 'react';
 import { Form, Link, redirect, useNavigation } from 'react-router';
 import { getAllDeployments } from '../db/deployments';
 import { deleteRepository, getRepositoryById } from '../db/repositories';
-import { getDateRange } from '../lib/nais';
 import { syncDeploymentsForRepository } from '../lib/sync';
 import type { Route } from './+types/repos.$id';
 
@@ -41,7 +40,6 @@ export async function action({ request, params }: Route.ActionArgs) {
   }
 
   if (intent === 'sync') {
-    const period = (formData.get('period') as string) || 'last-month';
     const repo = await getRepositoryById(repoId);
 
     if (!repo) {
@@ -49,8 +47,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     }
 
     try {
-      const { startDate, endDate } = getDateRange(period as any);
-      const result = await syncDeploymentsForRepository(repo, startDate, endDate);
+      const result = await syncDeploymentsForRepository(repo);
 
       if (result.success) {
         return {
@@ -117,9 +114,8 @@ export default function RepoDetail({ loaderData, actionData }: Route.ComponentPr
       <div style={{ display: 'flex', gap: '1rem' }}>
         <Form method="post">
           <input type="hidden" name="intent" value="sync" />
-          <input type="hidden" name="period" value="last-month" />
           <Button type="submit" icon={<ArrowsCirclepathIcon aria-hidden />} disabled={isSyncing}>
-            {isSyncing ? <Loader size="small" /> : 'Synkroniser deployments'}
+            {isSyncing ? <Loader size="small" /> : 'Synkroniser alle deployments'}
           </Button>
         </Form>
       </div>

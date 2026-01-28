@@ -66,7 +66,7 @@ const DEPLOYMENTS_QUERY = `
 
 export async function fetchDeployments(
   teamSlug: string,
-  deploymentsFirst: number = 1000
+  deploymentsFirst: number = 100000
 ): Promise<NaisDeployment[]> {
   const client = getNaisClient();
 
@@ -150,7 +150,7 @@ export async function fetchDeploymentsInRange(
     endDate: endDate.toISOString(),
   });
 
-  const allDeployments = await fetchDeployments(teamSlug, 1000);
+  const allDeployments = await fetchDeployments(teamSlug, 100000);
 
   const filtered = allDeployments.filter((deployment) => {
     const deploymentDate = new Date(deployment.createdAt);

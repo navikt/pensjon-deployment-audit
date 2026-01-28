@@ -1,7 +1,7 @@
 import { createDeployment, getDeploymentByNaisId } from '../db/deployments';
 import type { Repository } from '../db/repositories';
 import { getPullRequestForCommit, verifyPullRequestFourEyes } from './github';
-import { fetchDeploymentsInRange } from './nais';
+import { fetchDeployments } from './nais';
 
 export interface SyncResult {
   success: boolean;
@@ -16,15 +16,12 @@ export interface SyncResult {
  * and verify four-eyes status using GitHub API
  */
 export async function syncDeploymentsForRepository(
-  repo: Repository,
-  startDate: Date,
-  endDate: Date
+  repo: Repository
 ): Promise<SyncResult> {
   console.log('🔄 Starting sync for repository:', {
     repo: `${repo.github_owner}/${repo.github_repo_name}`,
     team: repo.nais_team_slug,
     environment: repo.nais_environment_name,
-    dateRange: { startDate, endDate },
   });
 
   const result: SyncResult = {
@@ -36,9 +33,9 @@ export async function syncDeploymentsForRepository(
   };
 
   try {
-    // Fetch deployments from Nais for the specified time range
+    // Fetch all deployments from Nais (no date filtering)
     console.log('📡 Fetching deployments from Nais...');
-    const naisDeployments = await fetchDeploymentsInRange(repo.nais_team_slug, startDate, endDate);
+    const naisDeployments = await fetchDeployments(repo.nais_team_slug);
     console.log(`📦 Received ${naisDeployments.length} total deployments from Nais`);
 
     if (naisDeployments.length > 0) {
@@ -48,7 +45,8 @@ export async function syncDeploymentsForRepository(
     // Filter to only deployments for this specific repository and environment
     const relevantDeployments = naisDeployments.filter((deployment) => {
       const repoMatch = deployment.repository === `${repo.github_owner}/${repo.github_repo_name}`;
-      const envMatch = deployment.environmentName === repo.nais_environment_name;
+      const envMatch = deployment.environmentName === 'prod-gcp' || deployment.environmentName === 'prod-fss';
+      //=== repo.nais_environment_name;
       
       if (!repoMatch || !envMatch) {
         console.log('⏭️  Skipping deployment:', {
