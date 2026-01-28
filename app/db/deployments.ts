@@ -1,165 +1,227 @@
-import { query } from './connection';
+import { pool } from './connection';
 
 export interface Deployment {
   id: number;
-  repo_id: number;
+  monitored_app_id: number;
   nais_deployment_id: string;
   created_at: Date;
-  team_slug: string;
-  environment_name: string;
-  repository: string;
   deployer_username: string;
   commit_sha: string;
   trigger_url: string | null;
+  detected_github_owner: string;
+  detected_github_repo_name: string;
   has_four_eyes: boolean;
   four_eyes_status: string;
   github_pr_number: number | null;
   github_pr_url: string | null;
+  resources: any; // JSONB
   synced_at: Date;
 }
 
-export interface CreateDeploymentParams {
-  repo_id: number;
-  nais_deployment_id: string;
-  created_at: Date;
+export interface DeploymentWithApp extends Deployment {
   team_slug: string;
   environment_name: string;
-  repository: string;
+  app_name: string;
+  approved_github_owner: string;
+  approved_github_repo_name: string;
+}
+
+export interface CreateDeploymentParams {
+  monitored_app_id: number;
+  nais_deployment_id: string;
+  created_at: Date;
   deployer_username: string;
   commit_sha: string;
   trigger_url: string | null;
+  detected_github_owner: string;
+  detected_github_repo_name: string;
   has_four_eyes: boolean;
   four_eyes_status: string;
   github_pr_number?: number;
   github_pr_url?: string;
+  resources?: any;
 }
 
 export interface DeploymentFilters {
-  repo_id?: number;
+  monitored_app_id?: number;
+  team_slug?: string;
+  environment_name?: string;
   start_date?: Date;
   end_date?: Date;
   four_eyes_status?: string;
   only_missing_four_eyes?: boolean;
-  environment_name?: string;
+  only_repository_mismatch?: boolean;
 }
 
-export async function getAllDeployments(filters?: DeploymentFilters): Promise<Deployment[]> {
-  let sql = 'SELECT * FROM deployments WHERE 1=1';
+export async function getAllDeployments(filters?: DeploymentFilters): Promise<DeploymentWithApp[]> {
+  let sql = `
+    SELECT 
+      d.*,
+      ma.team_slug,
+      ma.environment_name,
+      ma.app_name,
+      ma.approved_github_owner,
+      ma.approved_github_repo_name
+    FROM deployments d
+    JOIN monitored_applications ma ON d.monitored_app_id = ma.id
+    WHERE 1=1
+  `;
   const params: any[] = [];
   let paramIndex = 1;
 
-  if (filters?.repo_id) {
-    sql += ` AND repo_id = $${paramIndex++}`;
-    params.push(filters.repo_id);
+  if (filters?.monitored_app_id) {
+    sql += ` AND d.monitored_app_id = $${paramIndex}`;
+    params.push(filters.monitored_app_id);
+    paramIndex++;
   }
 
-  if (filters?.start_date) {
-    sql += ` AND created_at >= $${paramIndex++}`;
-    params.push(filters.start_date);
-  }
-
-  if (filters?.end_date) {
-    sql += ` AND created_at <= $${paramIndex++}`;
-    params.push(filters.end_date);
-  }
-
-  if (filters?.four_eyes_status) {
-    sql += ` AND four_eyes_status = $${paramIndex++}`;
-    params.push(filters.four_eyes_status);
-  }
-
-  if (filters?.only_missing_four_eyes) {
-    sql += ' AND has_four_eyes = false';
+  if (filters?.team_slug) {
+    sql += ` AND ma.team_slug = $${paramIndex}`;
+    params.push(filters.team_slug);
+    paramIndex++;
   }
 
   if (filters?.environment_name) {
-    sql += ` AND environment_name = $${paramIndex++}`;
+    sql += ` AND ma.environment_name = $${paramIndex}`;
     params.push(filters.environment_name);
+    paramIndex++;
   }
 
-  sql += ' ORDER BY created_at DESC';
+  if (filters?.start_date) {
+    sql += ` AND d.created_at >= $${paramIndex}`;
+    params.push(filters.start_date);
+    paramIndex++;
+  }
 
-  const result = await query<Deployment>(sql, params);
+  if (filters?.end_date) {
+    sql += ` AND d.created_at <= $${paramIndex}`;
+    params.push(filters.end_date);
+    paramIndex++;
+  }
+
+  if (filters?.four_eyes_status) {
+    sql += ` AND d.four_eyes_status = $${paramIndex}`;
+    params.push(filters.four_eyes_status);
+    paramIndex++;
+  }
+
+  if (filters?.only_missing_four_eyes) {
+    sql += ' AND d.has_four_eyes = false';
+  }
+
+  if (filters?.only_repository_mismatch) {
+    sql += ` AND d.four_eyes_status = $${paramIndex}`;
+    params.push('repository_mismatch');
+    paramIndex++;
+  }
+
+  sql += ' ORDER BY d.created_at DESC';
+
+  const result = await pool.query(sql, params);
   return result.rows;
 }
 
-export async function getDeploymentById(id: number): Promise<Deployment | null> {
-  const result = await query<Deployment>('SELECT * FROM deployments WHERE id = $1', [id]);
-  return result.rows[0] || null;
-}
-
-export async function getDeploymentByNaisId(
-  nais_deployment_id: string
-): Promise<Deployment | null> {
-  const result = await query<Deployment>(
-    'SELECT * FROM deployments WHERE nais_deployment_id = $1',
-    [nais_deployment_id]
+export async function getDeploymentById(id: number): Promise<DeploymentWithApp | null> {
+  const result = await pool.query(
+    `SELECT 
+      d.*,
+      ma.team_slug,
+      ma.environment_name,
+      ma.app_name,
+      ma.approved_github_owner,
+      ma.approved_github_repo_name
+    FROM deployments d
+    JOIN monitored_applications ma ON d.monitored_app_id = ma.id
+    WHERE d.id = $1`,
+    [id]
   );
   return result.rows[0] || null;
 }
 
-export async function createDeployment(params: CreateDeploymentParams): Promise<Deployment> {
-  const result = await query<Deployment>(
-    `INSERT INTO deployments (
-      repo_id, nais_deployment_id, created_at, team_slug, environment_name,
-      repository, deployer_username, commit_sha, trigger_url, has_four_eyes,
-      four_eyes_status, github_pr_number, github_pr_url
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-    ON CONFLICT (nais_deployment_id) DO UPDATE SET
+export async function getDeploymentByNaisId(naisDeploymentId: string): Promise<Deployment | null> {
+  const result = await pool.query('SELECT * FROM deployments WHERE nais_deployment_id = $1', [
+    naisDeploymentId,
+  ]);
+  return result.rows[0] || null;
+}
+
+export async function getDeploymentsByMonitoredApp(
+  monitoredAppId: number,
+  limit?: number
+): Promise<Deployment[]> {
+  let sql = 'SELECT * FROM deployments WHERE monitored_app_id = $1 ORDER BY created_at DESC';
+  const params: any[] = [monitoredAppId];
+
+  if (limit) {
+    sql += ' LIMIT $2';
+    params.push(limit);
+  }
+
+  const result = await pool.query(sql, params);
+  return result.rows;
+}
+
+export async function createDeployment(data: CreateDeploymentParams): Promise<Deployment> {
+  const result = await pool.query(
+    `INSERT INTO deployments 
+      (monitored_app_id, nais_deployment_id, created_at, deployer_username, commit_sha, trigger_url,
+       detected_github_owner, detected_github_repo_name, has_four_eyes, four_eyes_status, 
+       github_pr_number, github_pr_url, resources)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+    ON CONFLICT (nais_deployment_id) 
+    DO UPDATE SET
       has_four_eyes = EXCLUDED.has_four_eyes,
       four_eyes_status = EXCLUDED.four_eyes_status,
       github_pr_number = EXCLUDED.github_pr_number,
       github_pr_url = EXCLUDED.github_pr_url,
+      resources = EXCLUDED.resources,
       synced_at = CURRENT_TIMESTAMP
     RETURNING *`,
     [
-      params.repo_id,
-      params.nais_deployment_id,
-      params.created_at,
-      params.team_slug,
-      params.environment_name,
-      params.repository,
-      params.deployer_username,
-      params.commit_sha,
-      params.trigger_url,
-      params.has_four_eyes,
-      params.four_eyes_status,
-      params.github_pr_number || null,
-      params.github_pr_url || null,
+      data.monitored_app_id,
+      data.nais_deployment_id,
+      data.created_at,
+      data.deployer_username,
+      data.commit_sha,
+      data.trigger_url,
+      data.detected_github_owner,
+      data.detected_github_repo_name,
+      data.has_four_eyes,
+      data.four_eyes_status,
+      data.github_pr_number || null,
+      data.github_pr_url || null,
+      data.resources ? JSON.stringify(data.resources) : null,
     ]
   );
-
   return result.rows[0];
 }
 
-export async function getDeploymentStats(): Promise<{
+export async function getDeploymentStats(monitoredAppId?: number): Promise<{
   total: number;
   with_four_eyes: number;
   without_four_eyes: number;
-  percentage: number;
+  repository_mismatch: number;
 }> {
-  const result = await query<{
-    total: string;
-    with_four_eyes: string;
-    without_four_eyes: string;
-  }>(
-    `SELECT 
+  let sql = `
+    SELECT 
       COUNT(*) as total,
-      COUNT(*) FILTER (WHERE has_four_eyes = true) as with_four_eyes,
-      COUNT(*) FILTER (WHERE has_four_eyes = false) as without_four_eyes
-    FROM deployments`
-  );
+      COUNT(CASE WHEN has_four_eyes = true THEN 1 END) as with_four_eyes,
+      COUNT(CASE WHEN has_four_eyes = false THEN 1 END) as without_four_eyes,
+      COUNT(CASE WHEN four_eyes_status = 'repository_mismatch' THEN 1 END) as repository_mismatch
+    FROM deployments
+  `;
 
-  const row = result.rows[0];
-  const total = parseInt(row.total, 10);
-  const withFourEyes = parseInt(row.with_four_eyes, 10);
-  const withoutFourEyes = parseInt(row.without_four_eyes, 10);
-  const percentage = total > 0 ? (withFourEyes / total) * 100 : 0;
+  const params: any[] = [];
+  if (monitoredAppId) {
+    sql += ' WHERE monitored_app_id = $1';
+    params.push(monitoredAppId);
+  }
 
+  const result = await pool.query(sql, params);
   return {
-    total,
-    with_four_eyes: withFourEyes,
-    without_four_eyes: withoutFourEyes,
-    percentage: Math.round(percentage * 10) / 10,
+    total: parseInt(result.rows[0].total),
+    with_four_eyes: parseInt(result.rows[0].with_four_eyes),
+    without_four_eyes: parseInt(result.rows[0].without_four_eyes),
+    repository_mismatch: parseInt(result.rows[0].repository_mismatch),
   };
 }
