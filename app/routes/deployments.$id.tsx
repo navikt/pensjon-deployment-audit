@@ -1,4 +1,4 @@
-import { ChatIcon, TrashIcon } from '@navikt/aksel-icons';
+import { ChatIcon, TrashIcon, ArrowsCirclepathIcon } from '@navikt/aksel-icons';
 import {
   Alert,
   BodyShort,
@@ -15,6 +15,7 @@ import { useState } from 'react';
 import { Form, Link } from 'react-router';
 import { createComment, deleteComment, getCommentsByDeploymentId } from '../db/comments';
 import { getDeploymentById } from '../db/deployments';
+import { verifyDeploymentFourEyes } from '../lib/sync';
 import styles from '../styles/common.module.css';
 import type { Route } from './+types/deployments.$id';
 
@@ -63,6 +64,45 @@ export async function action({ request, params }: Route.ActionArgs) {
       return { success: 'Kommentar slettet' };
     } catch (_error) {
       return { error: 'Kunne ikke slette kommentar' };
+    }
+  }
+
+  if (intent === 'verify_four_eyes') {
+    const deployment = await getDeploymentById(deploymentId);
+
+    if (!deployment) {
+      return { error: 'Deployment ikke funnet' };
+    }
+
+    // Check if deployment has required data
+    if (!deployment.commit_sha) {
+      return { error: 'Kan ikke verifisere: deployment mangler commit SHA' };
+    }
+
+    if (!deployment.detected_github_owner || !deployment.detected_github_repo_name) {
+      return { error: 'Kan ikke verifisere: deployment mangler repository info' };
+    }
+
+    try {
+      console.log(`🔍 Manually verifying deployment ${deployment.nais_deployment_id}...`);
+
+      const success = await verifyDeploymentFourEyes(
+        deployment.id,
+        deployment.commit_sha,
+        `${deployment.detected_github_owner}/${deployment.detected_github_repo_name}`
+      );
+
+      if (success) {
+        return { success: '✅ Four-eyes status verifisert og oppdatert' };
+      } else {
+        return { error: 'Verifisering feilet - se logger for detaljer' };
+      }
+    } catch (error) {
+      console.error('Verification error:', error);
+      if (error instanceof Error && error.message.includes('rate limit')) {
+        return { error: '⚠️ GitHub rate limit nådd. Prøv igjen senere.' };
+      }
+      return { error: `Kunne ikke verifisere: ${error instanceof Error ? error.message : 'Ukjent feil'}` };
     }
   }
 
@@ -173,10 +213,28 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
       )}
 
       <Alert variant={status.variant}>
-        <Heading size="small" spacing>
-          {status.text}
-        </Heading>
-        <BodyShort>{status.description}</BodyShort>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+          <div style={{ flex: 1 }}>
+            <Heading size="small" spacing>
+              {status.text}
+            </Heading>
+            <BodyShort>{status.description}</BodyShort>
+          </div>
+          {deployment.commit_sha && (
+            <Form method="post">
+              <input type="hidden" name="intent" value="verify_four_eyes" />
+              <Button
+                type="submit"
+                size="small"
+                variant="secondary"
+                icon={<ArrowsCirclepathIcon aria-hidden />}
+                title="Verifiser four-eyes status mot GitHub"
+              >
+                Verifiser nå
+              </Button>
+            </Form>
+          )}
+        </div>
       </Alert>
 
       <div className={styles.detailsGrid}>
