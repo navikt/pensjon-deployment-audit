@@ -1,46 +1,49 @@
 import { Pool, type PoolClient, type QueryResult } from 'pg';
 
-let pool: Pool | null = null;
+let poolInstance: Pool | null = null;
 
 export function getPool(): Pool {
-  if (!pool) {
+  if (!poolInstance) {
     const connectionString = process.env.DATABASE_URL;
 
     if (!connectionString) {
       throw new Error('DATABASE_URL environment variable is not set');
     }
 
-    pool = new Pool({
+    poolInstance = new Pool({
       connectionString,
       max: 20,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 2000,
     });
 
-    pool.on('error', (err) => {
+    poolInstance.on('error', (err) => {
       console.error('Unexpected error on idle client', err);
     });
   }
 
-  return pool;
+  return poolInstance;
 }
+
+// Export pool directly for direct usage
+export const pool = getPool();
 
 export async function query<T extends Record<string, any> = any>(
   text: string,
   params?: any[]
 ): Promise<QueryResult<T>> {
-  const pool = getPool();
-  return pool.query<T>(text, params);
+  const p = getPool();
+  return p.query<T>(text, params);
 }
 
 export async function getClient(): Promise<PoolClient> {
-  const pool = getPool();
-  return pool.connect();
+  const p = getPool();
+  return p.connect();
 }
 
 export async function closePool(): Promise<void> {
-  if (pool) {
-    await pool.end();
-    pool = null;
+  if (poolInstance) {
+    await poolInstance.end();
+    poolInstance = null;
   }
 }

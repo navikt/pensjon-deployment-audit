@@ -10,7 +10,7 @@ import {
 } from '~/db/deployments';
 import { createRepositoryAlert } from '~/db/alerts';
 import { fetchApplicationDeployments } from '~/lib/nais-v2';
-import { getCommitInfo, getPRForCommit, verifyPRApproval } from '~/lib/github';
+import { getCommit, getPullRequestForCommit, verifyPullRequestFourEyes } from '~/lib/github';
 
 /**
  * Sync deployments for a monitored application
@@ -172,10 +172,10 @@ async function verifyAndUpdateFourEyes(
 
   try {
     // Get commit info
-    const commitInfo = await getCommitInfo(owner, repo, commitSha);
+    const commitInfo = await getCommit(owner, repo, commitSha);
 
     // Check if commit is part of a PR
-    const prInfo = await getPRForCommit(owner, repo, commitSha);
+    const prInfo = await getPullRequestForCommit(owner, repo, commitSha);
 
     if (!prInfo) {
       // Direct push to main
@@ -191,7 +191,7 @@ async function verifyAndUpdateFourEyes(
 
     // Check if PR has approval after last commit
     const lastCommitDate = new Date(commitInfo.commit.committer.date);
-    const hasApproval = await verifyPRApproval(owner, repo, prInfo.number, lastCommitDate);
+    const hasApproval = await verifyPullRequestFourEyes(owner, repo, prInfo.number, lastCommitDate);
 
     console.log(
       `${hasApproval ? '✅' : '❌'} PR #${prInfo.number} ${hasApproval ? 'has' : 'lacks'} approval after last commit`
