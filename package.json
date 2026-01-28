@@ -8,6 +8,7 @@
     "start": "react-router-serve ./build/server/index.js",
     "typecheck": "react-router typegen && tsc",
     "db:init": "tsx scripts/init-db.ts",
+    "db:init-v2": "tsx scripts/init-db-v2.ts",
     "test:v2-discovery": "tsx scripts/test-v2.ts discovery",
     "test:v2-fetch": "tsx scripts/test-v2.ts fetch",
     "lint": "biome check .",

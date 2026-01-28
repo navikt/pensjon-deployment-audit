@@ -1,9 +1,8 @@
-import { MagnifyingGlassIcon, RocketIcon, TableIcon, BellIcon } from '@navikt/aksel-icons';
+import { MagnifyingGlassIcon, RocketIcon, TableIcon } from '@navikt/aksel-icons';
 import { Alert, BodyShort, Heading, LinkPanel } from '@navikt/ds-react';
 import { Link } from 'react-router';
-import { getAllMonitoredApplications } from '../db/monitored-applications';
-import { getUnresolvedAlerts } from '../db/alerts';
 import { getDeploymentStats } from '../db/deployments';
+import { getAllRepositories } from '../db/repositories';
 import type { Route } from './+types/home';
 
 export function meta(_args: Route.MetaArgs) {
@@ -15,19 +14,15 @@ export function meta(_args: Route.MetaArgs) {
 
 export async function loader() {
   try {
-    const [stats, apps, alerts] = await Promise.all([
-      getDeploymentStats(),
-      getAllMonitoredApplications(),
-      getUnresolvedAlerts(),
-    ]);
-    return { stats, apps, alerts };
+    const [stats, repos] = await Promise.all([getDeploymentStats(), getAllRepositories()]);
+    return { stats, repos };
   } catch (_error) {
-    return { stats: null, apps: [], alerts: [] };
+    return { stats: null, repos: [] };
   }
 }
 
 export default function Home({ loaderData }: Route.ComponentProps) {
-  const { stats, apps, alerts } = loaderData;
+  const { stats, repos } = loaderData;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -36,20 +31,11 @@ export default function Home({ loaderData }: Route.ComponentProps) {
           Pensjon Deployment Audit
         </Heading>
         <BodyShort>
-          Overvåk deployments på Nav sin Nais-plattform og verifiser at alle har hatt to sett av
-          øyne. Applikasjon-sentrisk modell med sikkerhetsvarsler.
+          Sammenstill deployments på Nav sin Nais-plattform med endringer fra GitHub. Verifiser at
+          alle deployments har hatt to sett av øyne.
         </BodyShort>
       </div>
 
-      {/* Security Alerts */}
-      {alerts && alerts.length > 0 && (
-        <Alert variant="error">
-          🚨 <strong>{alerts.length} repository-varsler</strong> krever oppmerksomhet.{' '}
-          <Link to="/alerts">Se varsler</Link>
-        </Alert>
-      )}
-
-      {/* Stats */}
       {stats && stats.total > 0 && (
         <div
           style={{
@@ -119,56 +105,45 @@ export default function Home({ loaderData }: Route.ComponentProps) {
             }}
           >
             <BodyShort size="small" style={{ color: '#666', marginBottom: '0.5rem' }}>
-              Overvåkede applikasjoner
+              Konfigurerte repos
             </BodyShort>
-            <Heading size="large">{apps?.length || 0}</Heading>
+            <Heading size="large">{repos?.length || 0}</Heading>
           </div>
         </div>
       )}
 
       {stats && stats.total === 0 && (
         <Alert variant="info">
-          Ingen deployments funnet. Legg til applikasjoner og synkroniser deployments for å komme i
+          Ingen deployments funnet. Legg til repositories og synkroniser deployments for å komme i
           gang.
         </Alert>
       )}
 
-      {/* Navigation Panels */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
-        <LinkPanel as={Link} to="/apps/discover">
+      <div style={{ display: 'flex', gap: '1rem' }}>
+        <LinkPanel as={Link} to="/repos/search" style={{ flex: 1 }}>
           <LinkPanel.Title>
             <MagnifyingGlassIcon aria-hidden />
-            Oppdag applikasjoner
+            Søk etter repo
           </LinkPanel.Title>
           <LinkPanel.Description>
-            Søk etter team og finn tilgjengelige applikasjoner
+            Søk etter repositories under navikt org på GitHub
           </LinkPanel.Description>
         </LinkPanel>
 
-        <LinkPanel as={Link} to="/apps">
+        <LinkPanel as={Link} to="/repos" style={{ flex: 1 }}>
           <LinkPanel.Title>
             <TableIcon aria-hidden />
-            Overvåkede applikasjoner
+            Repositories
           </LinkPanel.Title>
-          <LinkPanel.Description>Administrer hvilke applikasjoner som overvåkes</LinkPanel.Description>
+          <LinkPanel.Description>Administrer konfigurerte repositories</LinkPanel.Description>
         </LinkPanel>
 
-        <LinkPanel as={Link} to="/deployments">
+        <LinkPanel as={Link} to="/deployments" style={{ flex: 1 }}>
           <LinkPanel.Title>
             <RocketIcon aria-hidden />
             Deployments
           </LinkPanel.Title>
           <LinkPanel.Description>Se alle deployments med four-eyes status</LinkPanel.Description>
-        </LinkPanel>
-
-        <LinkPanel as={Link} to="/alerts">
-          <LinkPanel.Title>
-            <BellIcon aria-hidden />
-            Repository-varsler {alerts && alerts.length > 0 && `(${alerts.length})`}
-          </LinkPanel.Title>
-          <LinkPanel.Description>
-            Varsler om endrede repositories (sikkerhet)
-          </LinkPanel.Description>
         </LinkPanel>
       </div>
 
