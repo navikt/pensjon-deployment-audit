@@ -1,16 +1,9 @@
-import { Form } from 'react-router';
-import {
-  Alert,
-  BodyShort,
-  Button,
-  Heading,
-  Table,
-  Textarea,
-  Modal,
-} from '@navikt/ds-react';
-import { useState } from 'react';
 import { CheckmarkIcon } from '@navikt/aksel-icons';
+import { Alert, BodyShort, Button, Heading, Modal, Table, Textarea } from '@navikt/ds-react';
+import { useState } from 'react';
+import { Form } from 'react-router';
 import { getUnresolvedAlertsWithContext, resolveRepositoryAlert } from '../db/alerts';
+import styles from '../styles/common.module.css';
 import type { Route } from './+types/alerts';
 
 export function meta(_args: Route.MetaArgs) {
@@ -66,7 +59,7 @@ export default function Alerts({ loaderData, actionData }: Route.ComponentProps)
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+    <div className={styles.pageContainer}>
       <div>
         <Heading size="large" spacing>
           Repository-varsler 🔒
@@ -113,13 +106,9 @@ export default function Alerts({ loaderData, actionData }: Route.ComponentProps)
               {alerts.map((alert) => (
                 <Table.Row key={alert.id}>
                   <Table.DataCell>
-                    <strong>
-                      {alert.app_name}
-                    </strong>
+                    <strong>{alert.app_name}</strong>
                     <br />
-                    <span style={{ fontSize: '0.875rem', color: '#666' }}>
-                      Team: {alert.team_slug}
-                    </span>
+                    <span className={styles.textSmallSubtle}>Team: {alert.team_slug}</span>
                   </Table.DataCell>
                   <Table.DataCell>{alert.environment_name}</Table.DataCell>
                   <Table.DataCell>
@@ -127,6 +116,7 @@ export default function Alerts({ loaderData, actionData }: Route.ComponentProps)
                       href={`https://github.com/${alert.approved_github_owner}/${alert.approved_github_repo_name}`}
                       target="_blank"
                       rel="noopener noreferrer"
+                      className={styles.linkExternal}
                     >
                       {alert.approved_github_owner}/{alert.approved_github_repo_name}
                     </a>
@@ -136,13 +126,13 @@ export default function Alerts({ loaderData, actionData }: Route.ComponentProps)
                       href={`https://github.com/${alert.detected_github_owner}/${alert.detected_github_repo_name}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={{ color: '#c30000', fontWeight: 'bold' }}
+                      className={styles.linkDanger}
                     >
                       {alert.detected_github_owner}/{alert.detected_github_repo_name}
                     </a>
                   </Table.DataCell>
                   <Table.DataCell>
-                    <code style={{ fontSize: '0.75rem' }}>
+                    <code className={styles.codeSmall}>
                       {alert.deployment_nais_id.substring(0, 16)}...
                     </code>
                   </Table.DataCell>
@@ -180,10 +170,8 @@ export default function Alerts({ loaderData, actionData }: Route.ComponentProps)
         <Modal.Body>
           {selectedAlert && (
             <>
-              <BodyShort spacing>
-                Du er i ferd med å markere dette varselet som løst:
-              </BodyShort>
-              <Alert variant="warning" style={{ marginBottom: '1rem' }}>
+              <BodyShort spacing>Du er i ferd med å markere dette varselet som løst:</BodyShort>
+              <Alert variant="warning" className={styles.marginBottom1}>
                 <strong>{selectedAlert.app_name}</strong> ({selectedAlert.environment_name})
                 <br />
                 Forventet: {selectedAlert.approved_github_owner}/
@@ -205,14 +193,7 @@ export default function Alerts({ loaderData, actionData }: Route.ComponentProps)
                   minLength={10}
                 />
 
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: '1rem',
-                    marginTop: '1.5rem',
-                    justifyContent: 'flex-end',
-                  }}
-                >
+                <div className={styles.modalActions}>
                   <Button
                     type="button"
                     variant="secondary"

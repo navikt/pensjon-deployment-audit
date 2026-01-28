@@ -1,15 +1,16 @@
 import {
+  BellIcon,
+  CheckmarkCircleIcon,
   MagnifyingGlassIcon,
   RocketIcon,
   TableIcon,
-  BellIcon,
-  CheckmarkCircleIcon,
 } from '@navikt/aksel-icons';
 import { Alert, BodyShort, Heading, LinkPanel } from '@navikt/ds-react';
 import { Link } from 'react-router';
-import { getAllMonitoredApplications } from '../db/monitored-applications';
 import { getUnresolvedAlerts } from '../db/alerts';
-import { getDeploymentStats, getAllDeployments } from '../db/deployments';
+import { getAllDeployments, getDeploymentStats } from '../db/deployments';
+import { getAllMonitoredApplications } from '../db/monitored-applications';
+import styles from '../styles/common.module.css';
 import type { Route } from './+types/home';
 
 export function meta(_args: Route.MetaArgs) {
@@ -30,7 +31,7 @@ export async function loader() {
 
     // Count pending verifications
     const pendingCount = allDeployments.filter(
-      (d) => d.four_eyes_status === 'pending' || d.four_eyes_status === 'error',
+      (d) => d.four_eyes_status === 'pending' || d.four_eyes_status === 'error'
     ).length;
 
     return { stats, apps, alerts, pendingCount };
@@ -43,7 +44,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   const { stats, apps, alerts, pendingCount } = loaderData;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+    <div className={styles.pageContainer}>
       <div>
         <Heading size="large" spacing>
           Pensjon Deployment Audit
@@ -72,74 +73,40 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
       {/* Stats */}
       {stats && stats.total > 0 && (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: '1rem',
-          }}
-        >
-          <div
-            style={{
-              padding: '1.5rem',
-              border: '1px solid #ccc',
-              borderRadius: '0.5rem',
-              background: '#f9f9f9',
-            }}
-          >
-            <BodyShort size="small" style={{ color: '#666', marginBottom: '0.5rem' }}>
+        <div className={styles.statsGrid}>
+          <div className={styles.statCard}>
+            <BodyShort size="small" className={styles.statLabel}>
               Totalt deployments
             </BodyShort>
             <Heading size="large">{stats.total}</Heading>
           </div>
 
-          <div
-            style={{
-              padding: '1.5rem',
-              border: '1px solid #ccc',
-              borderRadius: '0.5rem',
-              background: '#f0fdf4',
-            }}
-          >
-            <BodyShort size="small" style={{ color: '#166534', marginBottom: '0.5rem' }}>
+          <div className={styles.statCardSuccess}>
+            <BodyShort size="small" className={styles.statLabelSuccess}>
               Med four-eyes
             </BodyShort>
-            <Heading size="large" style={{ color: '#166534' }}>
+            <Heading size="large" className={styles.textSuccess}>
               {stats.with_four_eyes}
             </Heading>
-            <BodyShort size="small" style={{ color: '#166534' }}>
+            <BodyShort size="small" className={styles.textSuccess}>
               {stats.percentage}%
             </BodyShort>
           </div>
 
-          <div
-            style={{
-              padding: '1.5rem',
-              border: '1px solid #ccc',
-              borderRadius: '0.5rem',
-              background: '#fef2f2',
-            }}
-          >
-            <BodyShort size="small" style={{ color: '#991b1b', marginBottom: '0.5rem' }}>
+          <div className={styles.statCardDanger}>
+            <BodyShort size="small" className={styles.statLabelDanger}>
               Mangler four-eyes
             </BodyShort>
-            <Heading size="large" style={{ color: '#991b1b' }}>
+            <Heading size="large" className={styles.textDanger}>
               {stats.without_four_eyes}
             </Heading>
-            <BodyShort size="small" style={{ color: '#991b1b' }}>
+            <BodyShort size="small" className={styles.textDanger}>
               {(100 - stats.percentage).toFixed(1)}%
             </BodyShort>
           </div>
 
-          <div
-            style={{
-              padding: '1.5rem',
-              border: '1px solid #ccc',
-              borderRadius: '0.5rem',
-              background: '#f9f9f9',
-            }}
-          >
-            <BodyShort size="small" style={{ color: '#666', marginBottom: '0.5rem' }}>
+          <div className={styles.statCard}>
+            <BodyShort size="small" className={styles.statLabel}>
               Overvåkede applikasjoner
             </BodyShort>
             <Heading size="large">{apps?.length || 0}</Heading>
@@ -155,9 +122,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       )}
 
       {/* Navigation Panels */}
-      <div
-        style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}
-      >
+      <div className={styles.navLinksGrid}>
         <LinkPanel as={Link} to="/apps/discover">
           <LinkPanel.Title>
             <MagnifyingGlassIcon aria-hidden />
@@ -173,7 +138,9 @@ export default function Home({ loaderData }: Route.ComponentProps) {
             <TableIcon aria-hidden />
             Overvåkede applikasjoner
           </LinkPanel.Title>
-          <LinkPanel.Description>Administrer hvilke applikasjoner som overvåkes</LinkPanel.Description>
+          <LinkPanel.Description>
+            Administrer hvilke applikasjoner som overvåkes
+          </LinkPanel.Description>
         </LinkPanel>
 
         <LinkPanel as={Link} to="/deployments">
@@ -199,9 +166,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
             <BellIcon aria-hidden />
             Repository-varsler {alerts && alerts.length > 0 && `(${alerts.length})`}
           </LinkPanel.Title>
-          <LinkPanel.Description>
-            Varsler om endrede repositories (sikkerhet)
-          </LinkPanel.Description>
+          <LinkPanel.Description>Varsler om endrede repositories (sikkerhet)</LinkPanel.Description>
         </LinkPanel>
       </div>
 

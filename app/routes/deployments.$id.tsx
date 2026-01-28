@@ -7,14 +7,15 @@ import {
   Heading,
   Label,
   Panel,
+  Tag,
   Textarea,
   TextField,
-  Tag,
 } from '@navikt/ds-react';
 import { useState } from 'react';
 import { Form, Link } from 'react-router';
 import { createComment, deleteComment, getCommentsByDeploymentId } from '../db/comments';
 import { getDeploymentById } from '../db/deployments';
+import styles from '../styles/common.module.css';
 import type { Route } from './+types/deployments.$id';
 
 export async function loader({ params }: Route.LoaderArgs) {
@@ -122,17 +123,17 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
   const [slackLink, setSlackLink] = useState('');
 
   const status = getFourEyesStatus(deployment);
-  
+
   // Extract app name from deployment (might not match exactly, but we have it in the data)
   const appName = deployment.app_name || deployment.detected_github_repo_name;
   const naisConsoleUrl = `https://console.nav.cloud.nais.io/team/${deployment.team_slug}/${deployment.environment_name}/app/${appName}`;
-  
+
   const repoMismatch =
     deployment.detected_github_owner !== deployment.approved_github_owner ||
     deployment.detected_github_repo_name !== deployment.approved_github_repo_name;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+    <div className={styles.pageContainer}>
       <div>
         <Detail>Deployment</Detail>
         <Heading size="large">
@@ -158,13 +159,13 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
             Dette deploymentet kom fra et annet repository enn forventet. Dette kan være et
             sikkerhetsproblem.
           </BodyShort>
-          <div style={{ marginTop: '1rem' }}>
+          <div className={styles.marginTop1}>
             <Label>Forventet:</Label>
             <BodyShort>
               {deployment.approved_github_owner}/{deployment.approved_github_repo_name}
             </BodyShort>
-            <Label style={{ marginTop: '0.5rem' }}>Detektert:</Label>
-            <BodyShort style={{ color: '#c30000', fontWeight: 'bold' }}>
+            <Label className={styles.marginTop05}>Detektert:</Label>
+            <BodyShort className={styles.textDangerBold}>
               {deployment.detected_github_owner}/{deployment.detected_github_repo_name}
             </BodyShort>
           </div>
@@ -178,7 +179,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
         <BodyShort>{status.description}</BodyShort>
       </Alert>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.5rem' }}>
+      <div className={styles.detailsGrid}>
         <div>
           <Detail>Applikasjon</Detail>
           <BodyShort>
@@ -208,10 +209,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
               href={`https://github.com/${deployment.detected_github_owner}/${deployment.detected_github_repo_name}`}
               target="_blank"
               rel="noopener noreferrer"
-              style={{
-                color: repoMismatch ? '#c30000' : undefined,
-                fontWeight: repoMismatch ? 'bold' : undefined,
-              }}
+              className={repoMismatch ? styles.linkDanger : styles.linkExternal}
             >
               {repoMismatch && '⚠️ '}
               {deployment.detected_github_owner}/{deployment.detected_github_repo_name}
@@ -226,7 +224,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
               href={`https://github.com/${deployment.detected_github_owner}/${deployment.detected_github_repo_name}/commit/${deployment.commit_sha}`}
               target="_blank"
               rel="noopener noreferrer"
-              style={{ fontFamily: 'monospace' }}
+              className={styles.codeMedium}
             >
               {deployment.commit_sha.substring(0, 7)}
             </a>
@@ -267,7 +265,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
         <div>
           <Detail>Nais Deployment ID</Detail>
           <BodyShort>
-            <code style={{ fontSize: '0.75rem' }}>{deployment.nais_deployment_id}</code>
+            <code className={styles.codeSmall}>{deployment.nais_deployment_id}</code>
           </BodyShort>
         </div>
       </div>
@@ -278,7 +276,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
           <Heading size="small" spacing>
             Kubernetes Resources
           </Heading>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <div className={styles.actionButtons}>
             {deployment.resources.map((resource: any, idx: number) => (
               <Tag key={idx} variant="info" size="small">
                 {resource.kind}: {resource.name}
@@ -295,17 +293,13 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
         </Heading>
 
         {comments.length === 0 ? (
-          <BodyShort style={{ color: '#666', fontStyle: 'italic' }}>
-            Ingen kommentarer ennå.
-          </BodyShort>
+          <BodyShort className={styles.textSubtleItalic}>Ingen kommentarer ennå.</BodyShort>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div className={styles.commentsContainer}>
             {comments.map((comment) => (
               <Panel key={comment.id} border>
-                <div
-                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}
-                >
-                  <div style={{ flex: 1 }}>
+                <div className={styles.commentPanel}>
+                  <div className={styles.commentContent}>
                     <Detail>
                       {new Date(comment.created_at).toLocaleString('no-NO', {
                         dateStyle: 'medium',
@@ -321,7 +315,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                       </BodyShort>
                     )}
                   </div>
-                  <Form method="post" style={{ marginLeft: '1rem' }}>
+                  <Form method="post" className={styles.commentActions}>
                     <input type="hidden" name="intent" value="delete_comment" />
                     <input type="hidden" name="comment_id" value={comment.id} />
                     <Button
@@ -346,7 +340,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
         </Heading>
         <Form method="post">
           <input type="hidden" name="intent" value="add_comment" />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div className={styles.commentForm}>
             <Textarea
               label="Kommentar"
               name="comment_text"

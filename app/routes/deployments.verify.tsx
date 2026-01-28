@@ -1,8 +1,9 @@
-import { Form, useNavigation } from 'react-router';
-import { Alert, BodyShort, Button, Heading, TextField, Loader } from '@navikt/ds-react';
 import { CheckmarkCircleIcon } from '@navikt/aksel-icons';
-import { verifyDeploymentsFourEyes } from '../lib/sync';
+import { Alert, BodyShort, Button, Heading, Loader, TextField } from '@navikt/ds-react';
+import { Form, useNavigation } from 'react-router';
 import { getAllDeployments } from '../db/deployments';
+import { verifyDeploymentsFourEyes } from '../lib/sync';
+import styles from '../styles/common.module.css';
 import type { Route } from './+types/deployments.verify';
 
 export function meta(_args: Route.MetaArgs) {
@@ -68,7 +69,7 @@ export default function DeploymentsVerify({ loaderData, actionData }: Route.Comp
   const isVerifying = navigation.state === 'submitting';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+    <div className={styles.pageContainer}>
       <div>
         <Heading size="large" spacing>
           Batch GitHub-verifisering
@@ -83,7 +84,7 @@ export default function DeploymentsVerify({ loaderData, actionData }: Route.Comp
         <Alert variant="success" closeButton>
           {actionData.success}
           {actionData.result && (
-            <div style={{ marginTop: '0.5rem' }}>
+            <div className={styles.marginTop05}>
               <BodyShort size="small">
                 Verifisert: {actionData.result.verified} • Feilet: {actionData.result.failed} •
                 Hoppet over: {actionData.result.skipped}
@@ -95,43 +96,36 @@ export default function DeploymentsVerify({ loaderData, actionData }: Route.Comp
 
       {actionData?.error && <Alert variant="error">{actionData.error}</Alert>}
 
-      <div
-        style={{
-          padding: '1.5rem',
-          background: '#f9f9f9',
-          borderRadius: '0.5rem',
-          border: '1px solid #ccc',
-        }}
-      >
+      <div className={styles.statusBox}>
         <Heading size="small" spacing>
           Status
         </Heading>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
-          <div>
-            <BodyShort size="small" style={{ color: '#666' }}>
+        <div className={styles.statusGrid}>
+          <div className={styles.statusItem}>
+            <BodyShort size="small" className={styles.textSubtle}>
               Totalt deployments
             </BodyShort>
             <Heading size="medium">{stats.total}</Heading>
           </div>
-          <div>
-            <BodyShort size="small" style={{ color: '#ff9800' }}>
+          <div className={styles.statusItem}>
+            <BodyShort size="small" className={styles.textWarning}>
               Trenger verifisering
             </BodyShort>
-            <Heading size="medium" style={{ color: '#ff9800' }}>
+            <Heading size="medium" className={styles.textWarning}>
               {stats.needsVerification}
             </Heading>
           </div>
-          <div>
-            <BodyShort size="small" style={{ color: '#666' }}>
+          <div className={styles.statusItem}>
+            <BodyShort size="small" className={styles.textSubtle}>
               Pending
             </BodyShort>
             <Heading size="medium">{stats.pending}</Heading>
           </div>
-          <div>
-            <BodyShort size="small" style={{ color: '#c30000' }}>
+          <div className={styles.statusItem}>
+            <BodyShort size="small" className={styles.textDanger}>
               Error
             </BodyShort>
-            <Heading size="medium" style={{ color: '#c30000' }}>
+            <Heading size="medium" className={styles.textDanger}>
               {stats.error}
             </Heading>
           </div>
@@ -149,7 +143,7 @@ export default function DeploymentsVerify({ loaderData, actionData }: Route.Comp
       </Alert>
 
       <Form method="post">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <div className={styles.pageContainer}>
           <TextField
             name="limit"
             label="Antall deployments å verifisere"
@@ -158,7 +152,7 @@ export default function DeploymentsVerify({ loaderData, actionData }: Route.Comp
             type="number"
             min="1"
             max="500"
-            style={{ maxWidth: '300px' }}
+            className={styles.maxWidth300}
           />
 
           <div>
@@ -174,16 +168,9 @@ export default function DeploymentsVerify({ loaderData, actionData }: Route.Comp
       </Form>
 
       {isVerifying && (
-        <div
-          style={{
-            textAlign: 'center',
-            padding: '2rem',
-            background: '#f0f8ff',
-            borderRadius: '0.5rem',
-          }}
-        >
+        <div className={styles.loadingCenter}>
           <Loader size="2xlarge" title="Verifiserer deployments med GitHub..." />
-          <BodyShort style={{ marginTop: '1rem' }}>
+          <BodyShort className={styles.marginTop1}>
             Dette kan ta litt tid. Ikke lukk vinduet.
           </BodyShort>
         </div>

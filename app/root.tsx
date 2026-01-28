@@ -10,6 +10,7 @@ import {
 import type { Route } from './+types/root';
 import './app.css';
 import '@navikt/ds-css';
+import { Page, Theme } from '@navikt/ds-react';
 
 export const links: Route.LinksFunction = () => [];
 
@@ -32,7 +33,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  return <Outlet />;
+  return (
+    <Theme theme="light">
+      <Outlet />;
+    </Theme>
+  );
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
@@ -50,14 +55,18 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   }
 
   return (
-    <main className="pt-16 p-4 container mx-auto">
-      <h1>{message}</h1>
-      <p>{details}</p>
-      {stack && (
-        <pre className="w-full p-4 overflow-x-auto">
-          <code>{stack}</code>
-        </pre>
-      )}
-    </main>
+    <Theme theme="light">
+      <Page>
+        <Page.Block as="main" width="xl" gutters>
+          <h1>{message}</h1>
+          <p>{details}</p>
+          {stack && (
+            <pre className="error-stack">
+              <code>{stack}</code>
+            </pre>
+          )}
+        </Page.Block>
+      </Page>
+    </Theme>
   );
 }

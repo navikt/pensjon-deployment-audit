@@ -1,8 +1,9 @@
-import { Link, Form } from 'react-router';
+import { ArrowsCirclepathIcon, CheckmarkCircleIcon, TrashIcon } from '@navikt/aksel-icons';
 import { Alert, BodyShort, Button, Heading, Table } from '@navikt/ds-react';
-import { TrashIcon, ArrowsCirclepathIcon, CheckmarkCircleIcon } from '@navikt/aksel-icons';
+import { Form, Link } from 'react-router';
 import { getAllMonitoredApplications } from '../db/monitored-applications';
 import { syncDeploymentsFromNais, verifyDeploymentsFourEyes } from '../lib/sync';
+import styles from '../styles/common.module.css';
 import type { Route } from './+types/apps';
 
 export function meta(_args: Route.MetaArgs) {
@@ -85,15 +86,13 @@ export default function Apps({ loaderData, actionData }: Route.ComponentProps) {
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
+    <div className={styles.pageContainer}>
+      <div className={styles.pageHeader}>
+        <div className={styles.pageHeaderContent}>
           <Heading size="large" spacing>
             Overvåkede applikasjoner
           </Heading>
-          <BodyShort>
-            Administrer hvilke applikasjoner som overvåkes for deployments.
-          </BodyShort>
+          <BodyShort>Administrer hvilke applikasjoner som overvåkes for deployments.</BodyShort>
         </div>
         <Button as={Link} to="/apps/discover">
           Oppdag nye applikasjoner
@@ -110,8 +109,8 @@ export default function Apps({ loaderData, actionData }: Route.ComponentProps) {
 
       {apps.length === 0 && (
         <Alert variant="info">
-          Ingen applikasjoner overvåkes ennå.{' '}
-          <Link to="/apps/discover">Oppdag applikasjoner</Link> for å komme i gang.
+          Ingen applikasjoner overvåkes ennå. <Link to="/apps/discover">Oppdag applikasjoner</Link>{' '}
+          for å komme i gang.
         </Alert>
       )}
 
@@ -165,20 +164,20 @@ export default function Apps({ loaderData, actionData }: Route.ComponentProps) {
                           {app.detected_github_owner}/{app.detected_github_repo_name}
                         </a>
                       ) : (
-                        <span style={{ color: '#666' }}>Ikke synkronisert ennå</span>
+                        <span className={styles.textSubtle}>Ikke synkronisert ennå</span>
                       )}
                     </Table.DataCell>
                     <Table.DataCell>
                       {hasRepoMismatch ? (
-                        <span style={{ color: '#c30000', fontWeight: 'bold' }}>⚠️ Mismatch</span>
+                        <span className={styles.textDangerBold}>⚠️ Mismatch</span>
                       ) : app.detected_github_owner ? (
-                        <span style={{ color: '#0c8900' }}>✓ OK</span>
+                        <span className={styles.textSuccess}>✓ OK</span>
                       ) : (
-                        <span style={{ color: '#666' }}>Ikke synkronisert</span>
+                        <span className={styles.textSubtle}>Ikke synkronisert</span>
                       )}
                     </Table.DataCell>
                     <Table.DataCell>
-                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <div className={styles.actionButtons}>
                         <Form method="post">
                           <input type="hidden" name="intent" value="sync-nais" />
                           <input type="hidden" name="team_slug" value={app.team_slug} />

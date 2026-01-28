@@ -1,5 +1,6 @@
 import { InternalHeader, Spacer, Theme } from '@navikt/ds-react';
 import { Link, Outlet, useLocation } from 'react-router';
+import styles from '../styles/common.module.css';
 
 export default function Layout() {
   const location = useLocation();
@@ -12,59 +13,32 @@ export default function Layout() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div className={styles.layoutContainer}>
       <InternalHeader>
         <InternalHeader.Title as={Link} to="/">
           Pensjon Deployment Audit
         </InternalHeader.Title>
         <Spacer />
-        <nav style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <Link
-            to="/apps"
-            style={{
-              textDecoration: 'none',
-              color: isActive('/apps') ? '#0067C5' : 'inherit',
-              fontWeight: isActive('/apps') ? 600 : 400,
-            }}
-          >
+        <nav className={styles.navContainer}>
+          <Link to="/apps" className={isActive('/apps') ? styles.navLinkActive : styles.navLink}>
             Applikasjoner
           </Link>
           <Link
             to="/deployments"
-            style={{
-              textDecoration: 'none',
-              color: isActive('/deployments') ? '#0067C5' : 'inherit',
-              fontWeight: isActive('/deployments') ? 600 : 400,
-            }}
+            className={isActive('/deployments') ? styles.navLinkActive : styles.navLink}
           >
             Deployments
           </Link>
           <Link
             to="/alerts"
-            style={{
-              textDecoration: 'none',
-              color: isActive('/alerts') ? '#0067C5' : 'inherit',
-              fontWeight: isActive('/alerts') ? 600 : 400,
-            }}
+            className={isActive('/alerts') ? styles.navLinkActive : styles.navLink}
           >
             Varsler
-          </Link>
-          <Link
-            to="/tertial-boards"
-            style={{
-              textDecoration: 'none',
-              color: isActive('/tertial-boards') ? '#0067C5' : 'inherit',
-              fontWeight: isActive('/tertial-boards') ? 600 : 400,
-            }}
-          >
-            Tertialtavler
           </Link>
         </nav>
       </InternalHeader>
 
-      <div
-        style={{ flex: 1, padding: '2rem', maxWidth: '1400px', width: '100%', margin: '0 auto' }}
-      >
+      <div className={styles.layoutMain}>
         <Theme theme="light">
           <Outlet />
         </Theme>

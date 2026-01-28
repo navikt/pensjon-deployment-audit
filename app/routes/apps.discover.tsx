@@ -1,17 +1,18 @@
-import { Form, useActionData, useNavigation } from 'react-router';
+import { MagnifyingGlassIcon, PlusIcon } from '@navikt/aksel-icons';
 import {
   Alert,
   BodyShort,
   Button,
-  Heading,
-  TextField,
-  Table,
-  Loader,
   Checkbox,
+  Heading,
+  Loader,
+  Table,
+  TextField,
 } from '@navikt/ds-react';
-import { MagnifyingGlassIcon, PlusIcon } from '@navikt/aksel-icons';
-import { discoverTeamApplications, getApplicationInfo } from '../lib/nais';
+import { Form, useNavigation } from 'react-router';
 import { createMonitoredApplication } from '../db/monitored-applications';
+import { discoverTeamApplications, getApplicationInfo } from '../lib/nais';
+import styles from '../styles/common.module.css';
 import type { Route } from './+types/apps.discover';
 
 export function meta(_args: Route.MetaArgs) {
@@ -117,15 +118,14 @@ export async function action({ request }: Route.ActionArgs) {
 export default function AppsDiscover({ actionData }: Route.ComponentProps) {
   const navigation = useNavigation();
   const isDiscovering =
-    navigation.state === 'submitting' &&
-    navigation.formData?.get('intent') === 'discover';
+    navigation.state === 'submitting' && navigation.formData?.get('intent') === 'discover';
   const isAdding =
     navigation.state === 'submitting' && navigation.formData?.get('intent') === 'add';
 
   const discovery = actionData?.discovery;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+    <div className={styles.stackContainerLarge}>
       <div>
         <Heading size="large" spacing>
           Oppdag applikasjoner
@@ -145,26 +145,22 @@ export default function AppsDiscover({ actionData }: Route.ComponentProps) {
 
       <Form method="post">
         <input type="hidden" name="intent" value="discover" />
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
+        <div className={styles.searchFormRowAlignEnd}>
           <TextField
             name="team_slug"
             label="Team slug"
             description="F.eks. pensjon-q2, team-rocket"
-            style={{ flex: 1 }}
+            className={styles.searchFormFlex}
             defaultValue={discovery?.teamSlug}
           />
-          <Button
-            type="submit"
-            icon={<MagnifyingGlassIcon aria-hidden />}
-            disabled={isDiscovering}
-          >
+          <Button type="submit" icon={<MagnifyingGlassIcon aria-hidden />} disabled={isDiscovering}>
             {isDiscovering ? 'Søker...' : 'Søk'}
           </Button>
         </div>
       </Form>
 
       {isDiscovering && (
-        <div style={{ textAlign: 'center', padding: '2rem' }}>
+        <div className={styles.centerContent}>
           <Loader size="2xlarge" title="Søker etter applikasjoner..." />
         </div>
       )}
@@ -174,14 +170,12 @@ export default function AppsDiscover({ actionData }: Route.ComponentProps) {
           <input type="hidden" name="intent" value="add" />
           <input type="hidden" name="team_slug" value={discovery.teamSlug} />
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div className={styles.stackContainer}>
             <div>
               <Heading size="medium" spacing>
                 Funnet applikasjoner for {discovery.teamSlug}
               </Heading>
-              <BodyShort>
-                Velg hvilke applikasjoner som skal overvåkes for deployments.
-              </BodyShort>
+              <BodyShort>Velg hvilke applikasjoner som skal overvåkes for deployments.</BodyShort>
             </div>
 
             {Object.entries(discovery.environments).map(([envName, apps]) => (
@@ -202,11 +196,7 @@ export default function AppsDiscover({ actionData }: Route.ComponentProps) {
                     {apps.map((appName) => (
                       <Table.Row key={`${envName}|${appName}`}>
                         <Table.DataCell>
-                          <Checkbox
-                            name="app"
-                            value={`${envName}|${appName}`}
-                            hideLabel
-                          >
+                          <Checkbox name="app" value={`${envName}|${appName}`} hideLabel>
                             Velg {appName}
                           </Checkbox>
                         </Table.DataCell>

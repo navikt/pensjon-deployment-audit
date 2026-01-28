@@ -3,6 +3,7 @@ import { Form, Link, useSearchParams } from 'react-router';
 import { type DeploymentWithApp, getAllDeployments, getDeploymentStats } from '../db/deployments';
 import { getAllMonitoredApplications } from '../db/monitored-applications';
 import { getDateRange } from '../lib/nais';
+import styles from '../styles/common.module.css';
 import type { Route } from './+types/deployments';
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -81,7 +82,7 @@ export default function Deployments({ loaderData }: Route.ComponentProps) {
   const percentage = stats.total > 0 ? Math.round((stats.withFourEyes / stats.total) * 100) : 0;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+    <div className={styles.pageContainer}>
       <div>
         <Heading size="large" spacing>
           Deployments
@@ -93,9 +94,14 @@ export default function Deployments({ loaderData }: Route.ComponentProps) {
       </div>
 
       <Form method="get">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-            <Select label="Team" name="team" defaultValue={currentTeam || ''} style={{ minWidth: '180px' }}>
+        <div className={styles.filterForm}>
+          <div className={styles.filterRow}>
+            <Select
+              label="Team"
+              name="team"
+              defaultValue={currentTeam || ''}
+              className={styles.filterSelect}
+            >
               <option value="">Alle teams</option>
               {teams.map((team) => (
                 <option key={team} value={team}>
@@ -108,7 +114,7 @@ export default function Deployments({ loaderData }: Route.ComponentProps) {
               label="Applikasjon"
               name="app"
               defaultValue={currentApp || ''}
-              style={{ minWidth: '200px' }}
+              className={styles.filterSelectWide}
             >
               <option value="">Alle applikasjoner</option>
               {apps.map((app) => (
@@ -122,7 +128,7 @@ export default function Deployments({ loaderData }: Route.ComponentProps) {
               label="Miljø"
               name="environment"
               defaultValue={currentEnvironment || ''}
-              style={{ minWidth: '150px' }}
+              className={styles.filterSelectNarrow}
             >
               <option value="">Alle miljøer</option>
               {environments.map((env) => (
@@ -136,7 +142,7 @@ export default function Deployments({ loaderData }: Route.ComponentProps) {
               label="Tidsperiode"
               name="period"
               defaultValue={currentPeriod}
-              style={{ minWidth: '180px' }}
+              className={styles.filterSelect}
             >
               <option value="last-month">Siste måned</option>
               <option value="last-12-months">Siste 12 måneder</option>
@@ -195,21 +201,17 @@ export default function Deployments({ loaderData }: Route.ComponentProps) {
                     <strong>{deployment.app_name}</strong>
                   </Table.DataCell>
                   <Table.DataCell>
-                    <code style={{ fontSize: '0.75rem' }}>{deployment.team_slug}</code>
+                    <code className={styles.codeSmall}>{deployment.team_slug}</code>
                   </Table.DataCell>
                   <Table.DataCell>
-                    <code style={{ fontSize: '0.75rem' }}>{deployment.environment_name}</code>
+                    <code className={styles.codeSmall}>{deployment.environment_name}</code>
                   </Table.DataCell>
                   <Table.DataCell>
                     <a
                       href={`https://github.com/${deployment.detected_github_owner}/${deployment.detected_github_repo_name}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={{
-                        fontSize: '0.875rem',
-                        color: repoMismatch ? '#c30000' : undefined,
-                        fontWeight: repoMismatch ? 'bold' : undefined,
-                      }}
+                      className={repoMismatch ? styles.linkDanger : styles.linkExternal}
                     >
                       {repoMismatch && '⚠️ '}
                       {deployment.detected_github_owner}/{deployment.detected_github_repo_name}
@@ -221,7 +223,7 @@ export default function Deployments({ loaderData }: Route.ComponentProps) {
                       href={`https://github.com/${deployment.detected_github_owner}/${deployment.detected_github_repo_name}/commit/${deployment.commit_sha}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={{ fontFamily: 'monospace', fontSize: '0.875rem' }}
+                      className={styles.codeMedium}
                     >
                       {deployment.commit_sha.substring(0, 7)}
                     </a>

@@ -1,15 +1,17 @@
-@import "tailwindcss";
-
-@theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif,
-    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-}
+/* Application CSS - using Aksel design system */
 
 html,
 body {
-  @apply bg-white dark:bg-gray-950;
+  margin: 0;
+  padding: 0;
+  background-color: #ffffff;
+}
 
-  @media (prefers-color-scheme: dark) {
-    color-scheme: dark;
-  }
+.error-stack {
+  width: 100%;
+  padding: 1rem;
+  overflow-x: auto;
+  background: var(--a-surface-subtle);
+  border: 1px solid var(--a-border-default);
+  border-radius: var(--a-border-radius-medium);
 }
