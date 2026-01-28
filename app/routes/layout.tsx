@@ -1,4 +1,4 @@
-import { InternalHeader, Spacer } from '@navikt/ds-react';
+import {InternalHeader, Spacer, Theme} from '@navikt/ds-react';
 import { Link, Outlet, useLocation } from 'react-router';
 
 export default function Layout() {
@@ -55,7 +55,10 @@ export default function Layout() {
       <div
         style={{ flex: 1, padding: '2rem', maxWidth: '1400px', width: '100%', margin: '0 auto' }}
       >
+        <Theme theme='light'>
+
         <Outlet />
+        </Theme>
       </div>
     </div>
   );

@@ -140,9 +140,10 @@ export async function fetchDeployments(
 
         // Paginate through remaining deployment pages if needed
         let depsAfter = app.deployments?.pageInfo?.endCursor;
+        let depsHasNextPage = app.deployments?.pageInfo?.hasNextPage || false;
         let depsPageCount = 1;
 
-        while (app.deployments?.pageInfo?.hasNextPage && depsAfter) {
+        while (depsHasNextPage && depsAfter) {
           depsPageCount++;
           console.log(
             `  📄 Fetching more deployments for ${app.name} (page ${depsPageCount})`
@@ -162,10 +163,9 @@ export async function fetchDeployments(
             appDeployments.push(...appData.deployments.nodes);
           }
 
+          // Update pagination info for next iteration
           depsAfter = appData?.deployments?.pageInfo?.endCursor;
-          if (!appData?.deployments?.pageInfo?.hasNextPage) {
-            break;
-          }
+          depsHasNextPage = appData?.deployments?.pageInfo?.hasNextPage || false;
         }
 
         console.log(`  - ${app.name}: ${appDeployments.length} deployments (${depsPageCount} page(s))`);
