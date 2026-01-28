@@ -174,6 +174,19 @@ export async function verifyDeploymentsFourEyes(
     try {
       console.log(`🔍 Verifying deployment ${deployment.nais_deployment_id}...`);
 
+      // Skip if no commit SHA
+      if (!deployment.commit_sha) {
+        console.log(`⏭️  Skipping deployment without commit SHA: ${deployment.nais_deployment_id}`);
+        await updateDeploymentFourEyes(deployment.id, {
+          hasFourEyes: false,
+          fourEyesStatus: 'error',
+          githubPrNumber: null,
+          githubPrUrl: null,
+        });
+        skipped++;
+        continue;
+      }
+
       const success = await verifyDeploymentFourEyes(
         deployment.id,
         deployment.commit_sha,

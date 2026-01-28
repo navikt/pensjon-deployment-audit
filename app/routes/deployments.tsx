@@ -219,14 +219,18 @@ export default function Deployments({ loaderData }: Route.ComponentProps) {
                   </Table.DataCell>
                   <Table.DataCell>{deployment.deployer_username || '(ukjent)'}</Table.DataCell>
                   <Table.DataCell>
-                    <a
-                      href={`https://github.com/${deployment.detected_github_owner}/${deployment.detected_github_repo_name}/commit/${deployment.commit_sha}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={styles.codeMedium}
-                    >
-                      {deployment.commit_sha.substring(0, 7)}
-                    </a>
+                    {deployment.commit_sha ? (
+                      <a
+                        href={`https://github.com/${deployment.detected_github_owner}/${deployment.detected_github_repo_name}/commit/${deployment.commit_sha}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={styles.codeMedium}
+                      >
+                        {deployment.commit_sha.substring(0, 7)}
+                      </a>
+                    ) : (
+                      <span className={styles.textSubtle}>(ukjent)</span>
+                    )}
                   </Table.DataCell>
                   <Table.DataCell>
                     <Tag variant={status.variant} size="small">

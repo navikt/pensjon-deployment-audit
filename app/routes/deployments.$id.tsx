@@ -220,14 +220,18 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
         <div>
           <Detail>Commit SHA</Detail>
           <BodyShort>
-            <a
-              href={`https://github.com/${deployment.detected_github_owner}/${deployment.detected_github_repo_name}/commit/${deployment.commit_sha}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={styles.codeMedium}
-            >
-              {deployment.commit_sha.substring(0, 7)}
-            </a>
+            {deployment.commit_sha ? (
+              <a
+                href={`https://github.com/${deployment.detected_github_owner}/${deployment.detected_github_repo_name}/commit/${deployment.commit_sha}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={styles.codeMedium}
+              >
+                {deployment.commit_sha.substring(0, 7)}
+              </a>
+            ) : (
+              <span className={styles.textSubtle}>(ukjent)</span>
+            )}
           </BodyShort>
         </div>
 

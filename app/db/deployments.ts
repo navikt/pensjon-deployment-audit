@@ -6,7 +6,7 @@ export interface Deployment {
   nais_deployment_id: string;
   created_at: Date;
   deployer_username: string | null;
-  commit_sha: string;
+  commit_sha: string | null;
   trigger_url: string | null;
   detected_github_owner: string;
   detected_github_repo_name: string;
@@ -31,7 +31,7 @@ export interface CreateDeploymentParams {
   naisDeploymentId: string;
   createdAt: Date;
   deployerUsername: string | null;
-  commitSha: string;
+  commitSha: string | null;
   triggerUrl: string | null;
   detectedGithubOwner: string;
   detectedGithubRepoName: string;

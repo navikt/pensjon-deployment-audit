@@ -30,7 +30,7 @@ export interface NaisDeployment {
   teamSlug: string;
   triggerUrl: string;
   repository: string;
-  commitSha: string;
+  commitSha: string | null;
   deployerUsername: string | null;
   resources: {
     nodes: NaisResource[];
