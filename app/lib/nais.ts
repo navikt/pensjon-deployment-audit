@@ -73,6 +73,12 @@ export async function fetchDeployments(
 ): Promise<NaisDeployment[]> {
   const client = getNaisClient();
 
+  console.log('📡 Fetching deployments from Nais API:', {
+    team: teamSlug,
+    appsFirst,
+    deploymentsFirst,
+  });
+
   try {
     const data = await client.request<TeamResponse>(DEPLOYMENTS_QUERY, {
       team: teamSlug,
@@ -80,32 +86,46 @@ export async function fetchDeployments(
       depsFirst: deploymentsFirst,
     });
 
-    if (!data.team || !data.team.applications) {
+    console.log('✅ Nais API response received');
+
+    if (!data.team) {
+      console.warn('⚠️  No team data in response - team might not exist or no access');
       return [];
     }
+
+    if (!data.team.applications) {
+      console.warn('⚠️  No applications data in response');
+      return [];
+    }
+
+    console.log(`📦 Found ${data.team.applications.nodes.length} applications`);
 
     // Flatten all deployments from all applications
     const allDeployments: NaisDeployment[] = [];
 
     for (const app of data.team.applications.nodes) {
+      const deploymentCount = app.deployments?.nodes?.length || 0;
+      console.log(`  - ${app.name}: ${deploymentCount} deployments`);
+
       if (app.deployments?.nodes) {
         allDeployments.push(...app.deployments.nodes);
       }
     }
 
+    console.log(`✨ Total deployments fetched: ${allDeployments.length}`);
     return allDeployments;
   } catch (error) {
-    console.error('Error fetching deployments from Nais:', error);
-    
+    console.error('❌ Error fetching deployments from Nais:', error);
+
     // Check if the error is because we got HTML instead of JSON
     if (error instanceof Error && error.message.includes('Unexpected token')) {
       throw new Error(
         'Nais GraphQL API returnerte HTML i stedet for JSON. ' +
-        'Sjekk at NAIS_GRAPHQL_URL peker til GraphQL endpoint (typisk /graphql eller /query), ' +
-        'ikke til playground-siden.'
+          'Sjekk at NAIS_GRAPHQL_URL peker til GraphQL endpoint (typisk /graphql eller /query), ' +
+          'ikke til playground-siden.'
       );
     }
-    
+
     throw error;
   }
 }
@@ -119,12 +139,23 @@ export async function fetchDeploymentsInRange(
   startDate: Date,
   endDate: Date
 ): Promise<NaisDeployment[]> {
+  console.log('📅 Filtering deployments by date range:', {
+    startDate: startDate.toISOString(),
+    endDate: endDate.toISOString(),
+  });
+
   const allDeployments = await fetchDeployments(teamSlug, 100, 100);
 
-  return allDeployments.filter((deployment) => {
+  const filtered = allDeployments.filter((deployment) => {
     const deploymentDate = new Date(deployment.createdAt);
     return deploymentDate >= startDate && deploymentDate <= endDate;
   });
+
+  console.log(
+    `🔍 Filtered to ${filtered.length} deployments within date range (out of ${allDeployments.length} total)`
+  );
+
+  return filtered;
 }
 
 /**
