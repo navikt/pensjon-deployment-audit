@@ -4,8 +4,14 @@ let client: GraphQLClient | null = null;
 
 export function getNaisClient(): GraphQLClient {
   if (!client) {
-    const url = process.env.NAIS_GRAPHQL_URL || 'http://localhost:4242';
-    client = new GraphQLClient(url);
+    const baseUrl = process.env.NAIS_GRAPHQL_URL || 'http://localhost:4242';
+    // Ensure we're pointing to the GraphQL endpoint, not the playground
+    const url = baseUrl.endsWith('/graphql') ? baseUrl : `${baseUrl}/graphql`;
+    client = new GraphQLClient(url, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
   }
   return client;
 }
@@ -90,6 +96,16 @@ export async function fetchDeployments(
     return allDeployments;
   } catch (error) {
     console.error('Error fetching deployments from Nais:', error);
+    
+    // Check if the error is because we got HTML instead of JSON
+    if (error instanceof Error && error.message.includes('Unexpected token')) {
+      throw new Error(
+        'Nais GraphQL API returnerte HTML i stedet for JSON. ' +
+        'Sjekk at NAIS_GRAPHQL_URL peker til GraphQL endpoint (typisk /graphql eller /query), ' +
+        'ikke til playground-siden.'
+      );
+    }
+    
     throw error;
   }
 }

@@ -41,7 +41,7 @@ Redigerer \`.env\`:
 \`\`\`env
 DATABASE_URL=postgresql://username:password@localhost:5432/nais_audit
 GITHUB_TOKEN=your_github_personal_access_token
-NAIS_GRAPHQL_URL=http://localhost:4242
+NAIS_GRAPHQL_URL=http://localhost:4242/graphql
 \`\`\`
 
 #### GitHub Token
@@ -317,3 +317,41 @@ psql nais_audit
 **Problem: "Kunne ikke hente deployments"**
 - Sjekk at NAIS_GRAPHQL_URL er riktig (default: http://localhost:4242)
 - Verifiser at du har tilgang til Nais GraphQL API
+
+### Testing Nais GraphQL API
+
+**Sjekk at API-et er tilgjengelig:**
+```bash
+curl -X POST http://localhost:4242/graphql \
+  -H "Content-Type: application/json" \
+  -d '{"query":"{ __typename }"}'
+```
+
+Du skal få et JSON-svar, ikke HTML.
+
+**Hvis du får HTML tilbake:**
+- URL-en er feil - du peker på playground i stedet for endpoint
+- Riktig endpoint er typisk `/graphql` eller `/query`
+- Sjekk dokumentasjonen til ditt Nais API
+
+**Eksempel-query for å teste:**
+```graphql
+query($team: Slug!, $appsFirst: Int!, $depsFirst: Int!) {
+  team(slug: $team) {
+    applications(first: $appsFirst) {
+      nodes {
+        name
+      }
+    }
+  }
+}
+```
+
+Med variabler:
+```json
+{
+  "team": "pensjon-q2",
+  "appsFirst": 10,
+  "depsFirst": 10
+}
+```
