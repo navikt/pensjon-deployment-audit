@@ -82,6 +82,13 @@ export async function syncDeploymentsForRepository(
         const existingDeployment = await getDeploymentByNaisId(naisDeployment.id);
         console.log(`  ${existingDeployment ? '🔄 Updating existing' : '➕ Creating new'} deployment`);
 
+        // Skip GitHub API calls if deployment already has approved four-eyes
+        if (existingDeployment && existingDeployment.four_eyes_status === 'approved_pr') {
+          console.log('  ⏭️  Skipping GitHub check - already approved');
+          result.deploymentsUpdated++;
+          continue;
+        }
+
         // Get PR info from GitHub
         let hasFourEyes = false;
         let fourEyesStatus = 'unknown';
