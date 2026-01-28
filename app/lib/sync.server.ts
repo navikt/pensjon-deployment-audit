@@ -107,6 +107,14 @@ export async function syncDeploymentsFromNais(
     await createDeployment(deploymentParams);
     newCount++;
 
+    // Skip repository checks for legacy deployments (before 2025-01-01 without commit SHA)
+    const isLegacyDeployment =
+      new Date(naisDep.createdAt) < new Date('2025-01-01') && !naisDep.commitSha;
+    if (isLegacyDeployment) {
+      console.log(`⏭️  Skipping repository checks for legacy deployment: ${naisDep.id}`);
+      continue;
+    }
+
     // Check repository status using application_repositories
     const repoCheck = await findRepositoryForApp(monitoredApp.id, detectedOwner, detectedRepoName);
 

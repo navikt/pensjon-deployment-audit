@@ -192,7 +192,7 @@ export async function getDeploymentsByMonitoredApp(
 export async function createDeployment(data: CreateDeploymentParams): Promise<Deployment> {
   // Check if this is a legacy deployment (before 2025-01-01) without commit SHA
   const isLegacyDeployment = data.createdAt < new Date('2025-01-01') && !data.commitSha;
-  
+
   const result = await pool.query(
     `INSERT INTO deployments 
       (monitored_app_id, nais_deployment_id, created_at, deployer_username, commit_sha, trigger_url,
@@ -301,18 +301,35 @@ export interface AppDeploymentStats {
   four_eyes_percentage: number;
 }
 
-export async function getAppDeploymentStats(monitoredAppId: number): Promise<AppDeploymentStats> {
-  const result = await pool.query(
-    `SELECT 
+export async function getAppDeploymentStats(
+  monitoredAppId: number,
+  startDate?: Date,
+  endDate?: Date
+): Promise<AppDeploymentStats> {
+  let sql = `SELECT 
       COUNT(*) as total,
       SUM(CASE WHEN has_four_eyes = true THEN 1 ELSE 0 END) as with_four_eyes,
       SUM(CASE WHEN has_four_eyes = false THEN 1 ELSE 0 END) as without_four_eyes,
       SUM(CASE WHEN four_eyes_status = 'pending' THEN 1 ELSE 0 END) as pending_verification,
       MAX(created_at) as last_deployment
     FROM deployments
-    WHERE monitored_app_id = $1`,
-    [monitoredAppId]
-  );
+    WHERE monitored_app_id = $1`;
+
+  const params: any[] = [monitoredAppId];
+  let paramIndex = 2;
+
+  if (startDate) {
+    sql += ` AND created_at >= $${paramIndex}`;
+    params.push(startDate);
+    paramIndex++;
+  }
+
+  if (endDate) {
+    sql += ` AND created_at <= $${paramIndex}`;
+    params.push(endDate);
+  }
+
+  const result = await pool.query(sql, params);
 
   const row = result.rows[0];
   const total = parseInt(row.total) || 0;

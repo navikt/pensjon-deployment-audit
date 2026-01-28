@@ -142,7 +142,8 @@ function getFourEyesStatus(deployment: any): {
       return {
         text: 'Legacy (før 2025)',
         variant: 'success',
-        description: 'Dette deploymentet er fra før 1. januar 2025 og anses som godkjent.',
+        description:
+          'Dette deploymentet er for en legacy deployment og mangler informasjon om commit. Deploymentet er ignorert.',
       };
     case 'direct_push':
       return {

@@ -369,6 +369,9 @@ export function getDateRange(period: string): { startDate: Date; endDate: Date }
       startDate = new Date(now);
       startDate.setFullYear(now.getFullYear() - 1);
       break;
+    case 'this-year':
+      startDate = new Date(now.getFullYear(), 0, 1); // January 1st of current year
+      break;
     case 'year-2025':
       startDate = new Date('2025-01-01');
       break;

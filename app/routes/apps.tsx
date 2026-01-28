@@ -1,6 +1,7 @@
 import { ArrowsCirclepathIcon, CheckmarkCircleIcon, TrashIcon } from '@navikt/aksel-icons';
 import { Alert, BodyShort, Button, Heading, Table } from '@navikt/ds-react';
 import { Form, Link } from 'react-router';
+import { resolveAlertsForLegacyDeployments } from '../db/alerts.server';
 import { getRepositoriesByAppId } from '../db/application-repositories.server';
 import { getAllMonitoredApplications } from '../db/monitored-applications.server';
 import { syncDeploymentsFromNais, verifyDeploymentsFourEyes } from '../lib/sync.server';
@@ -83,6 +84,22 @@ export async function action({ request }: Route.ActionArgs) {
     }
   }
 
+  if (intent === 'resolve-legacy-alerts') {
+    try {
+      const resolvedCount = await resolveAlertsForLegacyDeployments();
+      return {
+        success: `Løste ${resolvedCount} varsler for legacy deployments.`,
+        error: null,
+      };
+    } catch (error) {
+      console.error('Resolve legacy alerts error:', error);
+      return {
+        success: null,
+        error: error instanceof Error ? error.message : 'Kunne ikke løse legacy alerts',
+      };
+    }
+  }
+
   return { success: null, error: 'Ugyldig handling' };
 }
 
@@ -110,9 +127,17 @@ export default function Apps({ loaderData, actionData }: Route.ComponentProps) {
           </Heading>
           <BodyShort>Administrer hvilke applikasjoner som overvåkes for deployments.</BodyShort>
         </div>
-        <Button as={Link} to="/apps/discover">
-          Oppdag nye applikasjoner
-        </Button>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <Form method="post">
+            <input type="hidden" name="intent" value="resolve-legacy-alerts" />
+            <Button type="submit" variant="secondary" size="small">
+              Løs legacy alerts
+            </Button>
+          </Form>
+          <Button as={Link} to="/apps/discover">
+            Oppdag nye applikasjoner
+          </Button>
+        </div>
       </div>
 
       {actionData?.success && (

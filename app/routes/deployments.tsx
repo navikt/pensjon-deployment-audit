@@ -1,8 +1,8 @@
 import { Alert, Button, Checkbox, Detail, Heading, Select, Table, Tag } from '@navikt/ds-react';
 import { Form, Link, useSearchParams } from 'react-router';
-import { type DeploymentWithApp, getAllDeployments } from '../db/deployments.server';
-import { getAllMonitoredApplications } from '../db/monitored-applications.server';
-import { getDateRange } from '../lib/nais.server';
+import { type DeploymentWithApp, getAllDeployments } from '~/db/deployments.server';
+import { getAllMonitoredApplications } from '~/db/monitored-applications.server';
+import { getDateRange } from '~/lib/nais.server';
 import styles from '../styles/common.module.css';
 import type { Route } from './+types/deployments';
 
@@ -53,7 +53,7 @@ function getFourEyesLabel(deployment: DeploymentWithApp): {
     case 'approved_pr':
       return { text: 'Godkjent PR', variant: 'success' };
     case 'legacy':
-      return { text: 'Legacy (før 2025)', variant: 'success' };
+      return { text: 'Legacy (ignorert)', variant: 'success' };
     case 'direct_push':
       return { text: 'Direct push', variant: 'warning' };
     case 'missing':
@@ -95,7 +95,7 @@ export default function Deployments({ loaderData }: Route.ComponentProps) {
         </Detail>
       </div>
 
-      <Form method="get">
+      <Form method="get" onChange={(e) => e.currentTarget.submit()}>
         <div className={styles.filterForm}>
           <div className={styles.filterRow}>
             <Select
@@ -148,11 +148,10 @@ export default function Deployments({ loaderData }: Route.ComponentProps) {
             >
               <option value="last-month">Siste måned</option>
               <option value="last-12-months">Siste 12 måneder</option>
+              <option value="this-year">I år</option>
               <option value="year-2025">Hele 2025</option>
               <option value="all">Alle</option>
             </Select>
-
-            <Button type="submit">Filtrer</Button>
           </div>
 
           <Checkbox name="only_missing" value="true" defaultChecked={onlyMissing}>

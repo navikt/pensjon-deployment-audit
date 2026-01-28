@@ -1,8 +1,4 @@
-import {
-  CheckmarkCircleIcon,
-  ExclamationmarkTriangleIcon,
-  XMarkOctagonIcon,
-} from '@navikt/aksel-icons';
+import { CheckmarkCircleIcon, ExclamationmarkTriangleIcon } from '@navikt/aksel-icons';
 import {
   Alert,
   BodyShort,
@@ -11,15 +7,18 @@ import {
   Detail,
   Heading,
   Label,
+  Select,
   Table,
   Tag,
 } from '@navikt/ds-react';
 import {
   type ActionFunctionArgs,
+  Form,
   Link,
   type LoaderFunctionArgs,
   useActionData,
   useLoaderData,
+  useSearchParams,
 } from 'react-router';
 import { getUnresolvedAlertsByApp } from '~/db/alerts.server';
 import {
@@ -30,13 +29,26 @@ import {
 } from '~/db/application-repositories.server';
 import { getAppDeploymentStats } from '~/db/deployments.server';
 import { getMonitoredApplicationById } from '~/db/monitored-applications.server';
+import { getDateRange } from '~/lib/nais.server';
 import { syncDeploymentsFromNais } from '~/lib/sync.server';
 import styles from '~/styles/common.module.css';
 
-export async function loader({ params }: LoaderFunctionArgs) {
+export async function loader({ params, request }: LoaderFunctionArgs) {
   const id = parseInt(params.id || '');
   if (isNaN(id)) {
     throw new Response('Invalid app ID', { status: 400 });
+  }
+
+  const url = new URL(request.url);
+  const period = url.searchParams.get('period') || 'all';
+
+  let startDate: Date | undefined;
+  let endDate: Date | undefined;
+
+  if (period !== 'all') {
+    const range = getDateRange(period);
+    startDate = range.startDate;
+    endDate = range.endDate;
   }
 
   const app = await getMonitoredApplicationById(id);
@@ -46,7 +58,7 @@ export async function loader({ params }: LoaderFunctionArgs) {
 
   const [repositories, deploymentStats, alerts] = await Promise.all([
     getRepositoriesByAppId(id),
-    getAppDeploymentStats(id),
+    getAppDeploymentStats(id, startDate, endDate),
     getUnresolvedAlertsByApp(id),
   ]);
 
@@ -62,6 +74,7 @@ export async function loader({ params }: LoaderFunctionArgs) {
     historicalRepos,
     deploymentStats,
     alerts,
+    period,
   };
 }
 
@@ -111,9 +124,19 @@ export async function action({ request, params }: ActionFunctionArgs) {
 }
 
 export default function AppDetail() {
-  const { app, repositories, activeRepo, pendingRepos, historicalRepos, deploymentStats, alerts } =
-    useLoaderData<typeof loader>();
+  const {
+    app,
+    repositories,
+    activeRepo,
+    pendingRepos,
+    historicalRepos,
+    deploymentStats,
+    alerts,
+    period,
+  } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
+  const [searchParams] = useSearchParams();
+  const currentPeriod = searchParams.get('period') || 'all';
 
   // Status badge based on alerts
   const statusVariant = alerts.length === 0 ? 'success' : 'warning';
@@ -151,6 +174,22 @@ export default function AppDetail() {
           {actionData.error}
         </Alert>
       )}
+
+      {/* Time Period Filter */}
+      <Form method="get" className={styles.marginTop2} onChange={(e) => e.currentTarget.submit()}>
+        <Select
+          label="Tidsperiode"
+          name="period"
+          defaultValue={currentPeriod}
+          className={styles.filterSelect}
+        >
+          <option value="last-month">Siste måned</option>
+          <option value="last-12-months">Siste 12 måneder</option>
+          <option value="this-year">I år</option>
+          <option value="year-2025">Hele 2025</option>
+          <option value="all">Alle</option>
+        </Select>
+      </Form>
 
       {/* Statistics Section */}
       <Box
@@ -195,7 +234,12 @@ export default function AppDetail() {
           </div>
         </div>
         <div className={styles.flexRowGap1 + ' ' + styles.marginTop1}>
-          <Button as={Link} to={`/deployments?app=${app.id}`} variant="secondary" size="small">
+          <Button
+            as={Link}
+            to={`/deployments?app=${app.id}&period=${currentPeriod}`}
+            variant="secondary"
+            size="small"
+          >
             Se alle deployments →
           </Button>
           <Button

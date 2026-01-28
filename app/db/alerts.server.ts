@@ -205,3 +205,21 @@ export async function getUnresolvedAlertsByApp(
   );
   return result.rows;
 }
+
+export async function resolveAlertsForLegacyDeployments(): Promise<number> {
+  const result = await pool.query(
+    `UPDATE repository_alerts ra
+     SET 
+       resolved = true,
+       resolved_at = CURRENT_TIMESTAMP,
+       resolved_by = 'system',
+       resolution_note = 'Legacy deployment (før 2025-01-01, mangler commit SHA) - automatisk løst'
+     FROM deployments d
+     WHERE ra.deployment_id = d.id
+       AND ra.resolved = false
+       AND d.created_at < '2025-01-01'
+       AND d.commit_sha IS NULL
+     RETURNING ra.id`
+  );
+  return result.rowCount || 0;
+}
