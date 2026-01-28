@@ -27,18 +27,14 @@ export interface DeploymentWithApp extends Deployment {
 }
 
 export interface CreateDeploymentParams {
-  monitored_app_id: number;
-  nais_deployment_id: string;
-  created_at: Date;
-  deployer_username: string;
-  commit_sha: string;
-  trigger_url: string | null;
-  detected_github_owner: string;
-  detected_github_repo_name: string;
-  has_four_eyes: boolean;
-  four_eyes_status: string;
-  github_pr_number?: number;
-  github_pr_url?: string;
+  monitoredApplicationId: number;
+  naisDeploymentId: string;
+  createdAt: Date;
+  deployerUsername: string;
+  commitSha: string;
+  triggerUrl: string | null;
+  detectedGithubOwner: string;
+  detectedGithubRepoName: string;
   resources?: any;
 }
 
@@ -165,31 +161,22 @@ export async function createDeployment(data: CreateDeploymentParams): Promise<De
   const result = await pool.query(
     `INSERT INTO deployments 
       (monitored_app_id, nais_deployment_id, created_at, deployer_username, commit_sha, trigger_url,
-       detected_github_owner, detected_github_repo_name, has_four_eyes, four_eyes_status, 
-       github_pr_number, github_pr_url, resources)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+       detected_github_owner, detected_github_repo_name, resources)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     ON CONFLICT (nais_deployment_id) 
     DO UPDATE SET
-      has_four_eyes = EXCLUDED.has_four_eyes,
-      four_eyes_status = EXCLUDED.four_eyes_status,
-      github_pr_number = EXCLUDED.github_pr_number,
-      github_pr_url = EXCLUDED.github_pr_url,
       resources = EXCLUDED.resources,
       synced_at = CURRENT_TIMESTAMP
     RETURNING *`,
     [
-      data.monitored_app_id,
-      data.nais_deployment_id,
-      data.created_at,
-      data.deployer_username,
-      data.commit_sha,
-      data.trigger_url,
-      data.detected_github_owner,
-      data.detected_github_repo_name,
-      data.has_four_eyes,
-      data.four_eyes_status,
-      data.github_pr_number || null,
-      data.github_pr_url || null,
+      data.monitoredApplicationId,
+      data.naisDeploymentId,
+      data.createdAt,
+      data.deployerUsername,
+      data.commitSha,
+      data.triggerUrl,
+      data.detectedGithubOwner,
+      data.detectedGithubRepoName,
       data.resources ? JSON.stringify(data.resources) : null,
     ]
   );
@@ -201,6 +188,7 @@ export async function getDeploymentStats(monitoredAppId?: number): Promise<{
   with_four_eyes: number;
   without_four_eyes: number;
   repository_mismatch: number;
+  percentage: number;
 }> {
   let sql = `
     SELECT 
@@ -218,10 +206,42 @@ export async function getDeploymentStats(monitoredAppId?: number): Promise<{
   }
 
   const result = await pool.query(sql, params);
+  const total = parseInt(result.rows[0].total);
+  const withFourEyes = parseInt(result.rows[0].with_four_eyes);
+  const percentage = total > 0 ? Math.round((withFourEyes / total) * 100) : 0;
+
   return {
-    total: parseInt(result.rows[0].total),
-    with_four_eyes: parseInt(result.rows[0].with_four_eyes),
+    total,
+    with_four_eyes: withFourEyes,
     without_four_eyes: parseInt(result.rows[0].without_four_eyes),
     repository_mismatch: parseInt(result.rows[0].repository_mismatch),
+    percentage,
   };
+}
+
+export async function updateDeploymentFourEyes(
+  deploymentId: number,
+  data: {
+    hasFourEyes: boolean;
+    fourEyesStatus: string;
+    githubPrNumber: number | null;
+    githubPrUrl: string | null;
+  }
+): Promise<Deployment> {
+  const result = await pool.query(
+    `UPDATE deployments 
+     SET has_four_eyes = $1,
+         four_eyes_status = $2,
+         github_pr_number = $3,
+         github_pr_url = $4
+     WHERE id = $5
+     RETURNING *`,
+    [data.hasFourEyes, data.fourEyesStatus, data.githubPrNumber, data.githubPrUrl, deploymentId]
+  );
+
+  if (result.rows.length === 0) {
+    throw new Error('Deployment not found');
+  }
+
+  return result.rows[0];
 }

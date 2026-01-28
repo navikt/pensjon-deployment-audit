@@ -9,12 +9,12 @@ import {
   Panel,
   Textarea,
   TextField,
-  Tag,
 } from '@navikt/ds-react';
 import { useState } from 'react';
 import { Form, Link } from 'react-router';
 import { createComment, deleteComment, getCommentsByDeploymentId } from '../db/comments';
 import { getDeploymentById } from '../db/deployments';
+import { getRepositoryById } from '../db/repositories';
 import type { Route } from './+types/deployments.$id';
 
 export async function loader({ params }: Route.LoaderArgs) {
@@ -25,9 +25,10 @@ export async function loader({ params }: Route.LoaderArgs) {
     throw new Response('Deployment not found', { status: 404 });
   }
 
+  const repo = await getRepositoryById(deployment.repo_id);
   const comments = await getCommentsByDeploymentId(deploymentId);
 
-  return { deployment, comments };
+  return { deployment, repo, comments };
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
@@ -82,21 +83,15 @@ function getFourEyesStatus(deployment: any): {
   }
 
   switch (deployment.four_eyes_status) {
-    case 'approved_pr':
-      return {
-        text: 'Four-eyes OK',
-        variant: 'success',
-        description: 'Dette deploymentet har blitt godkjent via en approved PR.',
-      };
     case 'direct_push':
       return {
         text: 'Direct push',
         variant: 'warning',
         description: 'Dette var en direct push til main. Legg til Slack-lenke som bevis på review.',
       };
-    case 'missing':
+    case 'pr_not_approved':
       return {
-        text: 'Mangler godkjenning',
+        text: 'PR ikke godkjent',
         variant: 'error',
         description:
           'PR-en var ikke godkjent etter siste commit, eller godkjenningen kom før siste commit.',
@@ -117,26 +112,19 @@ function getFourEyesStatus(deployment: any): {
 }
 
 export default function DeploymentDetail({ loaderData, actionData }: Route.ComponentProps) {
-  const { deployment, comments } = loaderData;
+  const { deployment, repo, comments } = loaderData;
   const [commentText, setCommentText] = useState('');
   const [slackLink, setSlackLink] = useState('');
 
   const status = getFourEyesStatus(deployment);
-  
-  // Extract app name from deployment (might not match exactly, but we have it in the data)
-  const appName = deployment.app_name || deployment.detected_github_repo_name;
-  const naisConsoleUrl = `https://console.nav.cloud.nais.io/team/${deployment.team_slug}/${deployment.environment_name}/app/${appName}`;
-  
-  const repoMismatch =
-    deployment.detected_github_owner !== deployment.approved_github_owner ||
-    deployment.detected_github_repo_name !== deployment.approved_github_repo_name;
+  const naisConsoleUrl = `https://console.nav.cloud.nais.io/team/${deployment.team_slug}/${deployment.environment_name}/app/${deployment.repository.split('/')[1]}`;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <div>
         <Detail>Deployment</Detail>
         <Heading size="large">
-          {deployment.app_name} @ {deployment.environment_name}
+          {deployment.repository} @ {deployment.environment_name}
         </Heading>
         <BodyShort>
           {new Date(deployment.created_at).toLocaleString('no-NO', {
@@ -149,28 +137,6 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
       {actionData?.success && <Alert variant="success">{actionData.success}</Alert>}
       {actionData?.error && <Alert variant="error">{actionData.error}</Alert>}
 
-      {repoMismatch && (
-        <Alert variant="error">
-          <Heading size="small" spacing>
-            ⚠️ Repository mismatch oppdaget
-          </Heading>
-          <BodyShort>
-            Dette deploymentet kom fra et annet repository enn forventet. Dette kan være et
-            sikkerhetsproblem.
-          </BodyShort>
-          <div style={{ marginTop: '1rem' }}>
-            <Label>Forventet:</Label>
-            <BodyShort>
-              {deployment.approved_github_owner}/{deployment.approved_github_repo_name}
-            </BodyShort>
-            <Label style={{ marginTop: '0.5rem' }}>Detektert:</Label>
-            <BodyShort style={{ color: '#c30000', fontWeight: 'bold' }}>
-              {deployment.detected_github_owner}/{deployment.detected_github_repo_name}
-            </BodyShort>
-          </div>
-        </Alert>
-      )}
-
       <Alert variant={status.variant}>
         <Heading size="small" spacing>
           {status.text}
@@ -180,9 +146,9 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.5rem' }}>
         <div>
-          <Detail>Applikasjon</Detail>
+          <Detail>Repository</Detail>
           <BodyShort>
-            <strong>{deployment.app_name}</strong>
+            <Link to={`/repos/${repo?.id}`}>{deployment.repository}</Link>
           </BodyShort>
         </div>
 
@@ -202,28 +168,10 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
         </div>
 
         <div>
-          <Detail>Repository (detektert)</Detail>
-          <BodyShort>
-            <a
-              href={`https://github.com/${deployment.detected_github_owner}/${deployment.detected_github_repo_name}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                color: repoMismatch ? '#c30000' : undefined,
-                fontWeight: repoMismatch ? 'bold' : undefined,
-              }}
-            >
-              {repoMismatch && '⚠️ '}
-              {deployment.detected_github_owner}/{deployment.detected_github_repo_name}
-            </a>
-          </BodyShort>
-        </div>
-
-        <div>
           <Detail>Commit SHA</Detail>
           <BodyShort>
             <a
-              href={`https://github.com/${deployment.detected_github_owner}/${deployment.detected_github_repo_name}/commit/${deployment.commit_sha}`}
+              href={`https://github.com/${deployment.repository}/commit/${deployment.commit_sha}`}
               target="_blank"
               rel="noopener noreferrer"
               style={{ fontFamily: 'monospace' }}
@@ -244,17 +192,6 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
           </div>
         )}
 
-        {deployment.trigger_url && (
-          <div>
-            <Detail>GitHub Actions</Detail>
-            <BodyShort>
-              <a href={deployment.trigger_url} target="_blank" rel="noopener noreferrer">
-                Se workflow run
-              </a>
-            </BodyShort>
-          </div>
-        )}
-
         <div>
           <Detail>Nais Console</Detail>
           <BodyShort>
@@ -264,75 +201,56 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
           </BodyShort>
         </div>
 
-        <div>
-          <Detail>Nais Deployment ID</Detail>
-          <BodyShort>
-            <code style={{ fontSize: '0.75rem' }}>{deployment.nais_deployment_id}</code>
-          </BodyShort>
-        </div>
+        {deployment.trigger_url && (
+          <div>
+            <Detail>GitHub Actions</Detail>
+            <BodyShort>
+              <a href={deployment.trigger_url} target="_blank" rel="noopener noreferrer">
+                Se workflow
+              </a>
+            </BodyShort>
+          </div>
+        )}
       </div>
 
-      {/* Resources section */}
-      {deployment.resources && deployment.resources.length > 0 && (
-        <div>
-          <Heading size="small" spacing>
-            Kubernetes Resources
-          </Heading>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            {deployment.resources.map((resource: any, idx: number) => (
-              <Tag key={idx} variant="info" size="small">
-                {resource.kind}: {resource.name}
-              </Tag>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Comments section */}
       <div>
         <Heading size="medium" spacing>
-          Kommentarer
+          Kommentarer ({comments.length})
         </Heading>
 
         {comments.length === 0 ? (
-          <BodyShort style={{ color: '#666', fontStyle: 'italic' }}>
-            Ingen kommentarer ennå.
-          </BodyShort>
+          <Alert variant="info">Ingen kommentarer ennå. Legg til en kommentar under.</Alert>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             {comments.map((comment) => (
               <Panel key={comment.id} border>
-                <div
-                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}
-                >
-                  <div style={{ flex: 1 }}>
-                    <Detail>
-                      {new Date(comment.created_at).toLocaleString('no-NO', {
-                        dateStyle: 'medium',
-                        timeStyle: 'short',
-                      })}
-                    </Detail>
-                    <BodyShort spacing>{comment.comment_text}</BodyShort>
-                    {comment.slack_link && (
-                      <BodyShort size="small">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                  <BodyShort>{comment.comment_text}</BodyShort>
+                  {comment.slack_link && (
+                    <div>
+                      <Label size="small">Slack-lenke:</Label>
+                      <BodyShort>
                         <a href={comment.slack_link} target="_blank" rel="noopener noreferrer">
-                          🔗 Slack-lenke
+                          {comment.slack_link}
                         </a>
                       </BodyShort>
-                    )}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                    <Detail>{new Date(comment.created_at).toLocaleString('no-NO')}</Detail>
+                    <Form method="post" style={{ display: 'inline' }}>
+                      <input type="hidden" name="intent" value="delete_comment" />
+                      <input type="hidden" name="comment_id" value={comment.id} />
+                      <Button
+                        type="submit"
+                        size="xsmall"
+                        variant="tertiary"
+                        icon={<TrashIcon aria-hidden />}
+                      >
+                        Slett
+                      </Button>
+                    </Form>
                   </div>
-                  <Form method="post" style={{ marginLeft: '1rem' }}>
-                    <input type="hidden" name="intent" value="delete_comment" />
-                    <input type="hidden" name="comment_id" value={comment.id} />
-                    <Button
-                      type="submit"
-                      size="small"
-                      variant="tertiary"
-                      icon={<TrashIcon aria-hidden />}
-                    >
-                      Slett
-                    </Button>
-                  </Form>
                 </div>
               </Panel>
             ))}
@@ -341,29 +259,38 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
       </div>
 
       <Panel border>
-        <Heading size="small" spacing>
-          <ChatIcon aria-hidden /> Legg til kommentar
-        </Heading>
-        <Form method="post">
+        <Form
+          method="post"
+          onSubmit={() => {
+            setCommentText('');
+            setSlackLink('');
+          }}
+        >
           <input type="hidden" name="intent" value="add_comment" />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <Heading size="small">Legg til kommentar</Heading>
+
             <Textarea
               label="Kommentar"
               name="comment_text"
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
-              description="F.eks. forklaring av direct push eller andre notater"
+              description="Beskriv konteksten eller legg til notater om deploymentet"
+              rows={3}
             />
+
             <TextField
-              label="Slack-lenke (valgfritt)"
+              label="Slack-lenke (valgfri)"
               name="slack_link"
               value={slackLink}
               onChange={(e) => setSlackLink(e.target.value)}
-              description="Lenke til Slack-tråd med code review dokumentasjon"
+              description="Lenke til Slack-tråd som bevis på review for direct pushes"
+              placeholder="https://nav-it.slack.com/archives/..."
             />
-            <div>
-              <Button type="submit">Legg til kommentar</Button>
-            </div>
+
+            <Button type="submit" icon={<ChatIcon aria-hidden />}>
+              Legg til kommentar
+            </Button>
           </div>
         </Form>
       </Panel>

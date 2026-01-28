@@ -1,14 +1,13 @@
 import { Alert, Button, Checkbox, Detail, Heading, Select, Table, Tag } from '@navikt/ds-react';
 import { Form, Link, useSearchParams } from 'react-router';
-import { type DeploymentWithApp, getAllDeployments, getDeploymentStats } from '../db/deployments';
-import { getAllMonitoredApplications } from '../db/monitored-applications';
+import { type Deployment, getAllDeployments } from '../db/deployments';
+import { getAllRepositories } from '../db/repositories';
 import { getDateRange } from '../lib/nais';
 import type { Route } from './+types/deployments';
 
 export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url);
-  const appId = url.searchParams.get('app');
-  const teamSlug = url.searchParams.get('team');
+  const repoId = url.searchParams.get('repo');
   const period = url.searchParams.get('period') || 'last-month';
   const onlyMissing = url.searchParams.get('only_missing') === 'true';
   const environment = url.searchParams.get('environment');
@@ -23,51 +22,46 @@ export async function loader({ request }: Route.LoaderArgs) {
   }
 
   const deployments = await getAllDeployments({
-    monitored_app_id: appId ? parseInt(appId, 10) : undefined,
-    team_slug: teamSlug || undefined,
+    repo_id: repoId ? parseInt(repoId, 10) : undefined,
     start_date: startDate,
     end_date: endDate,
     only_missing_four_eyes: onlyMissing,
     environment_name: environment || undefined,
   });
 
-  const apps = await getAllMonitoredApplications();
+  const repos = await getAllRepositories();
 
-  // Get unique teams and environments
-  const teams = Array.from(new Set(deployments.map((d) => d.team_slug))).sort();
+  // Get unique environments
   const environments = Array.from(new Set(deployments.map((d) => d.environment_name))).sort();
 
-  return { deployments, apps, teams, environments };
+  return { deployments, repos, environments };
 }
 
-function getFourEyesLabel(deployment: DeploymentWithApp): {
+function getFourEyesLabel(deployment: Deployment): {
   text: string;
-  variant: 'success' | 'warning' | 'error' | 'info';
+  variant: 'success' | 'warning' | 'error';
 } {
   if (deployment.has_four_eyes) {
     return { text: 'Godkjent PR', variant: 'success' };
   }
 
   switch (deployment.four_eyes_status) {
-    case 'approved_pr':
-      return { text: 'Godkjent PR', variant: 'success' };
     case 'direct_push':
       return { text: 'Direct push', variant: 'warning' };
-    case 'missing':
-      return { text: 'Mangler godkjenning', variant: 'error' };
+    case 'pr_not_approved':
+      return { text: 'PR ikke godkjent', variant: 'error' };
     case 'error':
       return { text: 'Feil ved sjekk', variant: 'error' };
     default:
-      return { text: 'Ukjent status', variant: 'info' };
+      return { text: 'Ukjent status', variant: 'error' };
   }
 }
 
 export default function Deployments({ loaderData }: Route.ComponentProps) {
-  const { deployments, apps, teams, environments } = loaderData;
+  const { deployments, repos, environments } = loaderData;
   const [searchParams] = useSearchParams();
 
-  const currentApp = searchParams.get('app');
-  const currentTeam = searchParams.get('team');
+  const currentRepo = searchParams.get('repo');
   const currentPeriod = searchParams.get('period') || 'last-month';
   const onlyMissing = searchParams.get('only_missing') === 'true';
   const currentEnvironment = searchParams.get('environment');
@@ -94,40 +88,17 @@ export default function Deployments({ loaderData }: Route.ComponentProps) {
 
       <Form method="get">
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-            <Select label="Team" name="team" defaultValue={currentTeam || ''} style={{ minWidth: '180px' }}>
-              <option value="">Alle teams</option>
-              {teams.map((team) => (
-                <option key={team} value={team}>
-                  {team}
-                </option>
-              ))}
-            </Select>
-
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
             <Select
-              label="Applikasjon"
-              name="app"
-              defaultValue={currentApp || ''}
+              label="Repository"
+              name="repo"
+              defaultValue={currentRepo || ''}
               style={{ minWidth: '200px' }}
             >
-              <option value="">Alle applikasjoner</option>
-              {apps.map((app) => (
-                <option key={app.id} value={app.id}>
-                  {app.app_name} ({app.environment_name})
-                </option>
-              ))}
-            </Select>
-
-            <Select
-              label="Miljø"
-              name="environment"
-              defaultValue={currentEnvironment || ''}
-              style={{ minWidth: '150px' }}
-            >
-              <option value="">Alle miljøer</option>
-              {environments.map((env) => (
-                <option key={env} value={env}>
-                  {env}
+              <option value="">Alle repositories</option>
+              {repos.map((repo) => (
+                <option key={repo.id} value={repo.id}>
+                  {repo.github_owner}/{repo.github_repo_name}
                 </option>
               ))}
             </Select>
@@ -144,6 +115,20 @@ export default function Deployments({ loaderData }: Route.ComponentProps) {
               <option value="all">Alle</option>
             </Select>
 
+            <Select
+              label="Miljø"
+              name="environment"
+              defaultValue={currentEnvironment || ''}
+              style={{ minWidth: '150px' }}
+            >
+              <option value="">Alle miljøer</option>
+              {environments.map((env) => (
+                <option key={env} value={env}>
+                  {env}
+                </option>
+              ))}
+            </Select>
+
             <Button type="submit">Filtrer</Button>
           </div>
 
@@ -156,17 +141,15 @@ export default function Deployments({ loaderData }: Route.ComponentProps) {
       {deployments.length === 0 ? (
         <Alert variant="info">
           Ingen deployments funnet med de valgte filtrene. Prøv å endre filtrene eller synkroniser
-          deployments fra applikasjoner.
+          deployments fra repositories.
         </Alert>
       ) : (
         <Table>
           <Table.Header>
             <Table.Row>
               <Table.HeaderCell>Tidspunkt</Table.HeaderCell>
-              <Table.HeaderCell>Applikasjon</Table.HeaderCell>
-              <Table.HeaderCell>Team</Table.HeaderCell>
-              <Table.HeaderCell>Miljø</Table.HeaderCell>
               <Table.HeaderCell>Repository</Table.HeaderCell>
+              <Table.HeaderCell>Miljø</Table.HeaderCell>
               <Table.HeaderCell>Deployer</Table.HeaderCell>
               <Table.HeaderCell>Commit</Table.HeaderCell>
               <Table.HeaderCell>Status</Table.HeaderCell>
@@ -176,10 +159,6 @@ export default function Deployments({ loaderData }: Route.ComponentProps) {
           <Table.Body>
             {deployments.map((deployment) => {
               const status = getFourEyesLabel(deployment);
-              const repoMismatch =
-                deployment.detected_github_owner !== deployment.approved_github_owner ||
-                deployment.detected_github_repo_name !== deployment.approved_github_repo_name;
-
               return (
                 <Table.Row key={deployment.id}>
                   <Table.DataCell>
@@ -192,33 +171,17 @@ export default function Deployments({ loaderData }: Route.ComponentProps) {
                     })}
                   </Table.DataCell>
                   <Table.DataCell>
-                    <strong>{deployment.app_name}</strong>
-                  </Table.DataCell>
-                  <Table.DataCell>
-                    <code style={{ fontSize: '0.75rem' }}>{deployment.team_slug}</code>
+                    <Link to={`/repos/${deployment.repo_id}`} style={{ fontSize: '0.875rem' }}>
+                      {deployment.repository}
+                    </Link>
                   </Table.DataCell>
                   <Table.DataCell>
                     <code style={{ fontSize: '0.75rem' }}>{deployment.environment_name}</code>
                   </Table.DataCell>
-                  <Table.DataCell>
-                    <a
-                      href={`https://github.com/${deployment.detected_github_owner}/${deployment.detected_github_repo_name}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        fontSize: '0.875rem',
-                        color: repoMismatch ? '#c30000' : undefined,
-                        fontWeight: repoMismatch ? 'bold' : undefined,
-                      }}
-                    >
-                      {repoMismatch && '⚠️ '}
-                      {deployment.detected_github_owner}/{deployment.detected_github_repo_name}
-                    </a>
-                  </Table.DataCell>
                   <Table.DataCell>{deployment.deployer_username}</Table.DataCell>
                   <Table.DataCell>
                     <a
-                      href={`https://github.com/${deployment.detected_github_owner}/${deployment.detected_github_repo_name}/commit/${deployment.commit_sha}`}
+                      href={`https://github.com/${deployment.repository}/commit/${deployment.commit_sha}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{ fontFamily: 'monospace', fontSize: '0.875rem' }}
