@@ -1,26 +1,26 @@
-import { Alert, Button, Checkbox, Detail, Heading, Select, Table, Tag } from '@navikt/ds-react';
-import { Form, Link, useSearchParams } from 'react-router';
-import { type DeploymentWithApp, getAllDeployments } from '~/db/deployments.server';
-import { getAllMonitoredApplications } from '~/db/monitored-applications.server';
-import { getDateRange } from '~/lib/nais.server';
-import styles from '../styles/common.module.css';
-import type { Route } from './+types/deployments';
+import { Alert, Button, Checkbox, Detail, Heading, Select, Table, Tag } from '@navikt/ds-react'
+import { Form, Link, useSearchParams } from 'react-router'
+import { type DeploymentWithApp, getAllDeployments } from '~/db/deployments.server'
+import { getAllMonitoredApplications } from '~/db/monitored-applications.server'
+import { getDateRange } from '~/lib/nais.server'
+import styles from '../styles/common.module.css'
+import type { Route } from './+types/deployments'
 
 export async function loader({ request }: Route.LoaderArgs) {
-  const url = new URL(request.url);
-  const appId = url.searchParams.get('app');
-  const teamSlug = url.searchParams.get('team');
-  const period = url.searchParams.get('period') || 'last-month';
-  const onlyMissing = url.searchParams.get('only_missing') === 'true';
-  const environment = url.searchParams.get('environment');
+  const url = new URL(request.url)
+  const appId = url.searchParams.get('app')
+  const teamSlug = url.searchParams.get('team')
+  const period = url.searchParams.get('period') || 'last-month'
+  const onlyMissing = url.searchParams.get('only_missing') === 'true'
+  const environment = url.searchParams.get('environment')
 
-  let startDate: Date | undefined;
-  let endDate: Date | undefined;
+  let startDate: Date | undefined
+  let endDate: Date | undefined
 
   if (period !== 'all') {
-    const range = getDateRange(period as any);
-    startDate = range.startDate;
-    endDate = range.endDate;
+    const range = getDateRange(period as any)
+    startDate = range.startDate
+    endDate = range.endDate
   }
 
   const deployments = await getAllDeployments({
@@ -30,69 +30,69 @@ export async function loader({ request }: Route.LoaderArgs) {
     end_date: endDate,
     only_missing_four_eyes: onlyMissing,
     environment_name: environment || undefined,
-  });
+  })
 
-  const apps = await getAllMonitoredApplications();
+  const apps = await getAllMonitoredApplications()
 
   // Get unique teams and environments
-  const teams = Array.from(new Set(deployments.map((d) => d.team_slug))).sort();
-  const environments = Array.from(new Set(deployments.map((d) => d.environment_name))).sort();
+  const teams = Array.from(new Set(deployments.map((d) => d.team_slug))).sort()
+  const environments = Array.from(new Set(deployments.map((d) => d.environment_name))).sort()
 
-  return { deployments, apps, teams, environments };
+  return { deployments, apps, teams, environments }
 }
 
 function getFourEyesLabel(deployment: DeploymentWithApp): {
-  text: string;
-  variant: 'success' | 'warning' | 'error' | 'info';
+  text: string
+  variant: 'success' | 'warning' | 'error' | 'info'
 } {
   if (deployment.has_four_eyes) {
-    return { text: 'Godkjent PR', variant: 'success' };
+    return { text: 'Godkjent PR', variant: 'success' }
   }
 
   switch (deployment.four_eyes_status) {
     case 'approved':
     case 'approved_pr':
-      return { text: 'Godkjent PR', variant: 'success' };
+      return { text: 'Godkjent PR', variant: 'success' }
     case 'baseline':
-      return { text: 'Baseline', variant: 'success' };
+      return { text: 'Baseline', variant: 'success' }
     case 'no_changes':
-      return { text: 'Ingen endringer', variant: 'success' };
+      return { text: 'Ingen endringer', variant: 'success' }
     case 'unverified_commits':
-      return { text: 'Uverifiserte commits', variant: 'error' };
+      return { text: 'Uverifiserte commits', variant: 'error' }
     case 'approved_pr_with_unreviewed':
-      return { text: 'Ureviewed i merge', variant: 'error' };
+      return { text: 'Ureviewed i merge', variant: 'error' }
     case 'legacy':
-      return { text: 'Legacy (ignorert)', variant: 'success' };
+      return { text: 'Legacy (ignorert)', variant: 'success' }
     case 'direct_push':
-      return { text: 'Direct push', variant: 'warning' };
+      return { text: 'Direct push', variant: 'warning' }
     case 'missing':
-      return { text: 'Mangler godkjenning', variant: 'error' };
+      return { text: 'Mangler godkjenning', variant: 'error' }
     case 'error':
-      return { text: 'Feil ved sjekk', variant: 'error' };
+      return { text: 'Feil ved sjekk', variant: 'error' }
     case 'pending':
-      return { text: 'Venter', variant: 'info' };
+      return { text: 'Venter', variant: 'info' }
     default:
-      return { text: 'Ukjent status', variant: 'info' };
+      return { text: 'Ukjent status', variant: 'info' }
   }
 }
 
 export default function Deployments({ loaderData }: Route.ComponentProps) {
-  const { deployments, apps, teams, environments } = loaderData;
-  const [searchParams] = useSearchParams();
+  const { deployments, apps, teams, environments } = loaderData
+  const [searchParams] = useSearchParams()
 
-  const currentApp = searchParams.get('app');
-  const currentTeam = searchParams.get('team');
-  const currentPeriod = searchParams.get('period') || 'last-month';
-  const onlyMissing = searchParams.get('only_missing') === 'true';
-  const currentEnvironment = searchParams.get('environment');
+  const currentApp = searchParams.get('app')
+  const currentTeam = searchParams.get('team')
+  const currentPeriod = searchParams.get('period') || 'last-month'
+  const onlyMissing = searchParams.get('only_missing') === 'true'
+  const currentEnvironment = searchParams.get('environment')
 
   const stats = {
     total: deployments.length,
     withFourEyes: deployments.filter((d) => d.has_four_eyes).length,
     withoutFourEyes: deployments.filter((d) => !d.has_four_eyes).length,
-  };
+  }
 
-  const percentage = stats.total > 0 ? Math.round((stats.withFourEyes / stats.total) * 100) : 0;
+  const percentage = stats.total > 0 ? Math.round((stats.withFourEyes / stats.total) * 100) : 0
 
   return (
     <div className={styles.pageContainer}>
@@ -109,12 +109,7 @@ export default function Deployments({ loaderData }: Route.ComponentProps) {
       <Form method="get" onChange={(e) => e.currentTarget.submit()}>
         <div className={styles.filterForm}>
           <div className={styles.filterRow}>
-            <Select
-              label="Team"
-              name="team"
-              defaultValue={currentTeam || ''}
-              className={styles.filterSelect}
-            >
+            <Select label="Team" name="team" defaultValue={currentTeam || ''} className={styles.filterSelect}>
               <option value="">Alle teams</option>
               {teams.map((team) => (
                 <option key={team} value={team}>
@@ -123,12 +118,7 @@ export default function Deployments({ loaderData }: Route.ComponentProps) {
               ))}
             </Select>
 
-            <Select
-              label="Applikasjon"
-              name="app"
-              defaultValue={currentApp || ''}
-              className={styles.filterSelectWide}
-            >
+            <Select label="Applikasjon" name="app" defaultValue={currentApp || ''} className={styles.filterSelectWide}>
               <option value="">Alle applikasjoner</option>
               {apps.map((app) => (
                 <option key={app.id} value={app.id}>
@@ -151,12 +141,7 @@ export default function Deployments({ loaderData }: Route.ComponentProps) {
               ))}
             </Select>
 
-            <Select
-              label="Tidsperiode"
-              name="period"
-              defaultValue={currentPeriod}
-              className={styles.filterSelect}
-            >
+            <Select label="Tidsperiode" name="period" defaultValue={currentPeriod} className={styles.filterSelect}>
               <option value="last-month">Siste måned</option>
               <option value="last-12-months">Siste 12 måneder</option>
               <option value="this-year">I år</option>
@@ -173,8 +158,8 @@ export default function Deployments({ loaderData }: Route.ComponentProps) {
 
       {deployments.length === 0 ? (
         <Alert variant="info">
-          Ingen deployments funnet med de valgte filtrene. Prøv å endre filtrene eller synkroniser
-          deployments fra applikasjoner.
+          Ingen deployments funnet med de valgte filtrene. Prøv å endre filtrene eller synkroniser deployments fra
+          applikasjoner.
         </Alert>
       ) : (
         <Table>
@@ -193,7 +178,7 @@ export default function Deployments({ loaderData }: Route.ComponentProps) {
           </Table.Header>
           <Table.Body>
             {deployments.map((deployment) => {
-              const status = getFourEyesLabel(deployment);
+              const status = getFourEyesLabel(deployment)
 
               return (
                 <Table.Row key={deployment.id}>
@@ -246,21 +231,16 @@ export default function Deployments({ loaderData }: Route.ComponentProps) {
                     </Tag>
                   </Table.DataCell>
                   <Table.DataCell>
-                    <Button
-                      as={Link}
-                      to={`/deployments/${deployment.id}`}
-                      size="small"
-                      variant="secondary"
-                    >
+                    <Button as={Link} to={`/deployments/${deployment.id}`} size="small" variant="secondary">
                       Vis
                     </Button>
                   </Table.DataCell>
                 </Table.Row>
-              );
+              )
             })}
           </Table.Body>
         </Table>
       )}
     </div>
-  );
+  )
 }

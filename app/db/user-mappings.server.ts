@@ -1,17 +1,17 @@
-import { pool } from './connection.server';
+import { pool } from './connection.server'
 
 export interface UserMapping {
-  github_username: string;
-  display_name: string | null;
-  nav_email: string | null;
-  nav_ident: string | null;
-  slack_member_id: string | null;
-  created_at: Date;
-  updated_at: Date;
+  github_username: string
+  display_name: string | null
+  nav_email: string | null
+  nav_ident: string | null
+  slack_member_id: string | null
+  created_at: Date
+  updated_at: Date
 }
 
 // In-memory cache for user mappings
-const userMappingCache = new Map<string, UserMapping | null>();
+const userMappingCache = new Map<string, UserMapping | null>()
 
 /**
  * Get user mapping by GitHub username
@@ -19,68 +19,62 @@ const userMappingCache = new Map<string, UserMapping | null>();
 export async function getUserMapping(githubUsername: string): Promise<UserMapping | null> {
   // Check cache first
   if (userMappingCache.has(githubUsername)) {
-    return userMappingCache.get(githubUsername) || null;
+    return userMappingCache.get(githubUsername) || null
   }
 
-  const result = await pool.query(
-    'SELECT * FROM user_mappings WHERE github_username = $1',
-    [githubUsername]
-  );
+  const result = await pool.query('SELECT * FROM user_mappings WHERE github_username = $1', [githubUsername])
 
-  const mapping = result.rows[0] || null;
-  userMappingCache.set(githubUsername, mapping);
-  return mapping;
+  const mapping = result.rows[0] || null
+  userMappingCache.set(githubUsername, mapping)
+  return mapping
 }
 
 /**
  * Get multiple user mappings by GitHub usernames
  */
 export async function getUserMappings(githubUsernames: string[]): Promise<Map<string, UserMapping>> {
-  if (githubUsernames.length === 0) return new Map();
+  if (githubUsernames.length === 0) return new Map()
 
   // Filter out cached entries
-  const uncached = githubUsernames.filter((u) => !userMappingCache.has(u));
-  
+  const uncached = githubUsernames.filter((u) => !userMappingCache.has(u))
+
   if (uncached.length > 0) {
-    const result = await pool.query(
-      'SELECT * FROM user_mappings WHERE github_username = ANY($1)',
-      [uncached]
-    );
+    const result = await pool.query('SELECT * FROM user_mappings WHERE github_username = ANY($1)', [uncached])
 
     // Cache results
     for (const row of result.rows) {
-      userMappingCache.set(row.github_username, row);
+      userMappingCache.set(row.github_username, row)
     }
 
     // Mark missing usernames as null in cache
     for (const username of uncached) {
       if (!userMappingCache.has(username)) {
-        userMappingCache.set(username, null);
+        userMappingCache.set(username, null)
       }
     }
   }
 
   // Build result map from cache
-  const mappings = new Map<string, UserMapping>();
+  const mappings = new Map<string, UserMapping>()
   for (const username of githubUsernames) {
-    const mapping = userMappingCache.get(username);
+    const mapping = userMappingCache.get(username)
     if (mapping) {
-      mappings.set(username, mapping);
+      mappings.set(username, mapping)
     }
   }
 
-  return mappings;
+  return mappings
 }
 
 /**
  * Create or update a user mapping
  */
 export async function upsertUserMapping(params: {
-  githubUsername: string;
-  displayName?: string | null;
-  navEmail?: string | null;
-  navIdent?: string | null;
-  slackMemberId?: string | null;
+  githubUsername: string
+  displayName?: string | null
+  navEmail?: string | null
+  navIdent?: string | null
+  slackMemberId?: string | null
 }): Promise<UserMapping> {
   const result = await pool.query(
     `INSERT INTO user_mappings (github_username, display_name, nav_email, nav_ident, slack_member_id, updated_at)
@@ -98,33 +92,33 @@ export async function upsertUserMapping(params: {
       params.navEmail ?? null,
       params.navIdent ?? null,
       params.slackMemberId ?? null,
-    ]
-  );
+    ],
+  )
 
-  const mapping = result.rows[0];
-  userMappingCache.set(params.githubUsername, mapping);
-  return mapping;
+  const mapping = result.rows[0]
+  userMappingCache.set(params.githubUsername, mapping)
+  return mapping
 }
 
 /**
  * Delete a user mapping
  */
 export async function deleteUserMapping(githubUsername: string): Promise<void> {
-  await pool.query('DELETE FROM user_mappings WHERE github_username = $1', [githubUsername]);
-  userMappingCache.delete(githubUsername);
+  await pool.query('DELETE FROM user_mappings WHERE github_username = $1', [githubUsername])
+  userMappingCache.delete(githubUsername)
 }
 
 /**
  * Get all user mappings
  */
 export async function getAllUserMappings(): Promise<UserMapping[]> {
-  const result = await pool.query('SELECT * FROM user_mappings ORDER BY github_username');
-  return result.rows;
+  const result = await pool.query('SELECT * FROM user_mappings ORDER BY github_username')
+  return result.rows
 }
 
 /**
  * Clear the in-memory cache
  */
 export function clearUserMappingCache(): void {
-  userMappingCache.clear();
+  userMappingCache.clear()
 }

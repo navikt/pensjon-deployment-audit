@@ -1,17 +1,16 @@
-import { createRepositoryAlert } from '~/db/alerts.server';
+import { createRepositoryAlert } from '~/db/alerts.server'
 import {
   findRepositoryForApp,
   getRepositoriesByAppId,
   upsertApplicationRepository,
-} from '~/db/application-repositories.server';
+} from '~/db/application-repositories.server'
 import {
-  type Commit,
   getCommit,
   hasCommitsCached,
   type UpsertCommitParams,
   updateCommitPrVerification,
   upsertCommits,
-} from '~/db/commits.server';
+} from '~/db/commits.server'
 import {
   type CreateDeploymentParams,
   createDeployment,
@@ -21,15 +20,15 @@ import {
   getPreviousDeployment,
   type UnverifiedCommit,
   updateDeploymentFourEyes,
-} from '~/db/deployments.server';
-import { getMonitoredApplication } from '~/db/monitored-applications.server';
+} from '~/db/deployments.server'
+import { getMonitoredApplication } from '~/db/monitored-applications.server'
 import {
   getCommitsBetween,
   getDetailedPullRequestInfo,
   getPullRequestForCommit,
   verifyPullRequestFourEyes,
-} from '~/lib/github.server';
-import { fetchApplicationDeployments } from '~/lib/nais.server';
+} from '~/lib/github.server'
+import { fetchApplicationDeployments } from '~/lib/nais.server'
 
 /**
  * Step 1: Sync deployments from Nais API to database
@@ -38,68 +37,66 @@ import { fetchApplicationDeployments } from '~/lib/nais.server';
 export async function syncDeploymentsFromNais(
   teamSlug: string,
   environmentName: string,
-  appName: string
+  appName: string,
 ): Promise<{
-  newCount: number;
-  skippedCount: number;
-  alertsCreated: number;
-  totalProcessed: number;
+  newCount: number
+  skippedCount: number
+  alertsCreated: number
+  totalProcessed: number
 }> {
   console.log('📥 Syncing deployments from Nais (no GitHub verification):', {
     team: teamSlug,
     environment: environmentName,
     app: appName,
-  });
+  })
 
   // Get the monitored application
-  const monitoredApp = await getMonitoredApplication(teamSlug, environmentName, appName);
+  const monitoredApp = await getMonitoredApplication(teamSlug, environmentName, appName)
   if (!monitoredApp) {
-    throw new Error(
-      `Application not found in monitored applications: ${teamSlug}/${environmentName}/${appName}`
-    );
+    throw new Error(`Application not found in monitored applications: ${teamSlug}/${environmentName}/${appName}`)
   }
 
   // Fetch deployments from Nais
-  const naisDeployments = await fetchApplicationDeployments(teamSlug, environmentName, appName);
+  const naisDeployments = await fetchApplicationDeployments(teamSlug, environmentName, appName)
 
-  console.log(`📦 Processing ${naisDeployments.length} deployments from Nais`);
+  console.log(`📦 Processing ${naisDeployments.length} deployments from Nais`)
 
-  let newCount = 0;
-  let skippedCount = 0;
-  let alertsCreated = 0;
-  let totalProcessed = 0;
+  let newCount = 0
+  let skippedCount = 0
+  let alertsCreated = 0
+  let totalProcessed = 0
 
   for (const naisDep of naisDeployments) {
-    totalProcessed++;
+    totalProcessed++
 
     // Skip deployments without repository info
     if (!naisDep.repository) {
-      console.warn(`⚠️  Skipping deployment without repository: ${naisDep.id}`);
-      skippedCount++;
-      continue;
+      console.warn(`⚠️  Skipping deployment without repository: ${naisDep.id}`)
+      skippedCount++
+      continue
     }
 
     // Extract GitHub owner/repo from repository field
-    const repoParts = naisDep.repository.split('/');
+    const repoParts = naisDep.repository.split('/')
     if (repoParts.length !== 2) {
-      console.warn(`⚠️  Invalid repository format: ${naisDep.repository}`);
-      skippedCount++;
-      continue;
+      console.warn(`⚠️  Invalid repository format: ${naisDep.repository}`)
+      skippedCount++
+      continue
     }
 
-    const [detectedOwner, detectedRepoName] = repoParts;
+    const [detectedOwner, detectedRepoName] = repoParts
 
     // Check if deployment already exists
-    const existingDep = await getDeploymentByNaisId(naisDep.id);
+    const existingDep = await getDeploymentByNaisId(naisDep.id)
 
     if (existingDep) {
-      console.log(`⏭️  Deployment already exists: ${naisDep.id}`);
-      skippedCount++;
-      continue;
+      console.log(`⏭️  Deployment already exists: ${naisDep.id}`)
+      skippedCount++
+      continue
     }
 
     // Create deployment record first (WITHOUT four-eyes verification)
-    console.log(`➕ Creating new deployment: ${naisDep.id}`);
+    console.log(`➕ Creating new deployment: ${naisDep.id}`)
 
     const deploymentParams: CreateDeploymentParams = {
       monitoredApplicationId: monitoredApp.id,
@@ -111,50 +108,48 @@ export async function syncDeploymentsFromNais(
       detectedGithubOwner: detectedOwner,
       detectedGithubRepoName: detectedRepoName,
       resources: naisDep.resources.nodes,
-    };
+    }
 
-    await createDeployment(deploymentParams);
-    newCount++;
+    await createDeployment(deploymentParams)
+    newCount++
 
     // Skip repository checks for legacy deployments (before 2025-01-01 without commit SHA)
-    const legacyCutoffDate = new Date('2025-01-01T00:00:00Z');
-    const isLegacyDeployment = new Date(naisDep.createdAt) < legacyCutoffDate && !naisDep.commitSha;
+    const legacyCutoffDate = new Date('2025-01-01T00:00:00Z')
+    const isLegacyDeployment = new Date(naisDep.createdAt) < legacyCutoffDate && !naisDep.commitSha
     if (isLegacyDeployment) {
-      console.log(`⏭️  Skipping repository checks for legacy deployment: ${naisDep.id}`);
-      continue;
+      console.log(`⏭️  Skipping repository checks for legacy deployment: ${naisDep.id}`)
+      continue
     }
 
     // Check repository status using application_repositories
-    const repoCheck = await findRepositoryForApp(monitoredApp.id, detectedOwner, detectedRepoName);
+    const repoCheck = await findRepositoryForApp(monitoredApp.id, detectedOwner, detectedRepoName)
 
     if (!repoCheck.repository) {
       // Repository not found - create pending approval entry
-      console.warn(
-        `🆕 New repository detected for app ${appName}: ${detectedOwner}/${detectedRepoName}`
-      );
+      console.warn(`🆕 New repository detected for app ${appName}: ${detectedOwner}/${detectedRepoName}`)
 
       // Check if this is the first repo for this app
-      const existingRepos = await getRepositoriesByAppId(monitoredApp.id);
+      const existingRepos = await getRepositoriesByAppId(monitoredApp.id)
 
       if (existingRepos.length === 0) {
         // First repo - auto-approve as active
-        console.log(`📝 Auto-approving first repository as active`);
+        console.log(`📝 Auto-approving first repository as active`)
         await upsertApplicationRepository({
           monitoredAppId: monitoredApp.id,
           githubOwner: detectedOwner,
           githubRepoName: detectedRepoName,
           status: 'active',
           approvedBy: 'system',
-        });
+        })
       } else {
         // Additional repo - require approval
-        console.log(`⏸️  Creating pending approval entry`);
+        console.log(`⏸️  Creating pending approval entry`)
         await upsertApplicationRepository({
           monitoredAppId: monitoredApp.id,
           githubOwner: detectedOwner,
           githubRepoName: detectedRepoName,
           status: 'pending_approval',
-        });
+        })
 
         // Create alert
         await createRepositoryAlert({
@@ -163,15 +158,13 @@ export async function syncDeploymentsFromNais(
           detectedGithubOwner: detectedOwner,
           detectedGithubRepoName: detectedRepoName,
           alertType: 'pending_approval',
-        });
+        })
 
-        alertsCreated++;
+        alertsCreated++
       }
     } else if (repoCheck.repository.status === 'pending_approval') {
       // Repository exists but pending approval
-      console.warn(
-        `⏸️  Deployment from pending approval repository: ${detectedOwner}/${detectedRepoName}`
-      );
+      console.warn(`⏸️  Deployment from pending approval repository: ${detectedOwner}/${detectedRepoName}`)
 
       await createRepositoryAlert({
         monitoredApplicationId: monitoredApp.id,
@@ -179,19 +172,15 @@ export async function syncDeploymentsFromNais(
         detectedGithubOwner: detectedOwner,
         detectedGithubRepoName: detectedRepoName,
         alertType: 'pending_approval',
-      });
+      })
 
-      alertsCreated++;
+      alertsCreated++
     } else if (repoCheck.repository.status === 'historical') {
       // Repository is historical (not active)
-      console.warn(
-        `⚠️  Deployment from historical repository: ${detectedOwner}/${detectedRepoName}`
-      );
+      console.warn(`⚠️  Deployment from historical repository: ${detectedOwner}/${detectedRepoName}`)
 
       // Get active repo for context
-      const activeRepo = (await getRepositoriesByAppId(monitoredApp.id)).find(
-        (r) => r.status === 'active'
-      );
+      const activeRepo = (await getRepositoriesByAppId(monitoredApp.id)).find((r) => r.status === 'active')
 
       await createRepositoryAlert({
         monitoredApplicationId: monitoredApp.id,
@@ -201,9 +190,9 @@ export async function syncDeploymentsFromNais(
         expectedGithubOwner: activeRepo?.github_owner || detectedOwner,
         expectedGithubRepoName: activeRepo?.github_repo_name || detectedRepoName,
         alertType: 'historical_repository',
-      });
+      })
 
-      alertsCreated++;
+      alertsCreated++
     }
     // else: repository is active - all good, no alert needed
   }
@@ -213,71 +202,69 @@ export async function syncDeploymentsFromNais(
     skippedCount,
     alertsCreated,
     totalProcessed,
-  });
+  })
 
   return {
     newCount,
     skippedCount,
     alertsCreated,
     totalProcessed,
-  };
+  }
 }
 
 /**
  * Step 2: Verify four-eyes status for deployments by checking GitHub
  * This can be run separately to avoid rate limits
  */
-export async function verifyDeploymentsFourEyes(
-  filters?: DeploymentFilters & { limit?: number }
-): Promise<{
-  verified: number;
-  failed: number;
-  skipped: number;
+export async function verifyDeploymentsFourEyes(filters?: DeploymentFilters & { limit?: number }): Promise<{
+  verified: number
+  failed: number
+  skipped: number
 }> {
-  console.log(`🔍 Starting GitHub verification for deployments (limit: ${filters?.limit})`);
+  console.log(`🔍 Starting GitHub verification for deployments (limit: ${filters?.limit})`)
 
   // Get deployments that need verification
   const deploymentsToVerify = await getAllDeployments({
     ...filters,
     // Only verify deployments that haven't been verified yet or failed
     // Skip 'approved_pr' and 'direct_push' statuses
-  });
+  })
 
   // Filter to deployments without four-eyes approval
-  const needsVerification = deploymentsToVerify.filter((d) => !d.has_four_eyes);
+  const needsVerification = deploymentsToVerify.filter((d) => !d.has_four_eyes)
 
   // Prioritize: 1) pending (never verified), 2) others (failed verification or direct push)
   const prioritized = [
     ...needsVerification.filter((d) => d.four_eyes_status === 'pending'),
     ...needsVerification.filter((d) => d.four_eyes_status !== 'pending'),
-  ];
+  ]
 
   // Apply limit if specified
-  const toVerify = filters?.limit ? prioritized.slice(0, filters.limit) : prioritized;
+  const toVerify = filters?.limit ? prioritized.slice(0, filters.limit) : prioritized
 
   console.log(
-    `📋 Found ${toVerify.length} deployments needing verification (${prioritized.filter((d) => d.four_eyes_status === 'pending').length} pending, ${prioritized.filter((d) => d.four_eyes_status !== 'pending').length} failed)`
-  );
+    `📋 Found ${toVerify.length} deployments needing verification (${prioritized.filter((d) => d.four_eyes_status === 'pending').length} pending, ${prioritized.filter((d) => d.four_eyes_status !== 'pending').length} failed)`,
+  )
 
-  let verified = 0;
-  let failed = 0;
-  let skipped = 0;
+  let verified = 0
+  let failed = 0
+  let skipped = 0
 
   for (const deployment of toVerify) {
     try {
-      console.log(`🔍 Verifying deployment ${deployment.nais_deployment_id}...`);
+      console.log(`🔍 Verifying deployment ${deployment.nais_deployment_id}...`)
 
       // Skip if no commit SHA
       if (!deployment.commit_sha) {
-        console.log(`⏭️  Skipping deployment without commit SHA: ${deployment.nais_deployment_id}`);
+        console.log(`⏭️  Skipping deployment without commit SHA: ${deployment.nais_deployment_id}`)
         await updateDeploymentFourEyes(deployment.id, {
           hasFourEyes: false,
           fourEyesStatus: 'error',
           githubPrNumber: null,
           githubPrUrl: null,
-        });
-        skipped++;
-        continue;
+        })
+        skipped++
+        continue
       }
 
       const success = await verifyDeploymentFourEyes(
@@ -285,20 +272,20 @@ export async function verifyDeploymentsFourEyes(
         deployment.commit_sha,
         `${deployment.detected_github_owner}/${deployment.detected_github_repo_name}`,
         deployment.environment_name,
-        deployment.trigger_url
-      );
+        deployment.trigger_url,
+      )
 
       if (success) {
-        verified++;
+        verified++
       } else {
-        skipped++;
+        skipped++
       }
 
       // Small delay to avoid rate limiting
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100))
     } catch (error) {
-      console.error(`❌ Error verifying deployment ${deployment.nais_deployment_id}:`, error);
-      failed++;
+      console.error(`❌ Error verifying deployment ${deployment.nais_deployment_id}:`, error)
+      failed++
     }
   }
 
@@ -306,13 +293,13 @@ export async function verifyDeploymentsFourEyes(
     verified,
     failed,
     skipped,
-  });
+  })
 
   return {
     verified,
     failed,
     skipped,
-  };
+  }
 }
 
 /**
@@ -325,92 +312,76 @@ export async function verifyDeploymentFourEyes(
   commitSha: string,
   repository: string,
   environmentName: string,
-  triggerUrl?: string | null
+  _triggerUrl?: string | null,
 ): Promise<boolean> {
-  const repoParts = repository.split('/');
+  const repoParts = repository.split('/')
   if (repoParts.length !== 2) {
-    console.warn(`⚠️  Invalid repository format for four-eyes check: ${repository}`);
-    return false;
+    console.warn(`⚠️  Invalid repository format for four-eyes check: ${repository}`)
+    return false
   }
 
-  const [owner, repo] = repoParts;
+  const [owner, repo] = repoParts
 
   try {
-    console.log(
-      `🔍 [Deployment ${deploymentId}] Verifying commits up to ${commitSha.substring(0, 7)} in ${repository}`
-    );
+    console.log(`🔍 [Deployment ${deploymentId}] Verifying commits up to ${commitSha.substring(0, 7)} in ${repository}`)
 
     // Step 1: Get PR info for the deployed commit itself (for UI display)
-    const deployedCommitPr = await getPullRequestForCommit(owner, repo, commitSha);
-    let deployedPrNumber: number | null = null;
-    let deployedPrUrl: string | null = null;
-    let deployedPrData: any = null;
+    const deployedCommitPr = await getPullRequestForCommit(owner, repo, commitSha)
+    let deployedPrNumber: number | null = null
+    let deployedPrUrl: string | null = null
+    let deployedPrData: any = null
 
     if (deployedCommitPr) {
-      deployedPrNumber = deployedCommitPr.number;
-      deployedPrUrl = deployedCommitPr.html_url;
-      console.log(
-        `📎 [Deployment ${deploymentId}] Deployed commit is from PR #${deployedPrNumber}`
-      );
+      deployedPrNumber = deployedCommitPr.number
+      deployedPrUrl = deployedCommitPr.html_url
+      console.log(`📎 [Deployment ${deploymentId}] Deployed commit is from PR #${deployedPrNumber}`)
 
       // Fetch detailed PR data (reviews, commits, etc.)
-      deployedPrData = await getDetailedPullRequestInfo(owner, repo, deployedPrNumber);
+      deployedPrData = await getDetailedPullRequestInfo(owner, repo, deployedPrNumber)
     } else {
-      console.log(`📎 [Deployment ${deploymentId}] Deployed commit has no associated PR`);
+      console.log(`📎 [Deployment ${deploymentId}] Deployed commit has no associated PR`)
     }
 
     // Step 2: Get previous deployment for this repo/environment
-    const previousDeployment = await getPreviousDeployment(
-      deploymentId,
-      owner,
-      repo,
-      environmentName
-    );
+    const previousDeployment = await getPreviousDeployment(deploymentId, owner, repo, environmentName)
 
     if (!previousDeployment) {
       console.log(
-        `📍 [Deployment ${deploymentId}] First deployment for ${repository}/${environmentName} - marking as baseline`
-      );
+        `📍 [Deployment ${deploymentId}] First deployment for ${repository}/${environmentName} - marking as baseline`,
+      )
       await updateDeploymentFourEyes(deploymentId, {
         hasFourEyes: true,
         fourEyesStatus: 'baseline',
         githubPrNumber: deployedPrNumber,
         githubPrUrl: deployedPrUrl,
         githubPrData: deployedPrData,
-      });
-      return true;
+      })
+      return true
     }
 
     console.log(
-      `📍 [Deployment ${deploymentId}] Previous deployment: ${previousDeployment.commit_sha?.substring(0, 7)} (ID: ${previousDeployment.id})`
-    );
+      `📍 [Deployment ${deploymentId}] Previous deployment: ${previousDeployment.commit_sha?.substring(0, 7)} (ID: ${previousDeployment.id})`,
+    )
 
     // Step 3: Get all commits between previous and current deployment
     // First check if we have them cached
-    const hasCached = await hasCommitsCached(owner, repo, commitSha);
+    const hasCached = await hasCommitsCached(owner, repo, commitSha)
 
-    const commitsBetween = await getCommitsBetween(
-      owner,
-      repo,
-      previousDeployment.commit_sha!,
-      commitSha
-    );
+    const commitsBetween = await getCommitsBetween(owner, repo, previousDeployment.commit_sha!, commitSha)
 
     if (!commitsBetween) {
-      console.warn(`⚠️  [Deployment ${deploymentId}] Could not fetch commits between deployments`);
+      console.warn(`⚠️  [Deployment ${deploymentId}] Could not fetch commits between deployments`)
       await updateDeploymentFourEyes(deploymentId, {
         hasFourEyes: false,
         fourEyesStatus: 'error',
         githubPrNumber: deployedPrNumber,
         githubPrUrl: deployedPrUrl,
         githubPrData: deployedPrData,
-      });
-      return false;
+      })
+      return false
     }
 
-    console.log(
-      `📊 [Deployment ${deploymentId}] Found ${commitsBetween.length} commit(s) between deployments`
-    );
+    console.log(`📊 [Deployment ${deploymentId}] Found ${commitsBetween.length} commit(s) between deployments`)
 
     // Cache commits to database for future fast lookups
     if (commitsBetween.length > 0 && !hasCached) {
@@ -425,49 +396,47 @@ export async function verifyDeploymentFourEyes(
         parentShas: c.parent_shas,
         isMergeCommit: c.parents_count >= 2,
         htmlUrl: c.html_url,
-      }));
+      }))
 
-      await upsertCommits(commitsToCache);
-      console.log(
-        `💾 [Deployment ${deploymentId}] Cached ${commitsToCache.length} commit(s) to database`
-      );
+      await upsertCommits(commitsToCache)
+      console.log(`💾 [Deployment ${deploymentId}] Cached ${commitsToCache.length} commit(s) to database`)
     }
 
     if (commitsBetween.length === 0) {
-      console.log(`✅ [Deployment ${deploymentId}] No new commits - same as previous deployment`);
+      console.log(`✅ [Deployment ${deploymentId}] No new commits - same as previous deployment`)
       await updateDeploymentFourEyes(deploymentId, {
         hasFourEyes: true,
         fourEyesStatus: 'no_changes',
         githubPrNumber: deployedPrNumber,
         githubPrUrl: deployedPrUrl,
         githubPrData: deployedPrData,
-      });
-      return true;
+      })
+      return true
     }
 
     // Step 4: Verify each commit has four-eyes
     // First check database cache, then GitHub API
-    const unverifiedCommits: UnverifiedCommit[] = [];
-    const prCache = new Map<number, { hasFourEyes: boolean; reason: string }>();
+    const unverifiedCommits: UnverifiedCommit[] = []
+    const prCache = new Map<number, { hasFourEyes: boolean; reason: string }>()
 
     for (const commit of commitsBetween) {
       // Skip merge commits (they're verified through their source PRs)
       if (commit.parents_count >= 2) {
-        console.log(`   ⏭️  Skipping merge commit ${commit.sha.substring(0, 7)}`);
-        continue;
+        console.log(`   ⏭️  Skipping merge commit ${commit.sha.substring(0, 7)}`)
+        continue
       }
 
       // Check if we have cached verification in database
-      const cachedCommit = await getCommit(owner, repo, commit.sha);
+      const cachedCommit = await getCommit(owner, repo, commit.sha)
       if (cachedCommit && cachedCommit.pr_approved !== null) {
         // We have a cached result
         if (cachedCommit.pr_approved) {
           console.log(
-            `   💾 Commit ${commit.sha.substring(0, 7)}: cached as approved (PR #${cachedCommit.original_pr_number})`
-          );
-          continue;
+            `   💾 Commit ${commit.sha.substring(0, 7)}: cached as approved (PR #${cachedCommit.original_pr_number})`,
+          )
+          continue
         } else {
-          console.log(`   💾 Commit ${commit.sha.substring(0, 7)}: cached as NOT approved`);
+          console.log(`   💾 Commit ${commit.sha.substring(0, 7)}: cached as NOT approved`)
           unverifiedCommits.push({
             sha: commit.sha,
             message: commit.message.split('\n')[0],
@@ -476,23 +445,23 @@ export async function verifyDeploymentFourEyes(
             html_url: commit.html_url,
             pr_number: cachedCommit.original_pr_number,
             reason: cachedCommit.pr_approval_reason || 'no_pr',
-          });
-          continue;
+          })
+          continue
         }
       }
 
       // No cached result - check GitHub API
       // Use verifyCommitIsInPR=true to detect commits that were pushed to main
       // and then "smuggled" into a PR when the PR merged main into its branch.
-      const prInfo = await getPullRequestForCommit(owner, repo, commit.sha, true);
+      const prInfo = await getPullRequestForCommit(owner, repo, commit.sha, true)
 
       if (!prInfo) {
         console.log(
-          `   ❌ Commit ${commit.sha.substring(0, 7)}: No PR found or not an original PR commit (direct push to main)`
-        );
+          `   ❌ Commit ${commit.sha.substring(0, 7)}: No PR found or not an original PR commit (direct push to main)`,
+        )
 
         // Cache the result
-        await updateCommitPrVerification(owner, repo, commit.sha, null, null, null, false, 'no_pr');
+        await updateCommitPrVerification(owner, repo, commit.sha, null, null, null, false, 'no_pr')
 
         unverifiedCommits.push({
           sha: commit.sha,
@@ -502,22 +471,20 @@ export async function verifyDeploymentFourEyes(
           html_url: commit.html_url,
           pr_number: null,
           reason: 'no_pr',
-        });
-        continue;
+        })
+        continue
       }
 
       // Check PR approval (use memory cache for this deployment)
-      let approvalResult = prCache.get(prInfo.number);
+      let approvalResult = prCache.get(prInfo.number)
       if (!approvalResult) {
-        approvalResult = await verifyPullRequestFourEyes(owner, repo, prInfo.number);
-        prCache.set(prInfo.number, approvalResult);
+        approvalResult = await verifyPullRequestFourEyes(owner, repo, prInfo.number)
+        prCache.set(prInfo.number, approvalResult)
         console.log(
-          `   🔍 Commit ${commit.sha.substring(0, 7)}: PR #${prInfo.number} - ${approvalResult.hasFourEyes ? '✅ approved' : '❌ not approved'}`
-        );
+          `   🔍 Commit ${commit.sha.substring(0, 7)}: PR #${prInfo.number} - ${approvalResult.hasFourEyes ? '✅ approved' : '❌ not approved'}`,
+        )
       } else {
-        console.log(
-          `   💾 Commit ${commit.sha.substring(0, 7)}: PR #${prInfo.number} - cached result`
-        );
+        console.log(`   💾 Commit ${commit.sha.substring(0, 7)}: PR #${prInfo.number} - cached result`)
       }
 
       // Cache the result in database
@@ -529,8 +496,8 @@ export async function verifyDeploymentFourEyes(
         prInfo.title,
         prInfo.html_url,
         approvalResult.hasFourEyes,
-        approvalResult.reason
-      );
+        approvalResult.reason,
+      )
 
       if (!approvalResult.hasFourEyes) {
         unverifiedCommits.push({
@@ -541,19 +508,17 @@ export async function verifyDeploymentFourEyes(
           html_url: commit.html_url,
           pr_number: prInfo.number,
           reason: 'pr_not_approved',
-        });
+        })
       }
     }
 
     // Step 5: Determine final status
     if (unverifiedCommits.length > 0) {
-      console.log(
-        `❌ [Deployment ${deploymentId}] Found ${unverifiedCommits.length} unverified commit(s):`
-      );
+      console.log(`❌ [Deployment ${deploymentId}] Found ${unverifiedCommits.length} unverified commit(s):`)
       unverifiedCommits.forEach((c) => {
-        console.log(`      - ${c.sha.substring(0, 7)}: ${c.message.substring(0, 60)}`);
-        console.log(`        Reason: ${c.reason}, PR: ${c.pr_number || 'none'}`);
-      });
+        console.log(`      - ${c.sha.substring(0, 7)}: ${c.message.substring(0, 60)}`)
+        console.log(`        Reason: ${c.reason}, PR: ${c.pr_number || 'none'}`)
+      })
 
       await updateDeploymentFourEyes(deploymentId, {
         hasFourEyes: false,
@@ -562,28 +527,26 @@ export async function verifyDeploymentFourEyes(
         githubPrUrl: deployedPrUrl,
         githubPrData: deployedPrData,
         unverifiedCommits,
-      });
+      })
     } else {
-      console.log(
-        `✅ [Deployment ${deploymentId}] All ${commitsBetween.length} commit(s) verified`
-      );
+      console.log(`✅ [Deployment ${deploymentId}] All ${commitsBetween.length} commit(s) verified`)
       await updateDeploymentFourEyes(deploymentId, {
         hasFourEyes: true,
         fourEyesStatus: 'approved',
         githubPrNumber: deployedPrNumber,
         githubPrUrl: deployedPrUrl,
         githubPrData: deployedPrData,
-      });
+      })
     }
 
-    return true;
+    return true
   } catch (error) {
-    console.error(`❌ Error verifying four-eyes for deployment ${deploymentId}:`, error);
+    console.error(`❌ Error verifying four-eyes for deployment ${deploymentId}:`, error)
 
     // Check if it's a rate limit error
     if (error instanceof Error && error.message.includes('rate limit')) {
-      console.warn('⚠️  GitHub rate limit reached, stopping verification without updating status');
-      throw error; // Re-throw to stop batch processing, but don't update deployment status
+      console.warn('⚠️  GitHub rate limit reached, stopping verification without updating status')
+      throw error // Re-throw to stop batch processing, but don't update deployment status
     }
 
     // On other errors, mark as error status
@@ -592,9 +555,9 @@ export async function verifyDeploymentFourEyes(
       fourEyesStatus: 'error',
       githubPrNumber: null,
       githubPrUrl: null,
-    });
+    })
 
-    return false;
+    return false
   }
 }
 
@@ -605,37 +568,37 @@ export async function verifyDeploymentFourEyes(
 export async function syncAndVerifyDeployments(
   teamSlug: string,
   environmentName: string,
-  appName: string
+  appName: string,
 ): Promise<{
-  newCount: number;
-  verified: number;
-  alertsCreated: number;
+  newCount: number
+  verified: number
+  alertsCreated: number
 }> {
   console.log('🔄 Full sync (Nais + GitHub) for application:', {
     team: teamSlug,
     environment: environmentName,
     app: appName,
-  });
+  })
 
   // Step 1: Sync from Nais
-  const naisResult = await syncDeploymentsFromNais(teamSlug, environmentName, appName);
+  const naisResult = await syncDeploymentsFromNais(teamSlug, environmentName, appName)
 
   // Step 2: Verify new deployments with GitHub
-  const monitoredApp = await getMonitoredApplication(teamSlug, environmentName, appName);
+  const monitoredApp = await getMonitoredApplication(teamSlug, environmentName, appName)
   if (!monitoredApp) {
-    throw new Error('Application not found after sync');
+    throw new Error('Application not found after sync')
   }
 
   const verifyResult = await verifyDeploymentsFourEyes({
     monitored_app_id: monitoredApp.id,
     limit: 1000, // Limit to avoid rate limits
-  });
+  })
 
-  console.log(`✅ Full sync complete`);
+  console.log(`✅ Full sync complete`)
 
   return {
     newCount: naisResult.newCount,
     verified: verifyResult.verified,
     alertsCreated: naisResult.alertsCreated,
-  };
+  }
 }

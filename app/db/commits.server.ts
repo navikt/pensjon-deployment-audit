@@ -1,41 +1,41 @@
-import { pool } from './connection.server';
+import { pool } from './connection.server'
 
 export interface Commit {
-  sha: string;
-  repo_owner: string;
-  repo_name: string;
-  author_username: string | null;
-  author_date: Date | null;
-  committer_date: Date | null;
-  message: string | null;
-  parent_shas: string[];
-  original_pr_number: number | null;
-  original_pr_title: string | null;
-  original_pr_url: string | null;
-  pr_approved: boolean | null;
-  pr_approval_reason: string | null;
-  is_merge_commit: boolean;
-  html_url: string | null;
-  created_at: Date;
-  updated_at: Date;
+  sha: string
+  repo_owner: string
+  repo_name: string
+  author_username: string | null
+  author_date: Date | null
+  committer_date: Date | null
+  message: string | null
+  parent_shas: string[]
+  original_pr_number: number | null
+  original_pr_title: string | null
+  original_pr_url: string | null
+  pr_approved: boolean | null
+  pr_approval_reason: string | null
+  is_merge_commit: boolean
+  html_url: string | null
+  created_at: Date
+  updated_at: Date
 }
 
 export interface UpsertCommitParams {
-  sha: string;
-  repoOwner: string;
-  repoName: string;
-  authorUsername?: string | null;
-  authorDate?: Date | null;
-  committerDate?: Date | null;
-  message?: string | null;
-  parentShas?: string[];
-  originalPrNumber?: number | null;
-  originalPrTitle?: string | null;
-  originalPrUrl?: string | null;
-  prApproved?: boolean | null;
-  prApprovalReason?: string | null;
-  isMergeCommit?: boolean;
-  htmlUrl?: string | null;
+  sha: string
+  repoOwner: string
+  repoName: string
+  authorUsername?: string | null
+  authorDate?: Date | null
+  committerDate?: Date | null
+  message?: string | null
+  parentShas?: string[]
+  originalPrNumber?: number | null
+  originalPrTitle?: string | null
+  originalPrUrl?: string | null
+  prApproved?: boolean | null
+  prApprovalReason?: string | null
+  isMergeCommit?: boolean
+  htmlUrl?: string | null
 }
 
 /**
@@ -79,22 +79,22 @@ export async function upsertCommit(params: UpsertCommitParams): Promise<Commit> 
       params.prApprovalReason ?? null,
       params.isMergeCommit ?? false,
       params.htmlUrl ?? null,
-    ]
-  );
+    ],
+  )
 
-  return result.rows[0];
+  return result.rows[0]
 }
 
 /**
  * Batch upsert multiple commits
  */
 export async function upsertCommits(commits: UpsertCommitParams[]): Promise<number> {
-  if (commits.length === 0) return 0;
+  if (commits.length === 0) return 0
 
   // Use a transaction for batch insert
-  const client = await pool.connect();
+  const client = await pool.connect()
   try {
-    await client.query('BEGIN');
+    await client.query('BEGIN')
 
     for (const commit of commits) {
       await client.query(
@@ -133,33 +133,30 @@ export async function upsertCommits(commits: UpsertCommitParams[]): Promise<numb
           commit.prApprovalReason ?? null,
           commit.isMergeCommit ?? false,
           commit.htmlUrl ?? null,
-        ]
-      );
+        ],
+      )
     }
 
-    await client.query('COMMIT');
-    return commits.length;
+    await client.query('COMMIT')
+    return commits.length
   } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
+    await client.query('ROLLBACK')
+    throw error
   } finally {
-    client.release();
+    client.release()
   }
 }
 
 /**
  * Get a commit by SHA
  */
-export async function getCommit(
-  repoOwner: string,
-  repoName: string,
-  sha: string
-): Promise<Commit | null> {
-  const result = await pool.query(
-    `SELECT * FROM commits WHERE repo_owner = $1 AND repo_name = $2 AND sha = $3`,
-    [repoOwner, repoName, sha]
-  );
-  return result.rows[0] || null;
+export async function getCommit(repoOwner: string, repoName: string, sha: string): Promise<Commit | null> {
+  const result = await pool.query(`SELECT * FROM commits WHERE repo_owner = $1 AND repo_name = $2 AND sha = $3`, [
+    repoOwner,
+    repoName,
+    sha,
+  ])
+  return result.rows[0] || null
 }
 
 /**
@@ -168,7 +165,7 @@ export async function getCommit(
 export async function getCommitsNeedingVerification(
   repoOwner: string,
   repoName: string,
-  limit: number = 100
+  limit: number = 100,
 ): Promise<Commit[]> {
   const result = await pool.query(
     `SELECT * FROM commits 
@@ -177,9 +174,9 @@ export async function getCommitsNeedingVerification(
        AND is_merge_commit = false
      ORDER BY committer_date DESC
      LIMIT $3`,
-    [repoOwner, repoName, limit]
-  );
-  return result.rows;
+    [repoOwner, repoName, limit],
+  )
+  return result.rows
 }
 
 /**
@@ -193,7 +190,7 @@ export async function updateCommitPrVerification(
   prTitle: string | null,
   prUrl: string | null,
   approved: boolean,
-  reason: string
+  reason: string,
 ): Promise<void> {
   await pool.query(
     `UPDATE commits SET
@@ -204,8 +201,8 @@ export async function updateCommitPrVerification(
       pr_approval_reason = $8,
       updated_at = NOW()
      WHERE repo_owner = $1 AND repo_name = $2 AND sha = $3`,
-    [repoOwner, repoName, sha, prNumber, prTitle, prUrl, approved, reason]
-  );
+    [repoOwner, repoName, sha, prNumber, prTitle, prUrl, approved, reason],
+  )
 }
 
 /**
@@ -217,7 +214,7 @@ export async function findCommitsBetween(
   repoOwner: string,
   repoName: string,
   baseSha: string,
-  headSha: string
+  headSha: string,
 ): Promise<Commit[]> {
   // Use a recursive CTE to traverse the commit graph
   const result = await pool.query(
@@ -243,10 +240,10 @@ export async function findCommitsBetween(
     FROM commit_chain
     WHERE sha != $4  -- Exclude base commit
     ORDER BY sha, depth`,
-    [repoOwner, repoName, headSha, baseSha]
-  );
+    [repoOwner, repoName, headSha, baseSha],
+  )
 
-  return result.rows;
+  return result.rows
 }
 
 /**
@@ -257,38 +254,32 @@ export async function findUnverifiedCommitsBetween(
   repoOwner: string,
   repoName: string,
   baseSha: string,
-  headSha: string
+  headSha: string,
 ): Promise<Commit[]> {
-  const commits = await findCommitsBetween(repoOwner, repoName, baseSha, headSha);
+  const commits = await findCommitsBetween(repoOwner, repoName, baseSha, headSha)
 
   // Filter to unverified commits (excluding merge commits)
-  return commits.filter(
-    (c) => !c.is_merge_commit && (c.pr_approved === null || c.pr_approved === false)
-  );
+  return commits.filter((c) => !c.is_merge_commit && (c.pr_approved === null || c.pr_approved === false))
 }
 
 /**
  * Check if we have commits cached for a range
  */
-export async function hasCommitsCached(
-  repoOwner: string,
-  repoName: string,
-  sha: string
-): Promise<boolean> {
+export async function hasCommitsCached(repoOwner: string, repoName: string, sha: string): Promise<boolean> {
   const result = await pool.query(
     `SELECT 1 FROM commits WHERE repo_owner = $1 AND repo_name = $2 AND sha = $3 LIMIT 1`,
-    [repoOwner, repoName, sha]
-  );
-  return result.rows.length > 0;
+    [repoOwner, repoName, sha],
+  )
+  return result.rows.length > 0
 }
 
 /**
  * Get commit count for a repo
  */
 export async function getCommitCount(repoOwner: string, repoName: string): Promise<number> {
-  const result = await pool.query(
-    `SELECT COUNT(*) FROM commits WHERE repo_owner = $1 AND repo_name = $2`,
-    [repoOwner, repoName]
-  );
-  return parseInt(result.rows[0].count, 10);
+  const result = await pool.query(`SELECT COUNT(*) FROM commits WHERE repo_owner = $1 AND repo_name = $2`, [
+    repoOwner,
+    repoName,
+  ])
+  return parseInt(result.rows[0].count, 10)
 }

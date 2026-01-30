@@ -1,16 +1,16 @@
-import { InternalHeader, Spacer, Theme } from '@navikt/ds-react';
-import { Link, Outlet, useLocation } from 'react-router';
-import styles from '../styles/common.module.css';
+import { InternalHeader, Spacer, Theme } from '@navikt/ds-react'
+import { Link, Outlet, useLocation } from 'react-router'
+import styles from '../styles/common.module.css'
 
 export default function Layout() {
-  const location = useLocation();
+  const location = useLocation()
 
   const isActive = (path: string) => {
     if (path === '/') {
-      return location.pathname === '/';
+      return location.pathname === '/'
     }
-    return location.pathname.startsWith(path);
-  };
+    return location.pathname.startsWith(path)
+  }
 
   return (
     <div className={styles.layoutContainer}>
@@ -23,22 +23,13 @@ export default function Layout() {
           <Link to="/apps" className={isActive('/apps') ? styles.navLinkActive : styles.navLink}>
             Applikasjoner
           </Link>
-          <Link
-            to="/deployments"
-            className={isActive('/deployments') ? styles.navLinkActive : styles.navLink}
-          >
+          <Link to="/deployments" className={isActive('/deployments') ? styles.navLinkActive : styles.navLink}>
             Deployments
           </Link>
-          <Link
-            to="/alerts"
-            className={isActive('/alerts') ? styles.navLinkActive : styles.navLink}
-          >
+          <Link to="/alerts" className={isActive('/alerts') ? styles.navLinkActive : styles.navLink}>
             Varsler
           </Link>
-          <Link
-            to="/admin/users"
-            className={isActive('/admin') ? styles.navLinkActive : styles.navLink}
-          >
+          <Link to="/admin/users" className={isActive('/admin') ? styles.navLinkActive : styles.navLink}>
             Admin
           </Link>
         </nav>
@@ -50,5 +41,5 @@ export default function Layout() {
         </Theme>
       </div>
     </div>
-  );
+  )
 }

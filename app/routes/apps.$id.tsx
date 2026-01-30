@@ -1,20 +1,5 @@
-import {
-  CheckmarkCircleIcon,
-  ExclamationmarkTriangleIcon,
-  XMarkOctagonIcon,
-} from '@navikt/aksel-icons';
-import {
-  Alert,
-  BodyShort,
-  Box,
-  Button,
-  Detail,
-  Heading,
-  Label,
-  Select,
-  Table,
-  Tag,
-} from '@navikt/ds-react';
+import { CheckmarkCircleIcon, ExclamationmarkTriangleIcon, XMarkOctagonIcon } from '@navikt/aksel-icons'
+import { Alert, BodyShort, Box, Button, Detail, Heading, Label, Select, Table, Tag } from '@navikt/ds-react'
 import {
   type ActionFunctionArgs,
   Form,
@@ -23,52 +8,52 @@ import {
   useActionData,
   useLoaderData,
   useSearchParams,
-} from 'react-router';
-import { getUnresolvedAlertsByApp } from '~/db/alerts.server';
+} from 'react-router'
+import { getUnresolvedAlertsByApp } from '~/db/alerts.server'
 import {
   approveRepository,
   getRepositoriesByAppId,
   rejectRepository,
   setRepositoryAsActive,
-} from '~/db/application-repositories.server';
-import { getAppDeploymentStats } from '~/db/deployments.server';
-import { getMonitoredApplicationById } from '~/db/monitored-applications.server';
-import { getDateRange } from '~/lib/nais.server';
-import { syncDeploymentsFromNais } from '~/lib/sync.server';
-import styles from '~/styles/common.module.css';
+} from '~/db/application-repositories.server'
+import { getAppDeploymentStats } from '~/db/deployments.server'
+import { getMonitoredApplicationById } from '~/db/monitored-applications.server'
+import { getDateRange } from '~/lib/nais.server'
+import { syncDeploymentsFromNais } from '~/lib/sync.server'
+import styles from '~/styles/common.module.css'
 
 export async function loader({ params, request }: LoaderFunctionArgs) {
-  const id = parseInt(params.id || '', 10);
+  const id = parseInt(params.id || '', 10)
   if (Number.isNaN(id)) {
-    throw new Response('Invalid app ID', { status: 400 });
+    throw new Response('Invalid app ID', { status: 400 })
   }
 
-  const url = new URL(request.url);
-  const period = url.searchParams.get('period') || 'all';
+  const url = new URL(request.url)
+  const period = url.searchParams.get('period') || 'all'
 
-  let startDate: Date | undefined;
-  let endDate: Date | undefined;
+  let startDate: Date | undefined
+  let endDate: Date | undefined
 
   if (period !== 'all') {
-    const range = getDateRange(period);
-    startDate = range.startDate;
-    endDate = range.endDate;
+    const range = getDateRange(period)
+    startDate = range.startDate
+    endDate = range.endDate
   }
 
-  const app = await getMonitoredApplicationById(id);
+  const app = await getMonitoredApplicationById(id)
   if (!app) {
-    throw new Response('Application not found', { status: 404 });
+    throw new Response('Application not found', { status: 404 })
   }
 
   const [repositories, deploymentStats, alerts] = await Promise.all([
     getRepositoriesByAppId(id),
     getAppDeploymentStats(id, startDate, endDate),
     getUnresolvedAlertsByApp(id),
-  ]);
+  ])
 
-  const activeRepo = repositories.find((r) => r.status === 'active');
-  const pendingRepos = repositories.filter((r) => r.status === 'pending_approval');
-  const historicalRepos = repositories.filter((r) => r.status === 'historical');
+  const activeRepo = repositories.find((r) => r.status === 'active')
+  const pendingRepos = repositories.filter((r) => r.status === 'pending_approval')
+  const historicalRepos = repositories.filter((r) => r.status === 'historical')
 
   return {
     app,
@@ -78,82 +63,82 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
     historicalRepos,
     deploymentStats,
     alerts,
-  };
+  }
 }
 
 export async function action({ request, params }: ActionFunctionArgs) {
-  const id = parseInt(params.id || '', 10);
+  const id = parseInt(params.id || '', 10)
   if (Number.isNaN(id)) {
-    throw new Response('Invalid app ID', { status: 400 });
+    throw new Response('Invalid app ID', { status: 400 })
   }
 
-  const formData = await request.formData();
-  const action = formData.get('action');
+  const formData = await request.formData()
+  const action = formData.get('action')
 
   try {
     if (action === 'sync') {
-      const app = await getMonitoredApplicationById(id);
+      const app = await getMonitoredApplicationById(id)
       if (!app) {
-        return { error: 'Applikasjon ikke funnet' };
+        return { error: 'Applikasjon ikke funnet' }
       }
-      await syncDeploymentsFromNais(app.team_slug, app.environment_name, app.app_name);
-      return { success: 'Deployments hentet fra Nais!' };
+      await syncDeploymentsFromNais(app.team_slug, app.environment_name, app.app_name)
+      return { success: 'Deployments hentet fra Nais!' }
     }
 
     if (action === 'approve_repo') {
-      const repoId = parseInt(formData.get('repo_id') as string, 10);
-      const setActive = formData.get('set_active') === 'true';
-      await approveRepository(repoId, 'web-user', setActive);
-      return { success: 'Repository godkjent!' };
+      const repoId = parseInt(formData.get('repo_id') as string, 10)
+      const setActive = formData.get('set_active') === 'true'
+      await approveRepository(repoId, 'web-user', setActive)
+      return { success: 'Repository godkjent!' }
     }
 
     if (action === 'reject_repo') {
-      const repoId = parseInt(formData.get('repo_id') as string, 10);
-      await rejectRepository(repoId);
-      return { success: 'Repository avvist!' };
+      const repoId = parseInt(formData.get('repo_id') as string, 10)
+      await rejectRepository(repoId)
+      return { success: 'Repository avvist!' }
     }
 
     if (action === 'set_active') {
-      const repoId = parseInt(formData.get('repo_id') as string, 10);
-      await setRepositoryAsActive(repoId);
-      return { success: 'Aktivt repository oppdatert!' };
+      const repoId = parseInt(formData.get('repo_id') as string, 10)
+      await setRepositoryAsActive(repoId)
+      return { success: 'Aktivt repository oppdatert!' }
     }
 
-    return { error: 'Ukjent handling' };
+    return { error: 'Ukjent handling' }
   } catch (error) {
-    console.error('Action error:', error);
-    return { error: error instanceof Error ? error.message : 'En feil oppstod' };
+    console.error('Action error:', error)
+    return { error: error instanceof Error ? error.message : 'En feil oppstod' }
   }
 }
 
 export default function AppDetail() {
   const { app, repositories, activeRepo, pendingRepos, historicalRepos, deploymentStats, alerts } =
-    useLoaderData<typeof loader>();
-  const actionData = useActionData<typeof action>();
-  const [searchParams] = useSearchParams();
-  const currentPeriod = searchParams.get('period') || 'all';
+    useLoaderData<typeof loader>()
+  const actionData = useActionData<typeof action>()
+  const [searchParams] = useSearchParams()
+  const currentPeriod = searchParams.get('period') || 'all'
 
   // Status badge based on deployment stats and alerts
   // Priority: 1. Missing four-eyes (error), 2. Pending verification (warning), 3. Alerts (warning), 4. OK (success)
-  let statusVariant: 'success' | 'warning' | 'error' = 'success';
-  let statusIcon = <CheckmarkCircleIcon />;
-  let statusText = 'Alt OK';
+  let statusVariant: 'success' | 'warning' | 'error' = 'success'
+  let statusIcon = <CheckmarkCircleIcon />
+  let statusText = 'Alt OK'
 
   if (deploymentStats.without_four_eyes > 0) {
-    statusVariant = 'error';
-    statusIcon = <XMarkOctagonIcon />;
-    statusText = `${deploymentStats.without_four_eyes} deployment${deploymentStats.without_four_eyes > 1 ? 's' : ''} mangler four-eyes`;
+    statusVariant = 'error'
+    statusIcon = <XMarkOctagonIcon />
+    statusText = `${deploymentStats.without_four_eyes} deployment${deploymentStats.without_four_eyes > 1 ? 's' : ''} mangler four-eyes`
   } else if (deploymentStats.pending_verification > 0) {
-    statusVariant = 'warning';
-    statusIcon = <ExclamationmarkTriangleIcon />;
-    statusText = `${deploymentStats.pending_verification} deployment${deploymentStats.pending_verification > 1 ? 's' : ''} venter verifisering`;
+    statusVariant = 'warning'
+    statusIcon = <ExclamationmarkTriangleIcon />
+    statusText = `${deploymentStats.pending_verification} deployment${deploymentStats.pending_verification > 1 ? 's' : ''} venter verifisering`
   } else if (alerts.length > 0) {
-    statusVariant = 'warning';
-    statusIcon = <ExclamationmarkTriangleIcon />;
-    statusText = `${alerts.length} åpne varsler`;
+    statusVariant = 'warning'
+    statusIcon = <ExclamationmarkTriangleIcon />
+    statusText = `${alerts.length} åpne varsler`
   }
 
-  const naisConsoleUrl = `https://console.nav.cloud.nais.io/team/${app.team_slug}/${app.environment_name}/app/${app.app_name}`;
+  const naisConsoleUrl = `https://console.nav.cloud.nais.io/team/${app.team_slug}/${app.environment_name}/app/${app.app_name}`
 
   return (
     <div className={styles.pageContainer}>
@@ -186,12 +171,7 @@ export default function AppDetail() {
 
       {/* Time Period Filter */}
       <Form method="get" className={styles.marginTop2} onChange={(e) => e.currentTarget.submit()}>
-        <Select
-          label="Tidsperiode"
-          name="period"
-          defaultValue={currentPeriod}
-          className={styles.filterSelect}
-        >
+        <Select label="Tidsperiode" name="period" defaultValue={currentPeriod} className={styles.filterSelect}>
           <option value="last-month">Siste måned</option>
           <option value="last-12-months">Siste 12 måneder</option>
           <option value="this-year">I år</option>
@@ -201,12 +181,7 @@ export default function AppDetail() {
       </Form>
 
       {/* Statistics Section */}
-      <Box
-        background="neutral-soft"
-        padding="space-16"
-        borderRadius="12"
-        className={styles.marginTop2}
-      >
+      <Box background="neutral-soft" padding="space-16" borderRadius="12" className={styles.marginTop2}>
         <Heading size="medium" spacing>
           📊 Statistikk
         </Heading>
@@ -243,12 +218,7 @@ export default function AppDetail() {
           </div>
         </div>
         <div className={`${styles.flexRowGap1} ${styles.marginTop1}`}>
-          <Button
-            as={Link}
-            to={`/deployments?app=${app.id}&period=${currentPeriod}`}
-            variant="secondary"
-            size="small"
-          >
+          <Button as={Link} to={`/deployments?app=${app.id}&period=${currentPeriod}`} variant="secondary" size="small">
             Se alle deployments →
           </Button>
           <Button
@@ -265,12 +235,7 @@ export default function AppDetail() {
       </Box>
 
       {/* Quick Actions */}
-      <Box
-        background="neutral-soft"
-        padding="space-16"
-        borderRadius="12"
-        className={styles.marginTop2}
-      >
+      <Box background="neutral-soft" padding="space-16" borderRadius="12" className={styles.marginTop2}>
         <Heading size="medium" spacing>
           ⚡ Handlinger
         </Heading>
@@ -281,12 +246,7 @@ export default function AppDetail() {
               🔄 Hent deployments fra Nais
             </Button>
           </form>
-          <Button
-            as={Link}
-            to={`/deployments/verify?app=${app.id}`}
-            variant="secondary"
-            size="small"
-          >
+          <Button as={Link} to={`/deployments/verify?app=${app.id}`} variant="secondary" size="small">
             ✓ Verifiser deployments mot GitHub
           </Button>
         </div>
@@ -294,12 +254,7 @@ export default function AppDetail() {
 
       {/* Alerts Section */}
       {alerts.length > 0 && (
-        <Box
-          background="neutral-soft"
-          padding="space-16"
-          borderRadius="12"
-          className={styles.marginTop2}
-        >
+        <Box background="neutral-soft" padding="space-16" borderRadius="12" className={styles.marginTop2}>
           <Heading size="medium" spacing>
             ⚠️ Åpne varsler ({alerts.length})
           </Heading>
@@ -316,9 +271,7 @@ export default function AppDetail() {
             <Table.Body>
               {alerts.map((alert) => (
                 <Table.Row key={alert.id}>
-                  <Table.DataCell>
-                    {new Date(alert.created_at).toLocaleDateString('no-NO')}
-                  </Table.DataCell>
+                  <Table.DataCell>{new Date(alert.created_at).toLocaleDateString('no-NO')}</Table.DataCell>
                   <Table.DataCell>
                     <Tag size="xsmall" variant="warning">
                       {alert.alert_type === 'repository_mismatch' && 'Ukjent repo'}
@@ -337,12 +290,7 @@ export default function AppDetail() {
                     </code>
                   </Table.DataCell>
                   <Table.DataCell>
-                    <Button
-                      as={Link}
-                      to={`/deployments/${alert.deployment_id}`}
-                      size="xsmall"
-                      variant="tertiary"
-                    >
+                    <Button as={Link} to={`/deployments/${alert.deployment_id}`} size="xsmall" variant="tertiary">
                       Se deployment
                     </Button>
                   </Table.DataCell>
@@ -359,12 +307,7 @@ export default function AppDetail() {
       )}
 
       {/* Repositories Section */}
-      <Box
-        background="neutral-soft"
-        padding="space-16"
-        borderRadius="12"
-        className={styles.marginTop2}
-      >
+      <Box background="neutral-soft" padding="space-16" borderRadius="12" className={styles.marginTop2}>
         <Heading size="medium" spacing>
           📦 Repositories
         </Heading>
@@ -426,9 +369,7 @@ export default function AppDetail() {
                         </a>
                       </div>
                     </Table.DataCell>
-                    <Table.DataCell>
-                      {new Date(repo.created_at).toLocaleDateString('no-NO')}
-                    </Table.DataCell>
+                    <Table.DataCell>{new Date(repo.created_at).toLocaleDateString('no-NO')}</Table.DataCell>
                     <Table.DataCell>
                       <div className={styles.flexRowGap05}>
                         <form method="post" style={{ display: 'inline' }}>
@@ -493,9 +434,7 @@ export default function AppDetail() {
                         </Tag>
                       )}
                     </Table.DataCell>
-                    <Table.DataCell>
-                      {new Date(repo.created_at).toLocaleDateString('no-NO')}
-                    </Table.DataCell>
+                    <Table.DataCell>{new Date(repo.created_at).toLocaleDateString('no-NO')}</Table.DataCell>
                     <Table.DataCell>
                       <form method="post" style={{ display: 'inline' }}>
                         <input type="hidden" name="action" value="set_active" />
@@ -512,9 +451,7 @@ export default function AppDetail() {
           </div>
         )}
 
-        {repositories.length === 0 && (
-          <BodyShort>Ingen repositories registrert for denne applikasjonen</BodyShort>
-        )}
+        {repositories.length === 0 && <BodyShort>Ingen repositories registrert for denne applikasjonen</BodyShort>}
       </Box>
 
       <div className={styles.marginTop2}>
@@ -523,5 +460,5 @@ export default function AppDetail() {
         </Button>
       </div>
     </div>
-  );
+  )
 }

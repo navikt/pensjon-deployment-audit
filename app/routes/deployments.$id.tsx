@@ -5,7 +5,7 @@ import {
   MinusCircleIcon,
   TrashIcon,
   XMarkOctagonIcon,
-} from '@navikt/aksel-icons';
+} from '@navikt/aksel-icons'
 import {
   Accordion,
   Alert,
@@ -18,74 +18,66 @@ import {
   Tag,
   Textarea,
   TextField,
-} from '@navikt/ds-react';
-import { useState } from 'react';
-import { Form, Link } from 'react-router';
-import {
-  createComment,
-  deleteComment,
-  getCommentsByDeploymentId,
-  getManualApproval,
-} from '~/db/comments.server';
+} from '@navikt/ds-react'
+import { useState } from 'react'
+import { Form, Link } from 'react-router'
+import { createComment, deleteComment, getCommentsByDeploymentId, getManualApproval } from '~/db/comments.server'
 import {
   getDeploymentById,
   getNextDeployment,
   getPreviousDeploymentForNav,
   updateDeploymentFourEyes,
-} from '~/db/deployments.server';
-import { getUserMappings, type UserMapping } from '~/db/user-mappings.server';
-import { verifyDeploymentFourEyes } from '~/lib/sync.server';
-import styles from '../styles/common.module.css';
-import type { Route } from './+types/deployments.$id';
+} from '~/db/deployments.server'
+import { getUserMappings } from '~/db/user-mappings.server'
+import { verifyDeploymentFourEyes } from '~/lib/sync.server'
+import styles from '../styles/common.module.css'
+import type { Route } from './+types/deployments.$id'
 
 export async function loader({ params }: Route.LoaderArgs) {
-  const deploymentId = parseInt(params.id, 10);
-  const deployment = await getDeploymentById(deploymentId);
+  const deploymentId = parseInt(params.id, 10)
+  const deployment = await getDeploymentById(deploymentId)
 
   if (!deployment) {
-    throw new Response('Deployment not found', { status: 404 });
+    throw new Response('Deployment not found', { status: 404 })
   }
 
-  const comments = await getCommentsByDeploymentId(deploymentId);
-  const manualApproval = await getManualApproval(deploymentId);
+  const comments = await getCommentsByDeploymentId(deploymentId)
+  const manualApproval = await getManualApproval(deploymentId)
 
   // Get previous and next deployments for navigation
-  const previousDeployment = await getPreviousDeploymentForNav(
-    deploymentId,
-    deployment.monitored_app_id
-  );
-  const nextDeployment = await getNextDeployment(deploymentId, deployment.monitored_app_id);
+  const previousDeployment = await getPreviousDeploymentForNav(deploymentId, deployment.monitored_app_id)
+  const nextDeployment = await getNextDeployment(deploymentId, deployment.monitored_app_id)
 
   // Collect all GitHub usernames we need to look up
-  const usernames: string[] = [];
-  if (deployment.deployer_username) usernames.push(deployment.deployer_username);
-  if (deployment.github_pr_data?.creator?.username) usernames.push(deployment.github_pr_data.creator.username);
-  if (deployment.github_pr_data?.merger?.username) usernames.push(deployment.github_pr_data.merger.username);
+  const usernames: string[] = []
+  if (deployment.deployer_username) usernames.push(deployment.deployer_username)
+  if (deployment.github_pr_data?.creator?.username) usernames.push(deployment.github_pr_data.creator.username)
+  if (deployment.github_pr_data?.merger?.username) usernames.push(deployment.github_pr_data.merger.username)
 
   // Get all user mappings in one query
-  const userMappings = await getUserMappings(usernames);
+  const userMappings = await getUserMappings(usernames)
 
-  return { 
-    deployment, 
-    comments, 
-    manualApproval, 
-    previousDeployment, 
+  return {
+    deployment,
+    comments,
+    manualApproval,
+    previousDeployment,
     nextDeployment,
     userMappings: Object.fromEntries(userMappings),
-  };
+  }
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
-  const deploymentId = parseInt(params.id, 10);
-  const formData = await request.formData();
-  const intent = formData.get('intent');
+  const deploymentId = parseInt(params.id, 10)
+  const formData = await request.formData()
+  const intent = formData.get('intent')
 
   if (intent === 'add_comment') {
-    const commentText = formData.get('comment_text') as string;
-    const slackLink = formData.get('slack_link') as string;
+    const commentText = formData.get('comment_text') as string
+    const slackLink = formData.get('slack_link') as string
 
     if (!commentText || commentText.trim() === '') {
-      return { error: 'Kommentar kan ikke være tom' };
+      return { error: 'Kommentar kan ikke være tom' }
     }
 
     try {
@@ -93,19 +85,19 @@ export async function action({ request, params }: Route.ActionArgs) {
         deployment_id: deploymentId,
         comment_text: commentText.trim(),
         slack_link: slackLink || undefined,
-      });
-      return { success: 'Kommentar lagt til' };
+      })
+      return { success: 'Kommentar lagt til' }
     } catch (_error) {
-      return { error: 'Kunne ikke legge til kommentar' };
+      return { error: 'Kunne ikke legge til kommentar' }
     }
   }
 
   if (intent === 'manual_approval') {
-    const approvedBy = formData.get('approved_by') as string;
-    const reason = formData.get('reason') as string;
+    const approvedBy = formData.get('approved_by') as string
+    const reason = formData.get('reason') as string
 
     if (!approvedBy || approvedBy.trim() === '') {
-      return { error: 'Godkjenner må oppgis' };
+      return { error: 'Godkjenner må oppgis' }
     }
 
     try {
@@ -115,7 +107,7 @@ export async function action({ request, params }: Route.ActionArgs) {
         comment_text: reason || 'Manuelt godkjent etter gjennomgang av unreviewed commits',
         comment_type: 'manual_approval',
         approved_by: approvedBy.trim(),
-      });
+      })
 
       // Update deployment to mark as approved
       await updateDeploymentFourEyes(deploymentId, {
@@ -123,81 +115,81 @@ export async function action({ request, params }: Route.ActionArgs) {
         fourEyesStatus: 'approved_pr_with_unreviewed',
         githubPrNumber: null,
         githubPrUrl: null,
-      });
+      })
 
-      return { success: 'Deployment manuelt godkjent' };
+      return { success: 'Deployment manuelt godkjent' }
     } catch (_error) {
-      return { error: 'Kunne ikke godkjenne deployment' };
+      return { error: 'Kunne ikke godkjenne deployment' }
     }
   }
 
   if (intent === 'delete_comment') {
-    const commentId = parseInt(formData.get('comment_id') as string, 10);
+    const commentId = parseInt(formData.get('comment_id') as string, 10)
     try {
-      await deleteComment(commentId);
-      return { success: 'Kommentar slettet' };
+      await deleteComment(commentId)
+      return { success: 'Kommentar slettet' }
     } catch (_error) {
-      return { error: 'Kunne ikke slette kommentar' };
+      return { error: 'Kunne ikke slette kommentar' }
     }
   }
 
   if (intent === 'verify_four_eyes') {
-    const deployment = await getDeploymentById(deploymentId);
+    const deployment = await getDeploymentById(deploymentId)
 
     if (!deployment) {
-      return { error: 'Deployment ikke funnet' };
+      return { error: 'Deployment ikke funnet' }
     }
 
     // Check if deployment has required data
     if (!deployment.commit_sha) {
-      return { error: 'Kan ikke verifisere: deployment mangler commit SHA' };
+      return { error: 'Kan ikke verifisere: deployment mangler commit SHA' }
     }
 
     if (!deployment.detected_github_owner || !deployment.detected_github_repo_name) {
-      return { error: 'Kan ikke verifisere: deployment mangler repository info' };
+      return { error: 'Kan ikke verifisere: deployment mangler repository info' }
     }
 
     try {
-      console.log(`🔍 Manually verifying deployment ${deployment.nais_deployment_id}...`);
+      console.log(`🔍 Manually verifying deployment ${deployment.nais_deployment_id}...`)
 
       const success = await verifyDeploymentFourEyes(
         deployment.id,
         deployment.commit_sha!,
         `${deployment.detected_github_owner}/${deployment.detected_github_repo_name}`,
         deployment.environment_name,
-        deployment.trigger_url
-      );
+        deployment.trigger_url,
+      )
 
       if (success) {
-        return { success: '✅ Four-eyes status verifisert og oppdatert' };
+        return { success: '✅ Four-eyes status verifisert og oppdatert' }
       } else {
-        return { error: 'Verifisering feilet - se logger for detaljer' };
+        return { error: 'Verifisering feilet - se logger for detaljer' }
       }
     } catch (error) {
-      console.error('Verification error:', error);
+      console.error('Verification error:', error)
       if (error instanceof Error && error.message.includes('rate limit')) {
-        return { error: '⚠️ GitHub rate limit nådd. Prøv igjen senere.' };
+        return { error: '⚠️ GitHub rate limit nådd. Prøv igjen senere.' }
       }
       return {
         error: `Kunne ikke verifisere: ${error instanceof Error ? error.message : 'Ukjent feil'}`,
-      };
+      }
     }
   }
 
-  return null;
+  return null
 }
 
 function getFourEyesStatus(deployment: any): {
-  text: string;
-  variant: 'success' | 'warning' | 'error' | 'info';
-  description: string;
+  text: string
+  variant: 'success' | 'warning' | 'error' | 'info'
+  description: string
 } {
   if (deployment.has_four_eyes) {
     return {
       text: 'Four-eyes OK',
       variant: 'success',
       description: 'Dette deploymentet har blitt godkjent via en approved PR.',
-    };
+    }
   }
 
   switch (deployment.four_eyes_status) {
@@ -207,102 +199,92 @@ function getFourEyesStatus(deployment: any): {
         text: 'Four-eyes OK',
         variant: 'success',
         description: 'Dette deploymentet har blitt godkjent via en approved PR.',
-      };
+      }
     case 'baseline':
       return {
         text: 'Baseline',
         variant: 'success',
-        description:
-          'Første deployment for dette miljøet. Brukes som utgangspunkt for verifisering.',
-      };
+        description: 'Første deployment for dette miljøet. Brukes som utgangspunkt for verifisering.',
+      }
     case 'no_changes':
       return {
         text: 'Ingen endringer',
         variant: 'success',
         description: 'Samme commit som forrige deployment.',
-      };
+      }
     case 'unverified_commits':
       return {
         text: 'Uverifiserte commits',
         variant: 'error',
         description:
           'Det finnes commits mellom forrige og dette deploymentet som ikke har godkjent PR. Se detaljer under.',
-      };
+      }
     case 'approved_pr_with_unreviewed':
       return {
         text: 'Ureviewed commits i merge',
         variant: 'error',
         description:
           'PR var godkjent, men det ble merget inn commits fra main som ikke har godkjenning. Se detaljer under.',
-      };
+      }
     case 'legacy':
       return {
         text: 'Legacy (>1 år)',
         variant: 'success',
-        description:
-          'Dette deploymentet er eldre enn 1 år og mangler informasjon om commit. Deploymentet er ignorert.',
-      };
+        description: 'Dette deploymentet er eldre enn 1 år og mangler informasjon om commit. Deploymentet er ignorert.',
+      }
     case 'direct_push':
       return {
         text: 'Direct push',
         variant: 'warning',
         description: 'Dette var en direct push til main. Legg til Slack-lenke som bevis på review.',
-      };
+      }
     case 'missing':
       return {
         text: 'Mangler godkjenning',
         variant: 'error',
-        description:
-          'PR-en var ikke godkjent etter siste commit, eller godkjenningen kom før siste commit.',
-      };
+        description: 'PR-en var ikke godkjent etter siste commit, eller godkjenningen kom før siste commit.',
+      }
     case 'error':
       return {
         text: 'Feil ved verifisering',
         variant: 'error',
         description: 'Det oppstod en feil ved sjekk av GitHub.',
-      };
+      }
     case 'pending':
       return {
         text: 'Venter på verifisering',
         variant: 'info',
         description: 'Deploymentet er ikke verifisert ennå.',
-      };
+      }
     default:
       return {
         text: 'Ukjent status',
         variant: 'info',
         description: `Status for four-eyes kunne ikke fastslås (${deployment.four_eyes_status}).`,
-      };
+      }
   }
 }
 
 export default function DeploymentDetail({ loaderData, actionData }: Route.ComponentProps) {
-  const { 
-    deployment, 
-    comments, 
-    manualApproval, 
-    previousDeployment, 
-    nextDeployment,
-    userMappings,
-  } = loaderData;
-  const [commentText, setCommentText] = useState('');
-  const [slackLink, setSlackLink] = useState('');
-  const [approvedBy, setApprovedBy] = useState('');
-  const [approvalReason, setApprovalReason] = useState('');
-  const [showApprovalForm, setShowApprovalForm] = useState(false);
+  const { deployment, comments, manualApproval, previousDeployment, nextDeployment, userMappings } = loaderData
+  const [commentText, setCommentText] = useState('')
+  const [slackLink, setSlackLink] = useState('')
+  const [approvedBy, setApprovedBy] = useState('')
+  const [approvalReason, setApprovalReason] = useState('')
+  const [showApprovalForm, setShowApprovalForm] = useState(false)
 
-  const status = getFourEyesStatus(deployment);
-  
+  const status = getFourEyesStatus(deployment)
+
   // Helper to get user display info
   const getUserDisplay = (githubUsername: string | undefined | null) => {
-    if (!githubUsername) return null;
-    const mapping = userMappings[githubUsername];
-    return mapping?.display_name || mapping?.nav_email || null;
-  };
+    if (!githubUsername) return null
+    const mapping = userMappings[githubUsername]
+    return mapping?.display_name || mapping?.nav_email || null
+  }
 
   // Extract app name from deployment (might not match exactly, but we have it in the data)
-  const appName = deployment.app_name || deployment.detected_github_repo_name;
-  const naisConsoleUrl = `https://console.nav.cloud.nais.io/team/${deployment.team_slug}/${deployment.environment_name}/app/${appName}`;
+  const appName = deployment.app_name || deployment.detected_github_repo_name
+  const naisConsoleUrl = `https://console.nav.cloud.nais.io/team/${deployment.team_slug}/${deployment.environment_name}/app/${appName}`
 
   return (
     <div className={styles.pageContainer}>
@@ -327,12 +309,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
         style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
       >
         {previousDeployment ? (
-          <Button
-            as={Link}
-            to={`/deployments/${previousDeployment.id}`}
-            variant="secondary"
-            size="small"
-          >
+          <Button as={Link} to={`/deployments/${previousDeployment.id}`} variant="secondary" size="small">
             ← Forrige
           </Button>
         ) : (
@@ -349,12 +326,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
         </Button>
 
         {nextDeployment ? (
-          <Button
-            as={Link}
-            to={`/deployments/${nextDeployment.id}`}
-            variant="secondary"
-            size="small"
-          >
+          <Button as={Link} to={`/deployments/${nextDeployment.id}`} variant="secondary" size="small">
             Neste →
           </Button>
         ) : (
@@ -382,7 +354,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
           </div>
           {deployment.commit_sha &&
             ['pending', 'error', 'missing', 'direct_push', 'unverified_commits'].includes(
-              deployment.four_eyes_status
+              deployment.four_eyes_status,
             ) && (
               <Form method="post">
                 <input type="hidden" name="intent" value="verify_four_eyes" />
@@ -406,27 +378,18 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
           <Heading size="small" spacing>
             Uverifiserte commits ({deployment.unverified_commits.length})
           </Heading>
-          <BodyShort spacing>
-            Følgende commits mellom forrige og dette deploymentet har ikke godkjent PR:
-          </BodyShort>
+          <BodyShort spacing>Følgende commits mellom forrige og dette deploymentet har ikke godkjent PR:</BodyShort>
           <ul style={{ margin: 0, paddingLeft: '1.5rem' }}>
             {deployment.unverified_commits.map((commit: any) => (
               <li key={commit.sha} style={{ marginBottom: '0.5rem' }}>
-                <a
-                  href={commit.html_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={styles.codeMedium}
-                >
+                <a href={commit.html_url} target="_blank" rel="noopener noreferrer" className={styles.codeMedium}>
                   {commit.sha.substring(0, 7)}
                 </a>{' '}
                 - {commit.message}
                 <br />
                 <Detail>
                   av {commit.author} •{' '}
-                  {commit.pr_number
-                    ? `PR #${commit.pr_number} ikke godkjent`
-                    : 'Ingen PR (direkte push)'}
+                  {commit.pr_number ? `PR #${commit.pr_number} ikke godkjent` : 'Ingen PR (direkte push)'}
                 </Detail>
               </li>
             ))}
@@ -580,11 +543,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
             <BodyShort>
               <code className={styles.codeSmall}>{deployment.nais_deployment_id}</code>
             </BodyShort>
-            <CopyButton
-              copyText={deployment.nais_deployment_id}
-              size="small"
-              title="Kopier deployment ID"
-            />
+            <CopyButton copyText={deployment.nais_deployment_id} size="small" title="Kopier deployment ID" />
           </div>
         </div>
       </div>
@@ -623,12 +582,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
             {deployment.github_pr_data.body && (
               <div style={{ gridColumn: '1 / -1' }}>
                 <Detail>Beskrivelse</Detail>
-                <Box
-                  background="neutral-soft"
-                  padding="space-16"
-                  borderRadius="12"
-                  className={styles.marginTop2}
-                >
+                <Box background="neutral-soft" padding="space-16" borderRadius="12" className={styles.marginTop2}>
                   <BodyShort style={{ whiteSpace: 'pre-wrap' }}>
                     {/* biome-ignore lint/security/noDangerouslySetInnerHtml: GitHub PR body contains safe markdown HTML */}
                     <div dangerouslySetInnerHTML={{ __html: deployment.github_pr_data.body }} />
@@ -648,7 +602,10 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                   {deployment.github_pr_data.creator.username}
                 </a>
                 {getUserDisplay(deployment.github_pr_data.creator.username) && (
-                  <span className={styles.textSubtle}> ({getUserDisplay(deployment.github_pr_data.creator.username)})</span>
+                  <span className={styles.textSubtle}>
+                    {' '}
+                    ({getUserDisplay(deployment.github_pr_data.creator.username)})
+                  </span>
                 )}
               </BodyShort>
             </div>
@@ -665,7 +622,10 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                     {deployment.github_pr_data.merger.username}
                   </a>
                   {getUserDisplay(deployment.github_pr_data.merger.username) && (
-                    <span className={styles.textSubtle}> ({getUserDisplay(deployment.github_pr_data.merger.username)})</span>
+                    <span className={styles.textSubtle}>
+                      {' '}
+                      ({getUserDisplay(deployment.github_pr_data.merger.username)})
+                    </span>
                   )}
                 </BodyShort>
               </div>
@@ -763,56 +723,45 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
           )}
 
           {/* Reviewers */}
-          {deployment.github_pr_data.reviewers &&
-            deployment.github_pr_data.reviewers.length > 0 && (
-              <div style={{ marginTop: '1rem' }}>
-                <Detail>Reviewers</Detail>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  {deployment.github_pr_data.reviewers.map((reviewer) => (
-                    <div
-                      key={`${reviewer.username}:${reviewer.submitted_at}`}
-                      style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+          {deployment.github_pr_data.reviewers && deployment.github_pr_data.reviewers.length > 0 && (
+            <div style={{ marginTop: '1rem' }}>
+              <Detail>Reviewers</Detail>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {deployment.github_pr_data.reviewers.map((reviewer) => (
+                  <div
+                    key={`${reviewer.username}:${reviewer.submitted_at}`}
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                  >
+                    {reviewer.state === 'APPROVED' && <span style={{ fontSize: '1.2rem' }}>✅</span>}
+                    {reviewer.state === 'CHANGES_REQUESTED' && <span style={{ fontSize: '1.2rem' }}>🔴</span>}
+                    {reviewer.state === 'COMMENTED' && <span style={{ fontSize: '1.2rem' }}>💬</span>}
+                    <a href={`https://github.com/${reviewer.username}`} target="_blank" rel="noopener noreferrer">
+                      {reviewer.username}
+                    </a>
+                    <span className={styles.textSubtle}>
+                      -{' '}
+                      {new Date(reviewer.submitted_at).toLocaleString('no-NO', {
+                        dateStyle: 'short',
+                        timeStyle: 'short',
+                      })}
+                    </span>
+                    <Tag
+                      variant={
+                        reviewer.state === 'APPROVED'
+                          ? 'success'
+                          : reviewer.state === 'CHANGES_REQUESTED'
+                            ? 'error'
+                            : 'neutral'
+                      }
+                      size="small"
                     >
-                      {reviewer.state === 'APPROVED' && (
-                        <span style={{ fontSize: '1.2rem' }}>✅</span>
-                      )}
-                      {reviewer.state === 'CHANGES_REQUESTED' && (
-                        <span style={{ fontSize: '1.2rem' }}>🔴</span>
-                      )}
-                      {reviewer.state === 'COMMENTED' && (
-                        <span style={{ fontSize: '1.2rem' }}>💬</span>
-                      )}
-                      <a
-                        href={`https://github.com/${reviewer.username}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        {reviewer.username}
-                      </a>
-                      <span className={styles.textSubtle}>
-                        -{' '}
-                        {new Date(reviewer.submitted_at).toLocaleString('no-NO', {
-                          dateStyle: 'short',
-                          timeStyle: 'short',
-                        })}
-                      </span>
-                      <Tag
-                        variant={
-                          reviewer.state === 'APPROVED'
-                            ? 'success'
-                            : reviewer.state === 'CHANGES_REQUESTED'
-                              ? 'error'
-                              : 'neutral'
-                        }
-                        size="small"
-                      >
-                        {reviewer.state}
-                      </Tag>
-                    </div>
-                  ))}
-                </div>
+                      {reviewer.state}
+                    </Tag>
+                  </div>
+                ))}
               </div>
-            )}
+            </div>
+          )}
 
           {/* GitHub Checks */}
           {deployment.github_pr_data.checks && deployment.github_pr_data.checks.length > 0 && (
@@ -823,12 +772,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                     <Detail>GitHub Checks ({deployment.github_pr_data.checks.length})</Detail>
                   </Accordion.Header>
                   <Accordion.Content>
-                    <Box
-                      background="neutral-soft"
-                      padding="space-16"
-                      borderRadius="12"
-                      className={styles.marginTop2}
-                    >
+                    <Box background="neutral-soft" padding="space-16" borderRadius="12" className={styles.marginTop2}>
                       <div
                         style={{
                           display: 'flex',
@@ -838,37 +782,27 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                         }}
                       >
                         {deployment.github_pr_data.checks.map((check) => {
-                          const isSuccess = check.conclusion === 'success';
+                          const isSuccess = check.conclusion === 'success'
                           const isFailure =
                             check.conclusion === 'failure' ||
                             check.conclusion === 'timed_out' ||
-                            check.conclusion === 'action_required';
+                            check.conclusion === 'action_required'
                           const isSkipped =
                             check.conclusion === 'skipped' ||
                             check.conclusion === 'neutral' ||
-                            check.conclusion === 'cancelled';
-                          const isInProgress =
-                            check.status === 'in_progress' || check.status === 'queued';
+                            check.conclusion === 'cancelled'
+                          const isInProgress = check.status === 'in_progress' || check.status === 'queued'
 
                           return (
-                            <div
-                              key={check.html_url}
-                              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                            >
+                            <div key={check.html_url} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                               {isSuccess && (
-                                <CheckmarkCircleIcon
-                                  style={{ color: 'var(--a-icon-success)', fontSize: '1.2rem' }}
-                                />
+                                <CheckmarkCircleIcon style={{ color: 'var(--a-icon-success)', fontSize: '1.2rem' }} />
                               )}
                               {isFailure && (
-                                <XMarkOctagonIcon
-                                  style={{ color: 'var(--a-icon-danger)', fontSize: '1.2rem' }}
-                                />
+                                <XMarkOctagonIcon style={{ color: 'var(--a-icon-danger)', fontSize: '1.2rem' }} />
                               )}
                               {isSkipped && (
-                                <MinusCircleIcon
-                                  style={{ color: 'var(--a-icon-subtle)', fontSize: '1.2rem' }}
-                                />
+                                <MinusCircleIcon style={{ color: 'var(--a-icon-subtle)', fontSize: '1.2rem' }} />
                               )}
                               {isInProgress && <span style={{ fontSize: '1.2rem' }}>⏳</span>}
 
@@ -882,13 +816,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
 
                               <Tag
                                 variant={
-                                  isSuccess
-                                    ? 'success'
-                                    : isFailure
-                                      ? 'error'
-                                      : isSkipped
-                                        ? 'neutral'
-                                        : 'warning'
+                                  isSuccess ? 'success' : isFailure ? 'error' : isSkipped ? 'neutral' : 'warning'
                                 }
                                 size="small"
                               >
@@ -904,7 +832,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                                 </span>
                               )}
                             </div>
-                          );
+                          )
                         })}
                       </div>
                     </Box>
@@ -919,9 +847,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
             <div>
               <Accordion>
                 <Accordion.Item>
-                  <Accordion.Header>
-                    Commits i PR ({deployment.github_pr_data.commits.length})
-                  </Accordion.Header>
+                  <Accordion.Header>Commits i PR ({deployment.github_pr_data.commits.length})</Accordion.Header>
                   <Accordion.Content>
                     <Box background="neutral-soft" padding="space-16" borderRadius="12">
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -973,9 +899,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                                   })}
                                 </span>
                               </div>
-                              <BodyShort style={{ marginTop: '0.25rem' }}>
-                                {commit.message.split('\n')[0]}
-                              </BodyShort>
+                              <BodyShort style={{ marginTop: '0.25rem' }}>{commit.message.split('\n')[0]}</BodyShort>
                             </div>
                           </div>
                         ))}
@@ -988,148 +912,141 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
           )}
 
           {/* Unreviewed commits warning */}
-          {deployment.github_pr_data?.unreviewed_commits &&
-            deployment.github_pr_data.unreviewed_commits.length > 0 && (
-              <div>
-                <Alert variant="error">
+          {deployment.github_pr_data?.unreviewed_commits && deployment.github_pr_data.unreviewed_commits.length > 0 && (
+            <div>
+              <Alert variant="error">
+                <Heading size="small" spacing>
+                  ⚠️ Ureviewed commits funnet
+                </Heading>
+                <BodyShort spacing>
+                  Følgende commits var på main mellom PR base og merge, men mangler godkjenning:
+                </BodyShort>
+              </Alert>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {deployment.github_pr_data.unreviewed_commits.map((commit) => (
+                  <Box
+                    key={commit.sha}
+                    background="danger-soft"
+                    padding="space-16"
+                    borderRadius="8"
+                    borderWidth="1"
+                    borderColor="danger-subtleA"
+                  >
+                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                          style={{
+                            display: 'flex',
+                            gap: '0.5rem',
+                            alignItems: 'baseline',
+                            flexWrap: 'wrap',
+                          }}
+                        >
+                          <a
+                            href={commit.html_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ fontFamily: 'monospace', fontSize: '0.875rem' }}
+                          >
+                            {commit.sha.substring(0, 7)}
+                          </a>
+                          <span className={styles.textSubtle}>{commit.author}</span>
+                          <span className={styles.textSubtle}>
+                            {new Date(commit.date).toLocaleDateString('no-NO', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
+                        </div>
+                        <BodyShort size="small" style={{ marginTop: '0.25rem' }}>
+                          {commit.message.split('\n')[0]}
+                        </BodyShort>
+                        <Detail style={{ marginTop: '0.5rem', color: 'var(--a-text-danger)' }}>{commit.reason}</Detail>
+                      </div>
+                    </div>
+                  </Box>
+                ))}
+              </div>
+
+              {/* Manual approval section */}
+              {manualApproval ? (
+                <Alert variant="success">
+                  <Heading size="small">✅ Manuelt godkjent</Heading>
+                  <BodyShort>
+                    Godkjent av <strong>{manualApproval.approved_by}</strong> den{' '}
+                    {new Date(manualApproval.approved_at!).toLocaleDateString('no-NO', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </BodyShort>
+                  {manualApproval.comment_text && (
+                    <BodyShort style={{ marginTop: '0.5rem', fontStyle: 'italic' }}>
+                      "{manualApproval.comment_text}"
+                    </BodyShort>
+                  )}
+                </Alert>
+              ) : (
+                <Box background="warning-soft" padding="space-16" borderRadius="8">
                   <Heading size="small" spacing>
-                    ⚠️ Ureviewed commits funnet
+                    Krever manuell godkjenning
                   </Heading>
                   <BodyShort spacing>
-                    Følgende commits var på main mellom PR base og merge, men mangler godkjenning:
+                    Gjennomgå de unreviewed commits over. Hvis endringene er OK (f.eks. hotfix eller revert), godkjenn
+                    manuelt.
                   </BodyShort>
-                </Alert>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  {deployment.github_pr_data.unreviewed_commits.map((commit) => (
-                    <Box
-                      key={commit.sha}
-                      background="danger-soft"
-                      padding="space-16"
-                      borderRadius="8"
-                      borderWidth="1"
-                      borderColor="danger-subtleA"
-                    >
-                      <div style={{ display: 'flex', gap: '0.75rem' }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div
-                            style={{
-                              display: 'flex',
-                              gap: '0.5rem',
-                              alignItems: 'baseline',
-                              flexWrap: 'wrap',
-                            }}
+                  {!showApprovalForm ? (
+                    <Button variant="primary" size="small" onClick={() => setShowApprovalForm(true)}>
+                      Godkjenn etter gjennomgang
+                    </Button>
+                  ) : (
+                    <Form method="post">
+                      <input type="hidden" name="intent" value="manual_approval" />
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        <TextField
+                          label="Godkjenner (ditt navn)"
+                          name="approved_by"
+                          value={approvedBy}
+                          onChange={(e) => setApprovedBy(e.target.value)}
+                          required
+                          size="small"
+                        />
+                        <Textarea
+                          label="Begrunnelse (valgfritt)"
+                          name="reason"
+                          value={approvalReason}
+                          onChange={(e) => setApprovalReason(e.target.value)}
+                          description="F.eks: 'Hotfix godkjent i Slack' eller 'Revert av feil deployment'"
+                          size="small"
+                          rows={2}
+                        />
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <Button type="submit" variant="primary" size="small">
+                            Godkjenn
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="small"
+                            onClick={() => setShowApprovalForm(false)}
                           >
-                            <a
-                              href={commit.html_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={{ fontFamily: 'monospace', fontSize: '0.875rem' }}
-                            >
-                              {commit.sha.substring(0, 7)}
-                            </a>
-                            <span className={styles.textSubtle}>{commit.author}</span>
-                            <span className={styles.textSubtle}>
-                              {new Date(commit.date).toLocaleDateString('no-NO', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })}
-                            </span>
-                          </div>
-                          <BodyShort size="small" style={{ marginTop: '0.25rem' }}>
-                            {commit.message.split('\n')[0]}
-                          </BodyShort>
-                          <Detail style={{ marginTop: '0.5rem', color: 'var(--a-text-danger)' }}>
-                            {commit.reason}
-                          </Detail>
+                            Avbryt
+                          </Button>
                         </div>
                       </div>
-                    </Box>
-                  ))}
-                </div>
-
-                {/* Manual approval section */}
-                {manualApproval ? (
-                  <Alert variant="success">
-                    <Heading size="small">✅ Manuelt godkjent</Heading>
-                    <BodyShort>
-                      Godkjent av <strong>{manualApproval.approved_by}</strong> den{' '}
-                      {new Date(manualApproval.approved_at!).toLocaleDateString('no-NO', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </BodyShort>
-                    {manualApproval.comment_text && (
-                      <BodyShort style={{ marginTop: '0.5rem', fontStyle: 'italic' }}>
-                        "{manualApproval.comment_text}"
-                      </BodyShort>
-                    )}
-                  </Alert>
-                ) : (
-                  <Box background="warning-soft" padding="space-16" borderRadius="8">
-                    <Heading size="small" spacing>
-                      Krever manuell godkjenning
-                    </Heading>
-                    <BodyShort spacing>
-                      Gjennomgå de unreviewed commits over. Hvis endringene er OK (f.eks. hotfix
-                      eller revert), godkjenn manuelt.
-                    </BodyShort>
-
-                    {!showApprovalForm ? (
-                      <Button
-                        variant="primary"
-                        size="small"
-                        onClick={() => setShowApprovalForm(true)}
-                      >
-                        Godkjenn etter gjennomgang
-                      </Button>
-                    ) : (
-                      <Form method="post">
-                        <input type="hidden" name="intent" value="manual_approval" />
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                          <TextField
-                            label="Godkjenner (ditt navn)"
-                            name="approved_by"
-                            value={approvedBy}
-                            onChange={(e) => setApprovedBy(e.target.value)}
-                            required
-                            size="small"
-                          />
-                          <Textarea
-                            label="Begrunnelse (valgfritt)"
-                            name="reason"
-                            value={approvalReason}
-                            onChange={(e) => setApprovalReason(e.target.value)}
-                            description="F.eks: 'Hotfix godkjent i Slack' eller 'Revert av feil deployment'"
-                            size="small"
-                            rows={2}
-                          />
-                          <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <Button type="submit" variant="primary" size="small">
-                              Godkjenn
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="secondary"
-                              size="small"
-                              onClick={() => setShowApprovalForm(false)}
-                            >
-                              Avbryt
-                            </Button>
-                          </div>
-                        </div>
-                      </Form>
-                    )}
-                  </Box>
-                )}
-              </div>
-            )}
+                    </Form>
+                  )}
+                </Box>
+              )}
+            </div>
+          )}
         </Box>
       )}
 
@@ -1165,12 +1082,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                   <Form method="post" className={styles.commentActions}>
                     <input type="hidden" name="intent" value="delete_comment" />
                     <input type="hidden" name="comment_id" value={comment.id} />
-                    <Button
-                      type="submit"
-                      size="small"
-                      variant="tertiary"
-                      icon={<TrashIcon aria-hidden />}
-                    >
+                    <Button type="submit" size="small" variant="tertiary" icon={<TrashIcon aria-hidden />}>
                       Slett
                     </Button>
                   </Form>
@@ -1209,5 +1121,5 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
         </Form>
       </Box>
     </div>
-  );
+  )
 }

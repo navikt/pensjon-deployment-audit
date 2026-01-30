@@ -1,23 +1,17 @@
-import {
-  BellIcon,
-  CheckmarkCircleIcon,
-  MagnifyingGlassIcon,
-  RocketIcon,
-  TableIcon,
-} from '@navikt/aksel-icons';
-import { Alert, BodyShort, Heading, LinkPanel } from '@navikt/ds-react';
-import { Link } from 'react-router';
-import { getUnresolvedAlerts } from '../db/alerts.server';
-import { getAllDeployments, getDeploymentStats } from '../db/deployments.server';
-import { getAllMonitoredApplications } from '../db/monitored-applications.server';
-import styles from '../styles/common.module.css';
-import type { Route } from './+types/home';
+import { BellIcon, CheckmarkCircleIcon, MagnifyingGlassIcon, RocketIcon, TableIcon } from '@navikt/aksel-icons'
+import { Alert, BodyShort, Heading, LinkPanel } from '@navikt/ds-react'
+import { Link } from 'react-router'
+import { getUnresolvedAlerts } from '../db/alerts.server'
+import { getAllDeployments, getDeploymentStats } from '../db/deployments.server'
+import { getAllMonitoredApplications } from '../db/monitored-applications.server'
+import styles from '../styles/common.module.css'
+import type { Route } from './+types/home'
 
 export function meta(_args: Route.MetaArgs) {
   return [
     { title: 'Pensjon Deployment Audit' },
     { name: 'description', content: 'Audit Nais deployments for four-eyes principle' },
-  ];
+  ]
 }
 
 export async function loader() {
@@ -27,21 +21,21 @@ export async function loader() {
       getAllMonitoredApplications(),
       getUnresolvedAlerts(),
       getAllDeployments(),
-    ]);
+    ])
 
     // Count pending verifications
     const pendingCount = allDeployments.filter(
-      (d) => d.four_eyes_status === 'pending' || d.four_eyes_status === 'error'
-    ).length;
+      (d) => d.four_eyes_status === 'pending' || d.four_eyes_status === 'error',
+    ).length
 
-    return { stats, apps, alerts, pendingCount };
+    return { stats, apps, alerts, pendingCount }
   } catch (_error) {
-    return { stats: null, apps: [], alerts: [], pendingCount: 0 };
+    return { stats: null, apps: [], alerts: [], pendingCount: 0 }
   }
 }
 
 export default function Home({ loaderData }: Route.ComponentProps) {
-  const { stats, apps, alerts, pendingCount } = loaderData;
+  const { stats, apps, alerts, pendingCount } = loaderData
 
   return (
     <div className={styles.pageContainer}>
@@ -50,8 +44,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
           Pensjon Deployment Audit
         </Heading>
         <BodyShort>
-          Overvåk deployments på Nav sin Nais-plattform og verifiser at alle har hatt to sett av
-          øyne. Applikasjon-sentrisk modell med sikkerhetsvarsler.
+          Overvåk deployments på Nav sin Nais-plattform og verifiser at alle har hatt to sett av øyne.
+          Applikasjon-sentrisk modell med sikkerhetsvarsler.
         </BodyShort>
       </div>
 
@@ -116,8 +110,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
       {stats && stats.total === 0 && (
         <Alert variant="info">
-          Ingen deployments funnet. Legg til applikasjoner og synkroniser deployments for å komme i
-          gang.
+          Ingen deployments funnet. Legg til applikasjoner og synkroniser deployments for å komme i gang.
         </Alert>
       )}
 
@@ -128,9 +121,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
             <MagnifyingGlassIcon aria-hidden />
             Oppdag applikasjoner
           </LinkPanel.Title>
-          <LinkPanel.Description>
-            Søk etter team og finn tilgjengelige applikasjoner
-          </LinkPanel.Description>
+          <LinkPanel.Description>Søk etter team og finn tilgjengelige applikasjoner</LinkPanel.Description>
         </LinkPanel>
 
         <LinkPanel as={Link} to="/apps">
@@ -138,9 +129,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
             <TableIcon aria-hidden />
             Overvåkede applikasjoner
           </LinkPanel.Title>
-          <LinkPanel.Description>
-            Administrer hvilke applikasjoner som overvåkes
-          </LinkPanel.Description>
+          <LinkPanel.Description>Administrer hvilke applikasjoner som overvåkes</LinkPanel.Description>
         </LinkPanel>
 
         <LinkPanel as={Link} to="/deployments">
@@ -156,9 +145,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
             <CheckmarkCircleIcon aria-hidden />
             Verifiser deployments {pendingCount > 0 && `(${pendingCount})`}
           </LinkPanel.Title>
-          <LinkPanel.Description>
-            Kjør GitHub-verifisering av four-eyes status
-          </LinkPanel.Description>
+          <LinkPanel.Description>Kjør GitHub-verifisering av four-eyes status</LinkPanel.Description>
         </LinkPanel>
 
         <LinkPanel as={Link} to="/alerts">
@@ -172,10 +159,10 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
       {stats && stats.without_four_eyes > 0 && (
         <Alert variant="warning">
-          Du har {stats.without_four_eyes} deployment{stats.without_four_eyes !== 1 ? 's' : ''} som
-          mangler four-eyes. <Link to="/deployments?only_missing=true">Se oversikt</Link>
+          Du har {stats.without_four_eyes} deployment{stats.without_four_eyes !== 1 ? 's' : ''} som mangler four-eyes.{' '}
+          <Link to="/deployments?only_missing=true">Se oversikt</Link>
         </Alert>
       )}
     </div>
-  );
+  )
 }

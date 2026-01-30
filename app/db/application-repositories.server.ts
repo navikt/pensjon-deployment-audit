@@ -1,23 +1,23 @@
-import { pool } from './connection.server';
+import { pool } from './connection.server'
 
 export interface ApplicationRepository {
-  id: number;
-  monitored_app_id: number;
-  github_owner: string;
-  github_repo_name: string;
-  status: 'active' | 'historical' | 'pending_approval';
-  redirects_to_owner: string | null;
-  redirects_to_repo: string | null;
-  notes: string | null;
-  approved_at: Date | null;
-  approved_by: string | null;
-  created_at: Date;
+  id: number
+  monitored_app_id: number
+  github_owner: string
+  github_repo_name: string
+  status: 'active' | 'historical' | 'pending_approval'
+  redirects_to_owner: string | null
+  redirects_to_repo: string | null
+  notes: string | null
+  approved_at: Date | null
+  approved_by: string | null
+  created_at: Date
 }
 
 export interface ApplicationRepositoryWithApp extends ApplicationRepository {
-  team_slug: string;
-  environment_name: string;
-  app_name: string;
+  team_slug: string
+  environment_name: string
+  app_name: string
 }
 
 /**
@@ -34,9 +34,9 @@ export async function getRepositoriesByAppId(appId: number): Promise<Application
          WHEN 'pending_approval' THEN 3 
        END,
        created_at DESC`,
-    [appId]
-  );
-  return result.rows;
+    [appId],
+  )
+  return result.rows
 }
 
 /**
@@ -48,9 +48,9 @@ export async function getPendingApprovalRepositories(): Promise<ApplicationRepos
      FROM application_repositories ar
      JOIN monitored_applications ma ON ar.monitored_app_id = ma.id
      WHERE ar.status = 'pending_approval'
-     ORDER BY ar.created_at DESC`
-  );
-  return result.rows;
+     ORDER BY ar.created_at DESC`,
+  )
+  return result.rows
 }
 
 /**
@@ -60,20 +60,20 @@ export async function getPendingApprovalRepositories(): Promise<ApplicationRepos
 export async function findRepositoryForApp(
   appId: number,
   owner: string,
-  repoName: string
+  repoName: string,
 ): Promise<{
-  repository: ApplicationRepository | null;
-  effectiveOwner: string;
-  effectiveRepo: string;
-  isRedirected: boolean;
+  repository: ApplicationRepository | null
+  effectiveOwner: string
+  effectiveRepo: string
+  isRedirected: boolean
 }> {
   const result = await pool.query(
     `SELECT * FROM application_repositories 
      WHERE monitored_app_id = $1 
        AND github_owner = $2 
        AND github_repo_name = $3`,
-    [appId, owner, repoName]
-  );
+    [appId, owner, repoName],
+  )
 
   if (result.rows.length === 0) {
     return {
@@ -81,10 +81,10 @@ export async function findRepositoryForApp(
       effectiveOwner: owner,
       effectiveRepo: repoName,
       isRedirected: false,
-    };
+    }
   }
 
-  const repo = result.rows[0];
+  const repo = result.rows[0]
 
   // Check if this repo redirects to another
   if (repo.redirects_to_owner && repo.redirects_to_repo) {
@@ -93,7 +93,7 @@ export async function findRepositoryForApp(
       effectiveOwner: repo.redirects_to_owner,
       effectiveRepo: repo.redirects_to_repo,
       isRedirected: true,
-    };
+    }
   }
 
   return {
@@ -101,7 +101,7 @@ export async function findRepositoryForApp(
     effectiveOwner: owner,
     effectiveRepo: repoName,
     isRedirected: false,
-  };
+  }
 }
 
 /**
@@ -109,16 +109,16 @@ export async function findRepositoryForApp(
  * If repository already exists, updates it; otherwise creates new
  */
 export async function upsertApplicationRepository(data: {
-  monitoredAppId: number;
-  githubOwner: string;
-  githubRepoName: string;
-  status: 'active' | 'historical' | 'pending_approval';
-  redirectsToOwner?: string | null;
-  redirectsToRepo?: string | null;
-  notes?: string | null;
-  approvedBy?: string | null;
+  monitoredAppId: number
+  githubOwner: string
+  githubRepoName: string
+  status: 'active' | 'historical' | 'pending_approval'
+  redirectsToOwner?: string | null
+  redirectsToRepo?: string | null
+  notes?: string | null
+  approvedBy?: string | null
 }): Promise<ApplicationRepository> {
-  const approvedAt = data.status !== 'pending_approval' ? new Date() : null;
+  const approvedAt = data.status !== 'pending_approval' ? new Date() : null
 
   const result = await pool.query(
     `INSERT INTO application_repositories (
@@ -144,9 +144,9 @@ export async function upsertApplicationRepository(data: {
       data.notes || null,
       approvedAt,
       data.approvedBy || null,
-    ]
-  );
-  return result.rows[0];
+    ],
+  )
+  return result.rows[0]
 }
 
 /**
@@ -155,16 +155,13 @@ export async function upsertApplicationRepository(data: {
 export async function approveRepository(
   repoId: number,
   approvedBy: string,
-  setAsActive: boolean = false
+  setAsActive: boolean = false,
 ): Promise<ApplicationRepository> {
-  const status = setAsActive ? 'active' : 'historical';
+  const status = setAsActive ? 'active' : 'historical'
 
   // If setting as active, deactivate other repos for same app
   if (setAsActive) {
-    const repo = await pool.query(
-      'SELECT monitored_app_id FROM application_repositories WHERE id = $1',
-      [repoId]
-    );
+    const repo = await pool.query('SELECT monitored_app_id FROM application_repositories WHERE id = $1', [repoId])
 
     if (repo.rows.length > 0) {
       await pool.query(
@@ -173,8 +170,8 @@ export async function approveRepository(
          WHERE monitored_app_id = $1 
            AND status = 'active' 
            AND id != $2`,
-        [repo.rows[0].monitored_app_id, repoId]
-      );
+        [repo.rows[0].monitored_app_id, repoId],
+      )
     }
   }
 
@@ -183,37 +180,31 @@ export async function approveRepository(
      SET status = $1, approved_at = NOW(), approved_by = $2
      WHERE id = $3
      RETURNING *`,
-    [status, approvedBy, repoId]
-  );
+    [status, approvedBy, repoId],
+  )
 
   if (result.rows.length === 0) {
-    throw new Error(`Repository with id ${repoId} not found`);
+    throw new Error(`Repository with id ${repoId} not found`)
   }
 
-  return result.rows[0];
+  return result.rows[0]
 }
 
 /**
  * Reject/delete a pending repository
  */
 export async function rejectRepository(repoId: number): Promise<void> {
-  await pool.query(
-    `DELETE FROM application_repositories WHERE id = $1 AND status = 'pending_approval'`,
-    [repoId]
-  );
+  await pool.query(`DELETE FROM application_repositories WHERE id = $1 AND status = 'pending_approval'`, [repoId])
 }
 
 /**
  * Set a repository as active (and deactivate others for same app)
  */
 export async function setRepositoryAsActive(repoId: number): Promise<ApplicationRepository> {
-  const repo = await pool.query(
-    'SELECT monitored_app_id FROM application_repositories WHERE id = $1',
-    [repoId]
-  );
+  const repo = await pool.query('SELECT monitored_app_id FROM application_repositories WHERE id = $1', [repoId])
 
   if (repo.rows.length === 0) {
-    throw new Error(`Repository with id ${repoId} not found`);
+    throw new Error(`Repository with id ${repoId} not found`)
   }
 
   // Deactivate other repos
@@ -221,8 +212,8 @@ export async function setRepositoryAsActive(repoId: number): Promise<Application
     `UPDATE application_repositories 
      SET status = 'historical' 
      WHERE monitored_app_id = $1 AND id != $2 AND status = 'active'`,
-    [repo.rows[0].monitored_app_id, repoId]
-  );
+    [repo.rows[0].monitored_app_id, repoId],
+  )
 
   // Activate this repo
   const result = await pool.query(
@@ -230,10 +221,10 @@ export async function setRepositoryAsActive(repoId: number): Promise<Application
      SET status = 'active' 
      WHERE id = $1 
      RETURNING *`,
-    [repoId]
-  );
+    [repoId],
+  )
 
-  return result.rows[0];
+  return result.rows[0]
 }
 
 /**
@@ -242,21 +233,21 @@ export async function setRepositoryAsActive(repoId: number): Promise<Application
 export async function setRepositoryRedirect(
   repoId: number,
   redirectsToOwner: string,
-  redirectsToRepo: string
+  redirectsToRepo: string,
 ): Promise<ApplicationRepository> {
   const result = await pool.query(
     `UPDATE application_repositories 
      SET redirects_to_owner = $1, redirects_to_repo = $2
      WHERE id = $3
      RETURNING *`,
-    [redirectsToOwner, redirectsToRepo, repoId]
-  );
+    [redirectsToOwner, redirectsToRepo, repoId],
+  )
 
   if (result.rows.length === 0) {
-    throw new Error(`Repository with id ${repoId} not found`);
+    throw new Error(`Repository with id ${repoId} not found`)
   }
 
-  return result.rows[0];
+  return result.rows[0]
 }
 
 /**
@@ -268,14 +259,14 @@ export async function removeRepositoryRedirect(repoId: number): Promise<Applicat
      SET redirects_to_owner = NULL, redirects_to_repo = NULL
      WHERE id = $1
      RETURNING *`,
-    [repoId]
-  );
+    [repoId],
+  )
 
   if (result.rows.length === 0) {
-    throw new Error(`Repository with id ${repoId} not found`);
+    throw new Error(`Repository with id ${repoId} not found`)
   }
 
-  return result.rows[0];
+  return result.rows[0]
 }
 
 /**
@@ -283,13 +274,11 @@ export async function removeRepositoryRedirect(repoId: number): Promise<Applicat
  */
 export async function deleteRepository(repoId: number): Promise<void> {
   // Don't allow deleting active repository
-  const repo = await pool.query('SELECT status FROM application_repositories WHERE id = $1', [
-    repoId,
-  ]);
+  const repo = await pool.query('SELECT status FROM application_repositories WHERE id = $1', [repoId])
 
   if (repo.rows.length > 0 && repo.rows[0].status === 'active') {
-    throw new Error('Cannot delete active repository. Set another repo as active first.');
+    throw new Error('Cannot delete active repository. Set another repo as active first.')
   }
 
-  await pool.query('DELETE FROM application_repositories WHERE id = $1', [repoId]);
+  await pool.query('DELETE FROM application_repositories WHERE id = $1', [repoId])
 }

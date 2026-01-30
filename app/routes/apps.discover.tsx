@@ -1,67 +1,67 @@
-import { PlusIcon } from '@navikt/aksel-icons';
-import { Alert, BodyShort, Button, Checkbox, Heading, Table, TextField } from '@navikt/ds-react';
-import { useState } from 'react';
-import { Form, useNavigation } from 'react-router';
-import { upsertApplicationRepository } from '../db/application-repositories.server';
-import { createMonitoredApplication } from '../db/monitored-applications.server';
-import { fetchAllTeamsAndApplications, getApplicationInfo } from '../lib/nais.server';
-import styles from '../styles/common.module.css';
-import type { Route } from './+types/apps.discover';
+import { PlusIcon } from '@navikt/aksel-icons'
+import { Alert, BodyShort, Button, Checkbox, Heading, Table, TextField } from '@navikt/ds-react'
+import { useState } from 'react'
+import { Form, useNavigation } from 'react-router'
+import { upsertApplicationRepository } from '../db/application-repositories.server'
+import { createMonitoredApplication } from '../db/monitored-applications.server'
+import { fetchAllTeamsAndApplications, getApplicationInfo } from '../lib/nais.server'
+import styles from '../styles/common.module.css'
+import type { Route } from './+types/apps.discover'
 
 export function meta(_args: Route.MetaArgs) {
-  return [{ title: 'Oppdag applikasjoner - Pensjon Deployment Audit' }];
+  return [{ title: 'Oppdag applikasjoner - Pensjon Deployment Audit' }]
 }
 
 export async function loader() {
   try {
     // Fetch all teams and applications on page load
-    const allApps = await fetchAllTeamsAndApplications();
-    return { allApps, error: null };
+    const allApps = await fetchAllTeamsAndApplications()
+    return { allApps, error: null }
   } catch (error) {
-    console.error('Loader error:', error);
+    console.error('Loader error:', error)
     return {
       allApps: [],
       error: error instanceof Error ? error.message : 'Kunne ikke laste applikasjoner',
-    };
+    }
   }
 }
 
 export async function action({ request }: Route.ActionArgs) {
-  const formData = await request.formData();
-  const intent = formData.get('intent');
+  const formData = await request.formData()
+  const intent = formData.get('intent')
 
   // Add selected applications
   if (intent === 'add') {
-    const selectedApps = formData.getAll('app');
+    const selectedApps = formData.getAll('app')
 
     if (!selectedApps.length) {
       return {
         error: 'Velg minst én applikasjon',
-      };
+      }
     }
 
     try {
-      let addedCount = 0;
+      let addedCount = 0
 
       for (const appKey of selectedApps) {
-        const [teamSlug, appName] = (appKey as string).split('|');
+        const [teamSlug, appName] = (appKey as string).split('|')
 
         // Discover which environment this app is in (try common ones)
-        const commonEnvs = ['dev-gcp', 'dev-fss', 'prod-gcp', 'prod-fss'];
-        let appInfo = null;
-        let foundEnv = null;
+        const commonEnvs = ['dev-gcp', 'dev-fss', 'prod-gcp', 'prod-fss']
+        let appInfo = null
+        let foundEnv = null
 
         for (const env of commonEnvs) {
-          appInfo = await getApplicationInfo(teamSlug, env, appName);
+          appInfo = await getApplicationInfo(teamSlug, env, appName)
           if (appInfo) {
-            foundEnv = env;
-            break;
+            foundEnv = env
+            break
           }
         }
 
         if (!appInfo || !foundEnv) {
-          console.warn(`Could not find app info for ${teamSlug}/${appName}`);
-          continue;
+          console.warn(`Could not find app info for ${teamSlug}/${appName}`)
+          continue
         }
 
         // Create monitored application (without repo fields)
@@ -69,75 +69,75 @@ export async function action({ request }: Route.ActionArgs) {
           team_slug: teamSlug,
           environment_name: foundEnv,
           app_name: appName,
-        });
+        })
 
         // If we found a repository, add it as active
         if (appInfo.repository) {
-          const [owner, repo] = appInfo.repository.split('/');
+          const [owner, repo] = appInfo.repository.split('/')
           await upsertApplicationRepository({
             monitoredAppId: monitoredApp.id,
             githubOwner: owner,
             githubRepoName: repo,
             status: 'active',
             approvedBy: 'user',
-          });
+          })
         }
 
-        addedCount++;
+        addedCount++
       }
 
       return {
         error: null,
         success: `La til ${addedCount} applikasjon(er) for overvåking`,
-      };
+      }
     } catch (error) {
-      console.error('Add error:', error);
+      console.error('Add error:', error)
       return {
         error: error instanceof Error ? error.message : 'Kunne ikke legge til applikasjoner',
-      };
+      }
     }
   }
 
-  return { error: 'Ugyldig handling' };
+  return { error: 'Ugyldig handling' }
 }
 
 export default function AppsDiscover({ loaderData, actionData }: Route.ComponentProps) {
-  const navigation = useNavigation();
-  const isAdding = navigation.state === 'submitting';
+  const navigation = useNavigation()
+  const isAdding = navigation.state === 'submitting'
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedApps, setSelectedApps] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedApps, setSelectedApps] = useState<Set<string>>(new Set())
 
   // Filter apps based on search query
   const filteredApps = loaderData.allApps.filter((app) => {
-    const query = searchQuery.toLowerCase();
-    return app.teamSlug.toLowerCase().includes(query) || app.appName.toLowerCase().includes(query);
-  });
+    const query = searchQuery.toLowerCase()
+    return app.teamSlug.toLowerCase().includes(query) || app.appName.toLowerCase().includes(query)
+  })
 
   // Group by team for display
   const appsByTeam = filteredApps.reduce(
     (acc, app) => {
       if (!acc[app.teamSlug]) {
-        acc[app.teamSlug] = [];
+        acc[app.teamSlug] = []
       }
-      acc[app.teamSlug].push(app.appName);
-      return acc;
+      acc[app.teamSlug].push(app.appName)
+      return acc
     },
-    {} as Record<string, string[]>
-  );
+    {} as Record<string, string[]>,
+  )
 
   const toggleApp = (appKey: string) => {
-    const newSelected = new Set(selectedApps);
+    const newSelected = new Set(selectedApps)
     if (newSelected.has(appKey)) {
-      newSelected.delete(appKey);
+      newSelected.delete(appKey)
     } else {
-      newSelected.add(appKey);
+      newSelected.add(appKey)
     }
-    setSelectedApps(newSelected);
-  };
+    setSelectedApps(newSelected)
+  }
 
-  const totalResults = filteredApps.length;
-  const totalTeams = Object.keys(appsByTeam).length;
+  const totalResults = filteredApps.length
+  const totalTeams = Object.keys(appsByTeam).length
 
   return (
     <div className={styles.stackContainerLarge}>
@@ -146,8 +146,7 @@ export default function AppsDiscover({ loaderData, actionData }: Route.Component
           Oppdag applikasjoner
         </Heading>
         <BodyShort>
-          Søk etter team eller applikasjonsnavn. Søket filtrerer i sanntid blant alle tilgjengelige
-          applikasjoner.
+          Søk etter team eller applikasjonsnavn. Søket filtrerer i sanntid blant alle tilgjengelige applikasjoner.
         </BodyShort>
       </div>
 
@@ -197,8 +196,8 @@ export default function AppsDiscover({ loaderData, actionData }: Route.Component
                         </Table.Header>
                         <Table.Body>
                           {apps.sort().map((appName) => {
-                            const appKey = `${teamSlug}|${appName}`;
-                            const isSelected = selectedApps.has(appKey);
+                            const appKey = `${teamSlug}|${appName}`
+                            const isSelected = selectedApps.has(appKey)
                             return (
                               <Table.Row key={appKey}>
                                 <Table.DataCell>
@@ -217,7 +216,7 @@ export default function AppsDiscover({ loaderData, actionData }: Route.Component
                                 </Table.DataCell>
                                 <Table.DataCell>{teamSlug}</Table.DataCell>
                               </Table.Row>
-                            );
+                            )
                           })}
                         </Table.Body>
                       </Table>
@@ -226,12 +225,7 @@ export default function AppsDiscover({ loaderData, actionData }: Route.Component
 
                 {selectedApps.size > 0 && (
                   <div>
-                    <Button
-                      type="submit"
-                      variant="primary"
-                      icon={<PlusIcon aria-hidden />}
-                      disabled={isAdding}
-                    >
+                    <Button type="submit" variant="primary" icon={<PlusIcon aria-hidden />} disabled={isAdding}>
                       {isAdding ? 'Legger til...' : `Legg til ${selectedApps.size} applikasjon(er)`}
                     </Button>
                   </div>
@@ -242,12 +236,12 @@ export default function AppsDiscover({ loaderData, actionData }: Route.Component
 
           {!searchQuery && (
             <Alert variant="info">
-              Skriv inn et søkeord for å begynne. Søket filtrerer automatisk blant{' '}
-              {loaderData.allApps.length} tilgjengelige applikasjoner.
+              Skriv inn et søkeord for å begynne. Søket filtrerer automatisk blant {loaderData.allApps.length}{' '}
+              tilgjengelige applikasjoner.
             </Alert>
           )}
         </>
       )}
     </div>
-  );
+  )
 }
