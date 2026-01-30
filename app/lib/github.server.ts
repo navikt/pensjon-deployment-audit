@@ -641,13 +641,18 @@ export async function getCommitsBetween(
 /**
  * Check if commits in a merge are all from approved PRs
  * Returns list of unreviewed commits (if any)
+ * @param prBranchTip - Tip of PR branch before merge
+ * @param mainBeforeMerge - Main branch tip before merge
+ * @param prCommitShas - SHAs of commits in the PR being merged
+ * @param currentPrNumber - PR number being merged (to avoid checking same PR twice)
  */
 export async function findUnreviewedCommitsInMerge(
   owner: string,
   repo: string,
-  prBaseCommit: string,
-  mainHeadCommit: string,
-  prCommitShas: string[]
+  prBranchTip: string,
+  mainBeforeMerge: string,
+  prCommitShas: string[],
+  currentPrNumber?: number
 ): Promise<
   Array<{
     sha: string;
@@ -659,25 +664,30 @@ export async function findUnreviewedCommitsInMerge(
   }>
 > {
   try {
-    console.log(`🔍 Checking for unreviewed commits between PR base and main head`);
-    console.log(`   PR base: ${prBaseCommit.substring(0, 7)}`);
-    console.log(`   Main head: ${mainHeadCommit.substring(0, 7)}`);
+    console.log(`🔍 Checking for unreviewed commits between PR branch and main`);
+    console.log(`   PR branch tip: ${prBranchTip.substring(0, 7)}`);
+    console.log(`   Main before merge: ${mainBeforeMerge.substring(0, 7)}`);
+    if (currentPrNumber) {
+      console.log(`   Current PR being merged: #${currentPrNumber}`);
+    }
 
-    // Get all commits between PR base and main's head at merge time
-    const commitsBetween = await getCommitsBetween(owner, repo, prBaseCommit, mainHeadCommit);
+    // Get commits on main that are not in PR branch
+    const commitsBetween = await getCommitsBetween(owner, repo, prBranchTip, mainBeforeMerge);
 
     if (!commitsBetween) {
-      console.warn('   ⚠️  Could not fetch commits between base and head');
+      console.warn('   ⚠️  Could not fetch commits between PR branch and main');
       return [];
     }
 
-    console.log(`   📊 Found ${commitsBetween.length} commit(s) on main between PR base and merge`);
+    console.log(
+      `   📊 Found ${commitsBetween.length} commit(s) on main not in PR branch (before merge)`
+    );
 
-    // Filter out commits that are in the PR itself
+    // Filter out commits that are in the PR itself (edge case: cherry-picks, rebases)
     const commitsNotInPR = commitsBetween.filter((commit) => !prCommitShas.includes(commit.sha));
 
     console.log(
-      `   🔎 ${commitsNotInPR.length} commit(s) not in PR - checking their approval status`
+      `   🔎 ${commitsNotInPR.length} commit(s) to check for approval (after excluding PR commits)`
     );
 
     const unreviewedCommits: Array<{
@@ -707,6 +717,14 @@ export async function findUnreviewedCommitsInMerge(
         continue;
       }
 
+      // Skip checking same PR we're already verifying (avoids infinite loop on merge commits)
+      if (currentPrNumber && commitPR.number === currentPrNumber) {
+        console.log(
+          `      ℹ️  Commit belongs to current PR #${commitPR.number} - skipping (already checked)`
+        );
+        continue;
+      }
+
       console.log(`      📝 Found PR #${commitPR.number} - checking approval`);
 
       // Check if the PR was approved
@@ -726,7 +744,7 @@ export async function findUnreviewedCommitsInMerge(
     if (unreviewedCommits.length > 0) {
       console.log(`   ⚠️  Found ${unreviewedCommits.length} unreviewed commit(s)`);
     } else {
-      console.log(`   ✅ All commits between PR base and main head are from approved PRs`);
+      console.log(`   ✅ All commits on main (not in PR branch) are from approved PRs`);
     }
 
     return unreviewedCommits;

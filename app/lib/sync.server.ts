@@ -379,26 +379,27 @@ export async function verifyDeploymentFourEyes(
         `🔀 [Deployment ${deploymentId}] Merge commit detected - checking for unreviewed commits`
       );
       console.log(`   📌 Commit SHA (merge): ${commitSha.substring(0, 7)}`);
-      console.log(`   📌 Parent 0 (PR branch): ${parentCommits[0].sha.substring(0, 7)}`);
-      console.log(`   📌 Parent 1 (main): ${parentCommits[1].sha.substring(0, 7)}`);
-      console.log(`   📌 PR base SHA: ${detailedPrInfo.base_sha.substring(0, 7)}`);
-      console.log(`   📌 PR has ${detailedPrInfo.commits.length} commits`);
+      console.log(`   📌 Parent 0 (main before merge): ${parentCommits[0].sha.substring(0, 7)}`);
+      console.log(`   📌 Parent 1 (PR branch tip): ${parentCommits[1].sha.substring(0, 7)}`);
+      console.log(`   📌 PR #${prInfo.number} has ${detailedPrInfo.commits.length} commits`);
 
-      // Parent 0 is the PR branch, parent 1 is main
-      const mainParent = parentCommits[1].sha;
+      // Compare PR branch tip with main tip to find commits on main not in PR
+      const mainBeforeMerge = parentCommits[0].sha;
+      const prBranchTip = parentCommits[1].sha;
       const prCommitShas = detailedPrInfo.commits.map((c) => c.sha);
 
       console.log(
-        `   🔍 Will compare: ${detailedPrInfo.base_sha.substring(0, 7)} (PR base) to ${mainParent.substring(0, 7)} (main head at merge)`
+        `   🔍 Will compare: ${prBranchTip.substring(0, 7)} (PR branch) to ${mainBeforeMerge.substring(0, 7)} (main before merge)`
       );
-      console.log(`   🔍 Excluding ${prCommitShas.length} PR commits from check`);
+      console.log(`   🔍 This finds commits on main NOT in PR branch`);
 
       unreviewedCommits = await findUnreviewedCommitsInMerge(
         owner,
         repo,
-        detailedPrInfo.base_sha,
-        mainParent,
-        prCommitShas
+        prBranchTip, // Compare from PR branch tip
+        mainBeforeMerge, // To main before merge
+        prCommitShas,
+        prInfo.number // Pass current PR number to avoid checking same PR twice
       );
 
       if (unreviewedCommits.length > 0) {
