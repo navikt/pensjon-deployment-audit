@@ -329,7 +329,20 @@ export async function verifyDeploymentFourEyes(
   try {
     console.log(`🔍 [Deployment ${deploymentId}] Verifying commits up to ${commitSha.substring(0, 7)} in ${repository}`);
 
-    // Step 1: Get previous deployment for this repo/environment
+    // Step 1: Get PR info for the deployed commit itself (for UI display)
+    const deployedCommitPr = await getPullRequestForCommit(owner, repo, commitSha);
+    let deployedPrNumber: number | null = null;
+    let deployedPrUrl: string | null = null;
+    
+    if (deployedCommitPr) {
+      deployedPrNumber = deployedCommitPr.number;
+      deployedPrUrl = deployedCommitPr.html_url;
+      console.log(`📎 [Deployment ${deploymentId}] Deployed commit is from PR #${deployedPrNumber}`);
+    } else {
+      console.log(`📎 [Deployment ${deploymentId}] Deployed commit has no associated PR`);
+    }
+
+    // Step 2: Get previous deployment for this repo/environment
     const previousDeployment = await getPreviousDeployment(
       deploymentId,
       owner,
@@ -342,15 +355,15 @@ export async function verifyDeploymentFourEyes(
       await updateDeploymentFourEyes(deploymentId, {
         hasFourEyes: true,
         fourEyesStatus: 'baseline',
-        githubPrNumber: null,
-        githubPrUrl: null,
+        githubPrNumber: deployedPrNumber,
+        githubPrUrl: deployedPrUrl,
       });
       return true;
     }
 
     console.log(`📍 [Deployment ${deploymentId}] Previous deployment: ${previousDeployment.commit_sha?.substring(0, 7)} (ID: ${previousDeployment.id})`);
 
-    // Step 2: Get all commits between previous and current deployment
+    // Step 3: Get all commits between previous and current deployment
     const commitsBetween = await getCommitsBetween(
       owner,
       repo,
@@ -363,8 +376,8 @@ export async function verifyDeploymentFourEyes(
       await updateDeploymentFourEyes(deploymentId, {
         hasFourEyes: false,
         fourEyesStatus: 'error',
-        githubPrNumber: null,
-        githubPrUrl: null,
+        githubPrNumber: deployedPrNumber,
+        githubPrUrl: deployedPrUrl,
       });
       return false;
     }
@@ -376,13 +389,13 @@ export async function verifyDeploymentFourEyes(
       await updateDeploymentFourEyes(deploymentId, {
         hasFourEyes: true,
         fourEyesStatus: 'no_changes',
-        githubPrNumber: null,
-        githubPrUrl: null,
+        githubPrNumber: deployedPrNumber,
+        githubPrUrl: deployedPrUrl,
       });
       return true;
     }
 
-    // Step 3: Verify each commit has four-eyes
+    // Step 4: Verify each commit has four-eyes
     const unverifiedCommits: UnverifiedCommit[] = [];
     const prCache = new Map<number, { hasFourEyes: boolean; reason: string }>();
 
@@ -432,7 +445,7 @@ export async function verifyDeploymentFourEyes(
       }
     }
 
-    // Step 4: Determine final status
+    // Step 5: Determine final status
     if (unverifiedCommits.length > 0) {
       console.log(`❌ [Deployment ${deploymentId}] Found ${unverifiedCommits.length} unverified commit(s):`);
       unverifiedCommits.forEach((c) => {
@@ -443,8 +456,8 @@ export async function verifyDeploymentFourEyes(
       await updateDeploymentFourEyes(deploymentId, {
         hasFourEyes: false,
         fourEyesStatus: 'unverified_commits',
-        githubPrNumber: null,
-        githubPrUrl: null,
+        githubPrNumber: deployedPrNumber,
+        githubPrUrl: deployedPrUrl,
         unverifiedCommits,
       });
     } else {
@@ -452,8 +465,8 @@ export async function verifyDeploymentFourEyes(
       await updateDeploymentFourEyes(deploymentId, {
         hasFourEyes: true,
         fourEyesStatus: 'approved',
-        githubPrNumber: null,
-        githubPrUrl: null,
+        githubPrNumber: deployedPrNumber,
+        githubPrUrl: deployedPrUrl,
       });
     }
 
