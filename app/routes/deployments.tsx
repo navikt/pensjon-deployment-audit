@@ -76,6 +76,52 @@ function getFourEyesLabel(deployment: DeploymentWithApp): {
   }
 }
 
+function getDeploymentMethod(deployment: DeploymentWithApp): {
+  type: 'pr' | 'direct' | 'unknown'
+  label: string
+  prNumber: number | null
+  prUrl: string | null
+} {
+  if (deployment.github_pr_number && deployment.github_pr_url) {
+    return {
+      type: 'pr',
+      label: `PR #${deployment.github_pr_number}`,
+      prNumber: deployment.github_pr_number,
+      prUrl: deployment.github_pr_url,
+    }
+  }
+  if (deployment.four_eyes_status === 'direct_push' || deployment.four_eyes_status === 'unverified_commits') {
+    return {
+      type: 'direct',
+      label: 'Direct push',
+      prNumber: null,
+      prUrl: null,
+    }
+  }
+  if (deployment.four_eyes_status === 'legacy') {
+    return {
+      type: 'unknown',
+      label: 'Legacy',
+      prNumber: null,
+      prUrl: null,
+    }
+  }
+  if (deployment.four_eyes_status === 'pending') {
+    return {
+      type: 'unknown',
+      label: 'Venter...',
+      prNumber: null,
+      prUrl: null,
+    }
+  }
+  return {
+    type: 'unknown',
+    label: '-',
+    prNumber: null,
+    prUrl: null,
+  }
+}
+
 export default function Deployments({ loaderData }: Route.ComponentProps) {
   const { deployments, apps, teams, environments } = loaderData
   const [searchParams] = useSearchParams()
@@ -167,9 +213,8 @@ export default function Deployments({ loaderData }: Route.ComponentProps) {
             <Table.Row>
               <Table.HeaderCell>Tidspunkt</Table.HeaderCell>
               <Table.HeaderCell>Applikasjon</Table.HeaderCell>
-              <Table.HeaderCell>Team</Table.HeaderCell>
               <Table.HeaderCell>Miljø</Table.HeaderCell>
-              <Table.HeaderCell>Repository</Table.HeaderCell>
+              <Table.HeaderCell>Metode</Table.HeaderCell>
               <Table.HeaderCell>Deployer</Table.HeaderCell>
               <Table.HeaderCell>Commit</Table.HeaderCell>
               <Table.HeaderCell>Status</Table.HeaderCell>
@@ -179,6 +224,7 @@ export default function Deployments({ loaderData }: Route.ComponentProps) {
           <Table.Body>
             {deployments.map((deployment) => {
               const status = getFourEyesLabel(deployment)
+              const method = getDeploymentMethod(deployment)
 
               return (
                 <Table.Row key={deployment.id}>
@@ -192,23 +238,27 @@ export default function Deployments({ loaderData }: Route.ComponentProps) {
                     })}
                   </Table.DataCell>
                   <Table.DataCell>
-                    <strong>{deployment.app_name}</strong>
-                  </Table.DataCell>
-                  <Table.DataCell>
-                    <code className={styles.codeSmall}>{deployment.team_slug}</code>
+                    <Link to={`/apps/${deployment.monitored_app_id}`} className={styles.linkExternal}>
+                      <strong>{deployment.app_name}</strong>
+                    </Link>
                   </Table.DataCell>
                   <Table.DataCell>
                     <code className={styles.codeSmall}>{deployment.environment_name}</code>
                   </Table.DataCell>
                   <Table.DataCell>
-                    <a
-                      href={`https://github.com/${deployment.detected_github_owner}/${deployment.detected_github_repo_name}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={styles.linkExternal}
-                    >
-                      {deployment.detected_github_owner}/{deployment.detected_github_repo_name}
-                    </a>
+                    {method.type === 'pr' && method.prUrl ? (
+                      <a href={method.prUrl} target="_blank" rel="noopener noreferrer" className={styles.linkExternal}>
+                        <Tag variant="info" size="small">
+                          {method.label}
+                        </Tag>
+                      </a>
+                    ) : method.type === 'direct' ? (
+                      <Tag variant="warning" size="small">
+                        {method.label}
+                      </Tag>
+                    ) : (
+                      <span className={styles.textSubtle}>{method.label}</span>
+                    )}
                   </Table.DataCell>
                   <Table.DataCell>{deployment.deployer_username || '(ukjent)'}</Table.DataCell>
                   <Table.DataCell>
