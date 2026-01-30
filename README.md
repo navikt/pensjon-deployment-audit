@@ -49,9 +49,17 @@ NAIS_GRAPHQL_URL=http://localhost:4242/graphql
 
 ### 3. Initialiser database
 
+**Med migrations (anbefalt):**
+```bash
+npm run db:migrate
+```
+
+**Eller med legacy init script:**
 ```bash
 npm run db:init
 ```
+
+> **Tip:** Sjekk migration status med `npm run db:migrate:status`
 
 ### 4. Start appen
 
@@ -166,14 +174,22 @@ npm run typecheck
 
 # Lint
 npm run lint
+
+# Database migrations
+npm run db:migrate              # Run pending migrations  
+npm run db:migrate:create my-migration  # Create new migration
+npm run db:migrate:down         # Rollback last migration
 ```
 
 ## 📚 Database Schema
 
+Database schema is managed with migrations in `app/db/migrations/`. See [Migration README](app/db/migrations/README.md) for details.
+
+**Tables:**
 - **monitored_applications**: Overvåkede apps (team + env + app)
 - **deployments**: Deployment-info med four-eyes status
 - **repository_alerts**: Sikkerhetsvarsler ved repo-mismatch
-- **deployment_comments**: Kommentarer og Slack-lenker
+- **deployment_comments**: Kommentarer, Slack-lenker, og manuelle godkjenninger
 - **tertial_boards/goals**: Tertialmål
 
 ## 🤝 Bidrag

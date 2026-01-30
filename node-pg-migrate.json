@@ -1,0 +1,8 @@
+{
+  "database-url-var": "DATABASE_URL",
+  "migrations-dir": "app/db/migrations",
+  "migrations-table": "pgmigrations",
+  "schema": "public",
+  "migration-file-language": "sql",
+  "ignore-pattern": ".*\\.md$"
+}
