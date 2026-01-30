@@ -378,10 +378,20 @@ export async function verifyDeploymentFourEyes(
       console.log(
         `🔀 [Deployment ${deploymentId}] Merge commit detected - checking for unreviewed commits`
       );
+      console.log(`   📌 Commit SHA (merge): ${commitSha.substring(0, 7)}`);
+      console.log(`   📌 Parent 0 (PR branch): ${parentCommits[0].sha.substring(0, 7)}`);
+      console.log(`   📌 Parent 1 (main): ${parentCommits[1].sha.substring(0, 7)}`);
+      console.log(`   📌 PR base SHA: ${detailedPrInfo.base_sha.substring(0, 7)}`);
+      console.log(`   📌 PR has ${detailedPrInfo.commits.length} commits`);
 
       // Parent 0 is the PR branch, parent 1 is main
       const mainParent = parentCommits[1].sha;
       const prCommitShas = detailedPrInfo.commits.map((c) => c.sha);
+
+      console.log(
+        `   🔍 Will compare: ${detailedPrInfo.base_sha.substring(0, 7)} (PR base) to ${mainParent.substring(0, 7)} (main head at merge)`
+      );
+      console.log(`   🔍 Excluding ${prCommitShas.length} PR commits from check`);
 
       unreviewedCommits = await findUnreviewedCommitsInMerge(
         owner,
@@ -393,8 +403,26 @@ export async function verifyDeploymentFourEyes(
 
       if (unreviewedCommits.length > 0) {
         console.log(
-          `⚠️  [Deployment ${deploymentId}] Found ${unreviewedCommits.length} unreviewed commit(s) in merge`
+          `⚠️  [Deployment ${deploymentId}] Found ${unreviewedCommits.length} unreviewed commit(s) in merge:`
         );
+        unreviewedCommits.forEach((c) => {
+          console.log(
+            `      - ${c.sha.substring(0, 7)}: ${c.message.split('\n')[0].substring(0, 60)}`
+          );
+          console.log(`        Reason: ${c.reason}`);
+        });
+      } else {
+        console.log(`   ✅ [Deployment ${deploymentId}] No unreviewed commits found`);
+      }
+    } else {
+      console.log(`   ℹ️  [Deployment ${deploymentId}] Not a merge commit or no detailed PR info`);
+      if (!parentCommits) {
+        console.log(`      - No parent commits available`);
+      } else if (parentCommits.length < 2) {
+        console.log(`      - Only ${parentCommits.length} parent(s) - not a merge`);
+      }
+      if (!detailedPrInfo) {
+        console.log(`      - No detailed PR info available`);
       }
     }
 

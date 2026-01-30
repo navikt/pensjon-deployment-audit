@@ -586,7 +586,9 @@ export async function getCommitsBetween(
   try {
     const client = getGitHubClient();
 
-    console.log(`🔍 Comparing commits ${base}...${head} in ${owner}/${repo}`);
+    console.log(
+      `🔍 Comparing commits ${base.substring(0, 7)}...${head.substring(0, 7)} in ${owner}/${repo}`
+    );
 
     const response = await client.repos.compareCommits({
       owner,
@@ -594,6 +596,13 @@ export async function getCommitsBetween(
       base,
       head,
     });
+
+    console.log(`   📊 GitHub API response:`);
+    console.log(`      - Status: ${response.data.status}`);
+    console.log(`      - Ahead by: ${response.data.ahead_by} commits`);
+    console.log(`      - Behind by: ${response.data.behind_by} commits`);
+    console.log(`      - Total commits: ${response.data.total_commits}`);
+    console.log(`      - Commits array length: ${response.data.commits.length}`);
 
     const commits = response.data.commits.map((commit) => ({
       sha: commit.sha,
@@ -607,9 +616,24 @@ export async function getCommitsBetween(
       `✅ Found ${commits.length} commit(s) between ${base.substring(0, 7)} and ${head.substring(0, 7)}`
     );
 
+    if (commits.length > 0 && commits.length <= 10) {
+      console.log(`   📝 Commits:`);
+      commits.forEach((c, idx) => {
+        console.log(
+          `      ${idx + 1}. ${c.sha.substring(0, 7)} by ${c.author}: ${c.message.split('\n')[0].substring(0, 50)}`
+        );
+      });
+    }
+
     return commits;
   } catch (error) {
-    console.error(`Error comparing commits ${base}...${head}:`, error);
+    console.error(
+      `❌ Error comparing commits ${base.substring(0, 7)}...${head.substring(0, 7)}:`,
+      error
+    );
+    if (error instanceof Error) {
+      console.error(`   Message: ${error.message}`);
+    }
     return null;
   }
 }
