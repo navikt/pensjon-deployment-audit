@@ -17,6 +17,7 @@ import {
 import { getMonitoredApplication } from '~/db/monitored-applications.server';
 import {
   getCommitsBetween,
+  getDetailedPullRequestInfo,
   getPullRequestForCommit,
   verifyPullRequestFourEyes,
 } from '~/lib/github.server';
@@ -333,11 +334,15 @@ export async function verifyDeploymentFourEyes(
     const deployedCommitPr = await getPullRequestForCommit(owner, repo, commitSha);
     let deployedPrNumber: number | null = null;
     let deployedPrUrl: string | null = null;
+    let deployedPrData: any = null;
     
     if (deployedCommitPr) {
       deployedPrNumber = deployedCommitPr.number;
       deployedPrUrl = deployedCommitPr.html_url;
       console.log(`📎 [Deployment ${deploymentId}] Deployed commit is from PR #${deployedPrNumber}`);
+      
+      // Fetch detailed PR data (reviews, commits, etc.)
+      deployedPrData = await getDetailedPullRequestInfo(owner, repo, deployedPrNumber);
     } else {
       console.log(`📎 [Deployment ${deploymentId}] Deployed commit has no associated PR`);
     }
@@ -357,6 +362,7 @@ export async function verifyDeploymentFourEyes(
         fourEyesStatus: 'baseline',
         githubPrNumber: deployedPrNumber,
         githubPrUrl: deployedPrUrl,
+        githubPrData: deployedPrData,
       });
       return true;
     }
@@ -378,6 +384,7 @@ export async function verifyDeploymentFourEyes(
         fourEyesStatus: 'error',
         githubPrNumber: deployedPrNumber,
         githubPrUrl: deployedPrUrl,
+        githubPrData: deployedPrData,
       });
       return false;
     }
@@ -391,6 +398,7 @@ export async function verifyDeploymentFourEyes(
         fourEyesStatus: 'no_changes',
         githubPrNumber: deployedPrNumber,
         githubPrUrl: deployedPrUrl,
+        githubPrData: deployedPrData,
       });
       return true;
     }
@@ -458,6 +466,7 @@ export async function verifyDeploymentFourEyes(
         fourEyesStatus: 'unverified_commits',
         githubPrNumber: deployedPrNumber,
         githubPrUrl: deployedPrUrl,
+        githubPrData: deployedPrData,
         unverifiedCommits,
       });
     } else {
@@ -467,6 +476,7 @@ export async function verifyDeploymentFourEyes(
         fourEyesStatus: 'approved',
         githubPrNumber: deployedPrNumber,
         githubPrUrl: deployedPrUrl,
+        githubPrData: deployedPrData,
       });
     }
 
