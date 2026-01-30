@@ -194,6 +194,19 @@ export async function getPullRequestForCommit(
         // Only check merged PRs
         if (!pr.merged_at) continue
 
+        // Check if this commit is the PR's merge/squash commit
+        // For squash merges, the merge_commit_sha is the squashed commit
+        if (pr.merge_commit_sha === sha) {
+          console.log(`✅ Commit ${sha.substring(0, 7)} is the merge/squash commit for PR #${pr.number}`)
+          return {
+            number: pr.number,
+            title: pr.title,
+            html_url: pr.html_url,
+            merged_at: pr.merged_at,
+            state: pr.state,
+          }
+        }
+
         // Check cache first
         const cacheKey = `${owner}/${repo}#${pr.number}`
         let prCommitShas = prCommitsCache.get(cacheKey)
@@ -232,7 +245,7 @@ export async function getPullRequestForCommit(
           }
         } else {
           console.log(
-            `⚠️  Commit ${sha.substring(0, 7)} is NOT in PR #${pr.number}'s original commits (likely merged from main)`,
+            `⚠️  Commit ${sha.substring(0, 7)} is NOT in PR #${pr.number}'s original commits (checking if squash merge)`,
           )
         }
       }
