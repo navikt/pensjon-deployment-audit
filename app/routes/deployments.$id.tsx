@@ -20,12 +20,13 @@ import {
   Heading,
   HGrid,
   HStack,
+  Modal,
   Tag,
   Textarea,
   TextField,
   VStack,
 } from '@navikt/ds-react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Form, Link } from 'react-router'
 import { createComment, deleteComment, getCommentsByDeploymentId, getManualApproval } from '~/db/comments.server'
 import {
@@ -278,6 +279,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
   const [approvedBy, setApprovedBy] = useState('')
   const [approvalReason, setApprovalReason] = useState('')
   const [showApprovalForm, setShowApprovalForm] = useState(false)
+  const commentDialogRef = useRef<HTMLDialogElement>(null)
 
   const status = getFourEyesStatus(deployment)
 
@@ -366,7 +368,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
               {' '}
               via{' '}
               <a href={deployment.github_pr_url} target="_blank" rel="noopener noreferrer">
-                PR #{deployment.github_pr_number}
+                #{deployment.github_pr_number}
               </a>
               {deployment.github_pr_data?.title && ` - ${deployment.github_pr_data.title}`}
             </>
@@ -1148,33 +1150,47 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
         )}
       </div>
 
-      <Box borderWidth="1" padding="space-16">
-        <Heading size="small" spacing>
-          <ChatIcon aria-hidden /> Legg til kommentar
-        </Heading>
-        <Form method="post">
-          <input type="hidden" name="intent" value="add_comment" />
-          <div className={styles.commentForm}>
-            <Textarea
-              label="Kommentar"
-              name="comment_text"
-              value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
-              description="F.eks. forklaring av direct push eller andre notater"
-            />
-            <TextField
-              label="Slack-lenke (valgfritt)"
-              name="slack_link"
-              value={slackLink}
-              onChange={(e) => setSlackLink(e.target.value)}
-              description="Lenke til Slack-tråd med code review dokumentasjon"
-            />
-            <div>
-              <Button type="submit">Legg til kommentar</Button>
-            </div>
-          </div>
-        </Form>
-      </Box>
+      <Button
+        variant="tertiary"
+        icon={<ChatIcon aria-hidden />}
+        onClick={() => commentDialogRef.current?.showModal()}
+      >
+        Legg til kommentar
+      </Button>
+
+      <Modal
+        ref={commentDialogRef}
+        header={{ heading: 'Legg til kommentar' }}
+        closeOnBackdropClick
+      >
+        <Modal.Body>
+          <Form method="post" onSubmit={() => commentDialogRef.current?.close()}>
+            <input type="hidden" name="intent" value="add_comment" />
+            <VStack gap="space-16">
+              <Textarea
+                label="Kommentar"
+                name="comment_text"
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                description="F.eks. forklaring av direct push eller andre notater"
+              />
+              <TextField
+                label="Slack-lenke (valgfritt)"
+                name="slack_link"
+                value={slackLink}
+                onChange={(e) => setSlackLink(e.target.value)}
+                description="Lenke til Slack-tråd med code review dokumentasjon"
+              />
+            </VStack>
+            <Modal.Footer>
+              <Button type="submit">Legg til</Button>
+              <Button variant="secondary" type="button" onClick={() => commentDialogRef.current?.close()}>
+                Avbryt
+              </Button>
+            </Modal.Footer>
+          </Form>
+        </Modal.Body>
+      </Modal>
     </div>
   )
 }
