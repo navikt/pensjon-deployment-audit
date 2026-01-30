@@ -658,12 +658,44 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
               <BodyShort>{deployment.github_pr_data.base_branch}</BodyShort>
             </div>
 
+            {deployment.github_pr_data.head_branch && (
+              <div>
+                <Detail>Head branch</Detail>
+                <BodyShort>{deployment.github_pr_data.head_branch}</BodyShort>
+              </div>
+            )}
+
+            {deployment.github_pr_data.merge_commit_sha && (
+              <div>
+                <Detail>Merge commit</Detail>
+                <BodyShort>
+                  <a
+                    href={`https://github.com/${deployment.detected_github_owner}/${deployment.detected_github_repo_name}/commit/${deployment.github_pr_data.merge_commit_sha}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {deployment.github_pr_data.merge_commit_sha.substring(0, 7)}
+                  </a>
+                </BodyShort>
+              </div>
+            )}
+
             <div>
               <Detail>Status</Detail>
               <div className={styles.actionButtons}>
                 {deployment.github_pr_data.draft && (
                   <Tag variant="warning" size="small">
                     Draft
+                  </Tag>
+                )}
+                {deployment.github_pr_data.locked && (
+                  <Tag variant="neutral" size="small">
+                    🔒 Låst
+                  </Tag>
+                )}
+                {deployment.github_pr_data.auto_merge && (
+                  <Tag variant="info" size="small">
+                    Auto-merge ({deployment.github_pr_data.auto_merge.merge_method})
                   </Tag>
                 )}
                 {deployment.github_pr_data.checks_passed === true && (
@@ -679,6 +711,62 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
               </div>
             </div>
           </div>
+
+          {/* Assignees and Requested Reviewers */}
+          {((deployment.github_pr_data.assignees && deployment.github_pr_data.assignees.length > 0) ||
+            (deployment.github_pr_data.requested_reviewers &&
+              deployment.github_pr_data.requested_reviewers.length > 0) ||
+            (deployment.github_pr_data.requested_teams && deployment.github_pr_data.requested_teams.length > 0)) && (
+            <div className={styles.detailsGrid} style={{ marginTop: '1rem' }}>
+              {deployment.github_pr_data.assignees && deployment.github_pr_data.assignees.length > 0 && (
+                <div>
+                  <Detail>Tildelt</Detail>
+                  <div className={styles.actionButtons}>
+                    {deployment.github_pr_data.assignees.map((a) => (
+                      <Tag key={a.username} variant="neutral" size="small">
+                        {a.username}
+                      </Tag>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {deployment.github_pr_data.requested_reviewers &&
+                deployment.github_pr_data.requested_reviewers.length > 0 && (
+                  <div>
+                    <Detail>Forespurte reviewers</Detail>
+                    <div className={styles.actionButtons}>
+                      {deployment.github_pr_data.requested_reviewers.map((r) => (
+                        <Tag key={r.username} variant="neutral" size="small">
+                          {r.username}
+                        </Tag>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              {deployment.github_pr_data.requested_teams && deployment.github_pr_data.requested_teams.length > 0 && (
+                <div>
+                  <Detail>Forespurte teams</Detail>
+                  <div className={styles.actionButtons}>
+                    {deployment.github_pr_data.requested_teams.map((t) => (
+                      <Tag key={t.slug} variant="neutral" size="small">
+                        {t.name}
+                      </Tag>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Milestone */}
+          {deployment.github_pr_data.milestone && (
+            <div style={{ marginTop: '1rem' }}>
+              <Detail>Milestone</Detail>
+              <Tag variant="info" size="small">
+                {deployment.github_pr_data.milestone.title} ({deployment.github_pr_data.milestone.state})
+              </Tag>
+            </div>
+          )}
 
           {/* PR Stats */}
           <div className={styles.statsGrid} style={{ marginTop: '1rem' }}>
@@ -706,6 +794,22 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                 <strong>-{deployment.github_pr_data.deletions}</strong>
               </BodyShort>
             </div>
+            {deployment.github_pr_data.comments_count !== undefined && (
+              <div className={styles.statCard}>
+                <Detail>Kommentarer</Detail>
+                <BodyShort>
+                  <strong>{deployment.github_pr_data.comments_count}</strong>
+                </BodyShort>
+              </div>
+            )}
+            {deployment.github_pr_data.review_comments_count !== undefined && (
+              <div className={styles.statCard}>
+                <Detail>Review-kommentarer</Detail>
+                <BodyShort>
+                  <strong>{deployment.github_pr_data.review_comments_count}</strong>
+                </BodyShort>
+              </div>
+            )}
           </div>
 
           {/* Labels */}

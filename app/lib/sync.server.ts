@@ -231,9 +231,7 @@ export async function verifyDeploymentsFourEyes(filters?: DeploymentFilters & { 
   })
 
   // Filter to deployments without four-eyes approval, excluding legacy deployments
-  const needsVerification = deploymentsToVerify.filter(
-    (d) => !d.has_four_eyes && d.four_eyes_status !== 'legacy',
-  )
+  const needsVerification = deploymentsToVerify.filter((d) => !d.has_four_eyes && d.four_eyes_status !== 'legacy')
 
   // Prioritize: 1) pending (never verified), 2) others (failed verification or direct push)
   // Within each priority, sort by created_at ascending (oldest first)

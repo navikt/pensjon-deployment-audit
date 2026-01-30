@@ -643,19 +643,60 @@ export async function getDetailedPullRequestInfo(
       merged_at: pr.merged_at,
       base_branch: pr.base.ref,
       base_sha: pr.base.sha,
+      head_branch: pr.head.ref,
+      head_sha: pr.head.sha,
+      merge_commit_sha: pr.merge_commit_sha,
       commits_count: pr.commits,
       changed_files: pr.changed_files,
       additions: pr.additions,
       deletions: pr.deletions,
+      comments_count: pr.comments,
+      review_comments_count: pr.review_comments,
       draft: pr.draft || false,
+      mergeable: pr.mergeable,
+      mergeable_state: pr.mergeable_state,
+      rebaseable: pr.rebaseable ?? null,
+      locked: pr.locked,
+      maintainer_can_modify: pr.maintainer_can_modify,
+      auto_merge: pr.auto_merge
+        ? {
+            enabled_by: pr.auto_merge.enabled_by?.login || 'unknown',
+            merge_method: pr.auto_merge.merge_method,
+          }
+        : null,
       creator: {
         username: pr.user?.login || 'unknown',
         avatar_url: pr.user?.avatar_url || '',
       },
+      merged_by: pr.merged_by
+        ? {
+            username: pr.merged_by.login,
+            avatar_url: pr.merged_by.avatar_url,
+          }
+        : null,
       merger: pr.merged_by
         ? {
             username: pr.merged_by.login,
             avatar_url: pr.merged_by.avatar_url,
+          }
+        : null,
+      assignees: (pr.assignees || []).map((a) => ({
+        username: a.login,
+        avatar_url: a.avatar_url,
+      })),
+      requested_reviewers: (pr.requested_reviewers || []).map((r) => ({
+        username: r.login,
+        avatar_url: r.avatar_url,
+      })),
+      requested_teams: (pr.requested_teams || []).map((t) => ({
+        name: t.name,
+        slug: t.slug,
+      })),
+      milestone: pr.milestone
+        ? {
+            title: pr.milestone.title,
+            number: pr.milestone.number,
+            state: pr.milestone.state,
           }
         : null,
       reviewers: Array.from(reviewsByUser.values()),

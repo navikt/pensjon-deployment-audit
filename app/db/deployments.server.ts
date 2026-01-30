@@ -40,18 +40,53 @@ export interface GitHubPRData {
   merged_at: string | null
   base_branch: string
   base_sha: string // Base commit SHA that PR branched from
+  head_branch: string // PR branch name
+  head_sha: string // Latest commit SHA in PR
+  merge_commit_sha: string | null // SHA of merge/squash commit
   commits_count: number
   changed_files: number
   additions: number
   deletions: number
+  comments_count: number
+  review_comments_count: number
   draft: boolean
+  mergeable: boolean | null
+  mergeable_state: string | null // 'clean', 'dirty', 'blocked', 'behind', 'unstable'
+  rebaseable: boolean | null
+  locked: boolean
+  maintainer_can_modify: boolean
+  auto_merge: {
+    enabled_by: string
+    merge_method: string // 'merge', 'squash', 'rebase'
+  } | null
   creator: {
     username: string
     avatar_url: string
   }
+  merged_by: {
+    username: string
+    avatar_url: string
+  } | null
   merger: {
     username: string
     avatar_url: string
+  } | null
+  assignees: Array<{
+    username: string
+    avatar_url: string
+  }>
+  requested_reviewers: Array<{
+    username: string
+    avatar_url: string
+  }>
+  requested_teams: Array<{
+    name: string
+    slug: string
+  }>
+  milestone: {
+    title: string
+    number: number
+    state: string
   } | null
   reviewers: Array<{
     username: string
