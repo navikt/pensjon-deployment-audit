@@ -17,11 +17,11 @@ async function runMigrations() {
   console.log('🔄 Running database migrations...');
 
   try {
-    // @ts-ignore - node-pg-migrate doesn't have types
-    const { default: runner } = await import('node-pg-migrate');
+    // Import runner function from node-pg-migrate  
+    const { runner } = await import('node-pg-migrate');
 
-    // Read config from node-pg-migrate.json
-    const configPath = join(__dirname, '..', 'node-pg-migrate.json');
+    // Read config from .node-pg-migrate.json
+    const configPath = join(__dirname, '..', '.node-pg-migrate.json');
     const config = JSON.parse(readFileSync(configPath, 'utf-8'));
 
     // Run migrations

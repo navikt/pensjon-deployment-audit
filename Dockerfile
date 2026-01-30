@@ -42,7 +42,7 @@ COPY --from=builder /app/build ./build
 
 # Copy migration files and config
 COPY --from=builder /app/app/db/migrations ./app/db/migrations
-COPY --from=builder /app/node-pg-migrate.json ./
+COPY --from=builder /app/.node-pg-migrate.json ./
 
 # Copy compiled startup script
 COPY --from=builder /app/scripts/start-prod.js ./scripts/

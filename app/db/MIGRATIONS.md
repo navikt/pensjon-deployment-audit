@@ -81,7 +81,7 @@ DATABASE_URL=postgresql://user:password@localhost:5432/dbname
 
 ## Configuration
 
-See `node-pg-migrate.json` for configuration:
+See `.node-pg-migrate.json` for configuration:
 ```json
 {
   "database-url-var": "DATABASE_URL",
