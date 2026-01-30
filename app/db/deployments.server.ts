@@ -217,9 +217,11 @@ export async function getDeploymentsByMonitoredApp(monitoredAppId: number, limit
 }
 
 export async function createDeployment(data: CreateDeploymentParams): Promise<Deployment> {
-  // Check if this is a legacy deployment (before 2025-01-01) without commit SHA
+  // Check if this is a legacy deployment:
+  // - Before 2025-01-01 without commit SHA, OR
+  // - Any deployment without commit SHA (cannot be verified)
   const legacyCutoffDate = new Date('2025-01-01T00:00:00Z')
-  const isLegacyDeployment = data.createdAt < legacyCutoffDate && !data.commitSha
+  const isLegacyDeployment = !data.commitSha || (data.createdAt < legacyCutoffDate && !data.commitSha)
 
   const result = await pool.query(
     `INSERT INTO deployments 
