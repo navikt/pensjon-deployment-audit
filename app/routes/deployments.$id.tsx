@@ -21,8 +21,13 @@ import {
 } from '@navikt/ds-react';
 import { useState } from 'react';
 import { Form, Link } from 'react-router';
-import { createComment, deleteComment, getCommentsByDeploymentId } from '~/db/comments.server';
-import { getDeploymentById } from '~/db/deployments.server';
+import {
+  createComment,
+  deleteComment,
+  getCommentsByDeploymentId,
+  getManualApproval,
+} from '~/db/comments.server';
+import { getDeploymentById, updateDeploymentFourEyes } from '~/db/deployments.server';
 import { verifyDeploymentFourEyes } from '~/lib/sync.server';
 import styles from '../styles/common.module.css';
 import type { Route } from './+types/deployments.$id';
@@ -36,8 +41,9 @@ export async function loader({ params }: Route.LoaderArgs) {
   }
 
   const comments = await getCommentsByDeploymentId(deploymentId);
+  const manualApproval = await getManualApproval(deploymentId);
 
-  return { deployment, comments };
+  return { deployment, comments, manualApproval };
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
@@ -62,6 +68,37 @@ export async function action({ request, params }: Route.ActionArgs) {
       return { success: 'Kommentar lagt til' };
     } catch (_error) {
       return { error: 'Kunne ikke legge til kommentar' };
+    }
+  }
+
+  if (intent === 'manual_approval') {
+    const approvedBy = formData.get('approved_by') as string;
+    const reason = formData.get('reason') as string;
+
+    if (!approvedBy || approvedBy.trim() === '') {
+      return { error: 'Godkjenner må oppgis' };
+    }
+
+    try {
+      // Create manual approval comment
+      await createComment({
+        deployment_id: deploymentId,
+        comment_text: reason || 'Manuelt godkjent etter gjennomgang av unreviewed commits',
+        comment_type: 'manual_approval',
+        approved_by: approvedBy.trim(),
+      });
+
+      // Update deployment to mark as approved
+      await updateDeploymentFourEyes(deploymentId, {
+        hasFourEyes: true,
+        fourEyesStatus: 'approved_pr_with_unreviewed',
+        githubPrNumber: null,
+        githubPrUrl: null,
+      });
+
+      return { success: 'Deployment manuelt godkjent' };
+    } catch (_error) {
+      return { error: 'Kunne ikke godkjenne deployment' };
     }
   }
 
@@ -183,9 +220,12 @@ function getFourEyesStatus(deployment: any): {
 }
 
 export default function DeploymentDetail({ loaderData, actionData }: Route.ComponentProps) {
-  const { deployment, comments } = loaderData;
+  const { deployment, comments, manualApproval } = loaderData;
   const [commentText, setCommentText] = useState('');
   const [slackLink, setSlackLink] = useState('');
+  const [approvedBy, setApprovedBy] = useState('');
+  const [approvalReason, setApprovalReason] = useState('');
+  const [showApprovalForm, setShowApprovalForm] = useState(false);
 
   const status = getFourEyesStatus(deployment);
 
@@ -839,6 +879,84 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                     </Box>
                   ))}
                 </div>
+
+                {/* Manual approval section */}
+                {manualApproval ? (
+                  <Alert variant="success">
+                    <Heading size="small">✅ Manuelt godkjent</Heading>
+                    <BodyShort>
+                      Godkjent av <strong>{manualApproval.approved_by}</strong> den{' '}
+                      {new Date(manualApproval.approved_at!).toLocaleDateString('no-NO', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </BodyShort>
+                    {manualApproval.comment_text && (
+                      <BodyShort style={{ marginTop: '0.5rem', fontStyle: 'italic' }}>
+                        "{manualApproval.comment_text}"
+                      </BodyShort>
+                    )}
+                  </Alert>
+                ) : (
+                  <Box background="warning-soft" padding="space-16" borderRadius="8">
+                    <Heading size="small" spacing>
+                      Krever manuell godkjenning
+                    </Heading>
+                    <BodyShort spacing>
+                      Gjennomgå de unreviewed commits over. Hvis endringene er OK (f.eks. hotfix
+                      eller revert), godkjenn manuelt.
+                    </BodyShort>
+
+                    {!showApprovalForm ? (
+                      <Button
+                        variant="primary"
+                        size="small"
+                        onClick={() => setShowApprovalForm(true)}
+                      >
+                        Godkjenn etter gjennomgang
+                      </Button>
+                    ) : (
+                      <Form method="post">
+                        <input type="hidden" name="intent" value="manual_approval" />
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                          <TextField
+                            label="Godkjenner (ditt navn)"
+                            name="approved_by"
+                            value={approvedBy}
+                            onChange={(e) => setApprovedBy(e.target.value)}
+                            required
+                            size="small"
+                          />
+                          <Textarea
+                            label="Begrunnelse (valgfritt)"
+                            name="reason"
+                            value={approvalReason}
+                            onChange={(e) => setApprovalReason(e.target.value)}
+                            description="F.eks: 'Hotfix godkjent i Slack' eller 'Revert av feil deployment'"
+                            size="small"
+                            rows={2}
+                          />
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <Button type="submit" variant="primary" size="small">
+                              Godkjenn
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="small"
+                              onClick={() => setShowApprovalForm(false)}
+                            >
+                              Avbryt
+                            </Button>
+                          </div>
+                        </div>
+                      </Form>
+                    )}
+                  </Box>
+                )}
               </div>
             )}
         </Box>
