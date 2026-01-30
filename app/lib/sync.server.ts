@@ -230,8 +230,10 @@ export async function verifyDeploymentsFourEyes(filters?: DeploymentFilters & { 
     // Skip 'approved_pr' and 'direct_push' statuses
   })
 
-  // Filter to deployments without four-eyes approval
-  const needsVerification = deploymentsToVerify.filter((d) => !d.has_four_eyes)
+  // Filter to deployments without four-eyes approval, excluding legacy deployments
+  const needsVerification = deploymentsToVerify.filter(
+    (d) => !d.has_four_eyes && d.four_eyes_status !== 'legacy',
+  )
 
   // Prioritize: 1) pending (never verified), 2) others (failed verification or direct push)
   // Within each priority, sort by created_at ascending (oldest first)
@@ -258,15 +260,9 @@ export async function verifyDeploymentsFourEyes(filters?: DeploymentFilters & { 
     try {
       console.log(`🔍 Verifying deployment ${deployment.nais_deployment_id}...`)
 
-      // Skip if no commit SHA
+      // Skip deployments without commit SHA - keep current status
       if (!deployment.commit_sha) {
         console.log(`⏭️  Skipping deployment without commit SHA: ${deployment.nais_deployment_id}`)
-        await updateDeploymentFourEyes(deployment.id, {
-          hasFourEyes: false,
-          fourEyesStatus: 'error',
-          githubPrNumber: null,
-          githubPrUrl: null,
-        })
         skipped++
         continue
       }
