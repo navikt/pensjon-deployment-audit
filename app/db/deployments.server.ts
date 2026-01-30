@@ -28,6 +28,7 @@ export interface GitHubPRData {
   created_at: string;
   merged_at: string | null;
   base_branch: string;
+  base_sha: string; // Base commit SHA that PR branched from
   commits_count: number;
   changed_files: number;
   additions: number;
@@ -65,6 +66,14 @@ export interface GitHubPRData {
     };
     date: string;
     html_url: string;
+  }>;
+  unreviewed_commits?: Array<{
+    sha: string;
+    message: string;
+    author: string;
+    date: string;
+    html_url: string;
+    reason: string; // Why it's unreviewed: 'no_pr', 'pr_not_approved', etc
   }>;
 }
 

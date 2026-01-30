@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS deployments (
   -- Four-eyes status
   has_four_eyes BOOLEAN DEFAULT FALSE,
   four_eyes_status VARCHAR(50) DEFAULT 'unknown',
-  -- Possible values: 'approved_pr', 'pr_not_approved', 'direct_push', 'error', 'repository_mismatch', 'unknown'
+  -- Possible values: 'approved_pr', 'approved_pr_with_unreviewed', 'pr_not_approved', 'direct_push', 'error', 'legacy', 'pending', 'unknown'
   
   github_pr_number INTEGER,
   github_pr_url TEXT,
@@ -85,6 +85,7 @@ CREATE TABLE IF NOT EXISTS deployments (
   --   created_at: string,
   --   merged_at: string,
   --   base_branch: string,
+  --   base_sha: string,
   --   commits_count: number,
   --   changed_files: number,
   --   additions: number,
@@ -94,7 +95,9 @@ CREATE TABLE IF NOT EXISTS deployments (
   --   merger: { username: string, avatar_url: string },
   --   reviewers: [{ username: string, avatar_url: string, state: string, submitted_at: string }],
   --   checks_passed: boolean,
-  --   checks: [{ name: string, status: string, conclusion: string, started_at: string, completed_at: string, html_url: string }]
+  --   checks: [{ name: string, status: string, conclusion: string, started_at: string, completed_at: string, html_url: string }],
+  --   commits: [{ sha: string, message: string, author: { username: string, avatar_url: string }, committer: { username: string, avatar_url: string }, html_url: string }],
+  --   unreviewed_commits?: [{ sha: string, message: string, author: string, date: string, html_url: string, reason: string }]
   -- }
   
   -- Branch and merge information

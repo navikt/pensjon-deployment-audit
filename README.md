@@ -118,7 +118,8 @@ Når en deployment blir verifisert mot GitHub, lagres omfattende PR-metadata i `
 **Oversikt:**
 - PR tittel, beskrivelse, labels
 - Opprettet og merget tidspunkt
-- Base branch og draft-status
+- Base branch og base SHA
+- Draft-status
 
 **Personer:**
 - **Creator**: Hvem som opprettet PR-en
@@ -141,7 +142,17 @@ Når en deployment blir verifisert mot GitHub, lagres omfattende PR-metadata i `
   - Conclusion og completion tidspunkt
   - Visuell indikator med ikoner og farger
 
-Dette gjør det enkelt å se hele reviewprosessen og CI/CD-status for hvert deployment direkte i applikasjonen.
+**Unreviewed Commits Detection:**
+- Når en PR merges, sjekkes det om det ble merget inn commits fra main som ikke har godkjenning
+- Sammenligner PR base commit med main's head commit ved merge-tidspunktet
+- Håndterer race conditions når flere PRs merges på kort tid
+- For hver commit som ikke er del av PR-en:
+  - Sjekker om commit har en godkjent PR
+  - Flagges med status `approved_pr_with_unreviewed` hvis ureviewed commits finnes
+  - Viser detaljert liste med hvilke commits som mangler godkjenning
+  - Inkluderer info om author, melding og årsak
+
+Dette gjør det enkelt å se hele reviewprosessen og CI/CD-status for hvert deployment direkte i applikasjonen, samt fange opp situasjoner der ikke-godkjent kode smugles inn sammen med godkjente PRs.
 
 ## 🧪 Testing
 

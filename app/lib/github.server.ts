@@ -458,6 +458,7 @@ export async function getDetailedPullRequestInfo(
       created_at: pr.created_at,
       merged_at: pr.merged_at,
       base_branch: pr.base.ref,
+      base_sha: pr.base.sha,
       commits_count: pr.commits,
       changed_files: pr.changed_files,
       additions: pr.additions,
@@ -498,9 +499,9 @@ export async function getBranchFromWorkflowRun(triggerUrl: string): Promise<stri
     }
 
     const runId = parseInt(match[1], 10);
-    
+
     // Extract owner/repo from URL
-    const repoMatch = triggerUrl.match(/github\.com\/([^\/]+)\/([^\/]+)\//);
+    const repoMatch = triggerUrl.match(/github\.com\/([^/]+)\/([^/]+)\//);
     if (!repoMatch) {
       console.warn(`Could not extract owner/repo from URL: ${triggerUrl}`);
       return null;
@@ -548,10 +549,12 @@ export async function getCommitDetails(
     });
 
     const parents = response.data.parents.map((p) => ({ sha: p.sha }));
-    
+
     console.log(`✅ Commit has ${parents.length} parent(s)`);
     if (parents.length > 1) {
-      console.log(`   🔀 Merge commit with parents: ${parents.map(p => p.sha.substring(0, 7)).join(', ')}`);
+      console.log(
+        `   🔀 Merge commit with parents: ${parents.map((p) => p.sha.substring(0, 7)).join(', ')}`
+      );
     }
 
     return {
@@ -561,5 +564,150 @@ export async function getCommitDetails(
   } catch (error) {
     console.error(`Error fetching commit details for ${sha}:`, error);
     return null;
+  }
+}
+
+/**
+ * Compare two commits and get the commits between them
+ * Returns commits that are in 'head' but not in 'base'
+ */
+export async function getCommitsBetween(
+  owner: string,
+  repo: string,
+  base: string,
+  head: string
+): Promise<Array<{
+  sha: string;
+  message: string;
+  author: string;
+  date: string;
+  html_url: string;
+}> | null> {
+  try {
+    const client = getGitHubClient();
+
+    console.log(`🔍 Comparing commits ${base}...${head} in ${owner}/${repo}`);
+
+    const response = await client.repos.compareCommits({
+      owner,
+      repo,
+      base,
+      head,
+    });
+
+    const commits = response.data.commits.map((commit) => ({
+      sha: commit.sha,
+      message: commit.commit.message,
+      author: commit.author?.login || commit.commit.author?.name || 'unknown',
+      date: commit.commit.author?.date || '',
+      html_url: commit.html_url,
+    }));
+
+    console.log(
+      `✅ Found ${commits.length} commit(s) between ${base.substring(0, 7)} and ${head.substring(0, 7)}`
+    );
+
+    return commits;
+  } catch (error) {
+    console.error(`Error comparing commits ${base}...${head}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Check if commits in a merge are all from approved PRs
+ * Returns list of unreviewed commits (if any)
+ */
+export async function findUnreviewedCommitsInMerge(
+  owner: string,
+  repo: string,
+  prBaseCommit: string,
+  mainHeadCommit: string,
+  prCommitShas: string[]
+): Promise<
+  Array<{
+    sha: string;
+    message: string;
+    author: string;
+    date: string;
+    html_url: string;
+    reason: string;
+  }>
+> {
+  try {
+    console.log(`🔍 Checking for unreviewed commits between PR base and main head`);
+    console.log(`   PR base: ${prBaseCommit.substring(0, 7)}`);
+    console.log(`   Main head: ${mainHeadCommit.substring(0, 7)}`);
+
+    // Get all commits between PR base and main's head at merge time
+    const commitsBetween = await getCommitsBetween(owner, repo, prBaseCommit, mainHeadCommit);
+
+    if (!commitsBetween) {
+      console.warn('   ⚠️  Could not fetch commits between base and head');
+      return [];
+    }
+
+    console.log(`   📊 Found ${commitsBetween.length} commit(s) on main between PR base and merge`);
+
+    // Filter out commits that are in the PR itself
+    const commitsNotInPR = commitsBetween.filter((commit) => !prCommitShas.includes(commit.sha));
+
+    console.log(
+      `   🔎 ${commitsNotInPR.length} commit(s) not in PR - checking their approval status`
+    );
+
+    const unreviewedCommits: Array<{
+      sha: string;
+      message: string;
+      author: string;
+      date: string;
+      html_url: string;
+      reason: string;
+    }> = [];
+
+    // Check each commit that's not in the PR
+    for (const commit of commitsNotInPR) {
+      console.log(
+        `   🔍 Checking commit ${commit.sha.substring(0, 7)}: ${commit.message.split('\n')[0].substring(0, 60)}`
+      );
+
+      // Check if this commit has an associated PR
+      const commitPR = await getPullRequestForCommit(owner, repo, commit.sha);
+
+      if (!commitPR) {
+        console.log(`      ❌ No PR found - marking as unreviewed`);
+        unreviewedCommits.push({
+          ...commit,
+          reason: 'Direct push to main (no PR)',
+        });
+        continue;
+      }
+
+      console.log(`      📝 Found PR #${commitPR.number} - checking approval`);
+
+      // Check if the PR was approved
+      const prApproval = await verifyPullRequestFourEyes(owner, repo, commitPR.number);
+
+      if (!prApproval.hasFourEyes) {
+        console.log(`      ❌ PR #${commitPR.number} not approved - marking as unreviewed`);
+        unreviewedCommits.push({
+          ...commit,
+          reason: `PR #${commitPR.number} not approved: ${prApproval.reason}`,
+        });
+      } else {
+        console.log(`      ✅ PR #${commitPR.number} is approved`);
+      }
+    }
+
+    if (unreviewedCommits.length > 0) {
+      console.log(`   ⚠️  Found ${unreviewedCommits.length} unreviewed commit(s)`);
+    } else {
+      console.log(`   ✅ All commits between PR base and main head are from approved PRs`);
+    }
+
+    return unreviewedCommits;
+  } catch (error) {
+    console.error('Error finding unreviewed commits:', error);
+    return [];
   }
 }

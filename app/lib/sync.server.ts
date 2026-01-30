@@ -14,6 +14,7 @@ import {
 } from '~/db/deployments.server';
 import { getMonitoredApplication } from '~/db/monitored-applications.server';
 import {
+  findUnreviewedCommitsInMerge,
   getBranchFromWorkflowRun,
   getCommitDetails,
   getDetailedPullRequestInfo,
@@ -371,12 +372,58 @@ export async function verifyDeploymentFourEyes(
     // Fetch detailed PR information
     const detailedPrInfo = await getDetailedPullRequestInfo(owner, repo, prInfo.number);
 
+    // Check for unreviewed commits in merge (if this is a merge commit)
+    let unreviewedCommits: Array<any> = [];
+    if (parentCommits && parentCommits.length >= 2 && detailedPrInfo) {
+      console.log(
+        `🔀 [Deployment ${deploymentId}] Merge commit detected - checking for unreviewed commits`
+      );
+
+      // Parent 0 is the PR branch, parent 1 is main
+      const mainParent = parentCommits[1].sha;
+      const prCommitShas = detailedPrInfo.commits.map((c) => c.sha);
+
+      unreviewedCommits = await findUnreviewedCommitsInMerge(
+        owner,
+        repo,
+        detailedPrInfo.base_sha,
+        mainParent,
+        prCommitShas
+      );
+
+      if (unreviewedCommits.length > 0) {
+        console.log(
+          `⚠️  [Deployment ${deploymentId}] Found ${unreviewedCommits.length} unreviewed commit(s) in merge`
+        );
+      }
+    }
+
+    // Add unreviewed commits to PR data if found
+    const prDataWithUnreviewed = detailedPrInfo
+      ? {
+          ...detailedPrInfo,
+          unreviewed_commits: unreviewedCommits.length > 0 ? unreviewedCommits : undefined,
+        }
+      : null;
+
+    // Determine final status
+    let finalHasFourEyes = fourEyesResult.hasFourEyes;
+    let finalStatus = fourEyesResult.hasFourEyes ? 'approved_pr' : 'missing';
+
+    if (unreviewedCommits.length > 0) {
+      finalHasFourEyes = false;
+      finalStatus = 'approved_pr_with_unreviewed';
+      console.log(
+        `❌ [Deployment ${deploymentId}] Marking as not approved due to unreviewed commits`
+      );
+    }
+
     await updateDeploymentFourEyes(deploymentId, {
-      hasFourEyes: fourEyesResult.hasFourEyes,
-      fourEyesStatus: fourEyesResult.hasFourEyes ? 'approved_pr' : 'missing',
+      hasFourEyes: finalHasFourEyes,
+      fourEyesStatus: finalStatus,
       githubPrNumber: prInfo.number,
       githubPrUrl: prInfo.html_url,
-      githubPrData: detailedPrInfo,
+      githubPrData: prDataWithUnreviewed,
       branchName,
       parentCommits,
     });

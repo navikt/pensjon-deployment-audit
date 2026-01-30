@@ -140,6 +140,13 @@ function getFourEyesStatus(deployment: any): {
         variant: 'success',
         description: 'Dette deploymentet har blitt godkjent via en approved PR.',
       };
+    case 'approved_pr_with_unreviewed':
+      return {
+        text: 'Ureviewed commits i merge',
+        variant: 'error',
+        description:
+          'PR var godkjent, men det ble merget inn commits fra main som ikke har godkjenning. Se detaljer under.',
+      };
     case 'legacy':
       return {
         text: 'Legacy (>1 år)',
@@ -324,7 +331,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                   >
                     {parent.sha.substring(0, 7)}
                   </a>
-                  {index < deployment.parent_commits!.length - 1 && ', '}
+                  {index < (deployment.parent_commits?.length ?? 0) - 1 && ', '}
                 </span>
               ))}
             </BodyShort>
@@ -767,6 +774,72 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
               </Box>
             </div>
           )}
+
+          {/* Unreviewed commits warning */}
+          {deployment.github_pr_data?.unreviewed_commits &&
+            deployment.github_pr_data.unreviewed_commits.length > 0 && (
+              <div>
+                <Alert variant="error">
+                  <Heading size="small" spacing>
+                    ⚠️ Ureviewed commits funnet
+                  </Heading>
+                  <BodyShort spacing>
+                    Følgende commits var på main mellom PR base og merge, men mangler godkjenning:
+                  </BodyShort>
+                </Alert>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {deployment.github_pr_data.unreviewed_commits.map((commit) => (
+                    <Box
+                      key={commit.sha}
+                      background="danger-soft"
+                      padding="space-16"
+                      borderRadius="8"
+                      borderWidth="1"
+                      borderColor="danger-subtleA"
+                    >
+                      <div style={{ display: 'flex', gap: '0.75rem' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div
+                            style={{
+                              display: 'flex',
+                              gap: '0.5rem',
+                              alignItems: 'baseline',
+                              flexWrap: 'wrap',
+                            }}
+                          >
+                            <a
+                              href={commit.html_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ fontFamily: 'monospace', fontSize: '0.875rem' }}
+                            >
+                              {commit.sha.substring(0, 7)}
+                            </a>
+                            <span className={styles.textSubtle}>{commit.author}</span>
+                            <span className={styles.textSubtle}>
+                              {new Date(commit.date).toLocaleDateString('no-NO', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </span>
+                          </div>
+                          <BodyShort size="small" style={{ marginTop: '0.25rem' }}>
+                            {commit.message.split('\n')[0]}
+                          </BodyShort>
+                          <Detail style={{ marginTop: '0.5rem', color: 'var(--a-text-danger)' }}>
+                            {commit.reason}
+                          </Detail>
+                        </div>
+                      </div>
+                    </Box>
+                  ))}
+                </div>
+              </div>
+            )}
         </Box>
       )}
 
