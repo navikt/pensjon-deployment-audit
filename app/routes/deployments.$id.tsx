@@ -15,9 +15,12 @@ import {
   CopyButton,
   Detail,
   Heading,
+  HGrid,
+  HStack,
   Tag,
   Textarea,
   TextField,
+  VStack,
 } from '@navikt/ds-react'
 import { useState } from 'react'
 import { Form, Link } from 'react-router'
@@ -429,25 +432,25 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
 
       {/* Deployment Details Section */}
       <Heading size="medium">Detaljer</Heading>
-      <div className={styles.detailsGrid}>
-        <div>
+      <HGrid gap="space-16" columns={{ xs: 1, sm: 2, md: 3 }}>
+        <VStack gap="space-4">
           <Detail>Applikasjon</Detail>
           <BodyShort>
             <Link to={`/apps/${deployment.monitored_app_id}`}>{deployment.app_name}</Link>
           </BodyShort>
-        </div>
+        </VStack>
 
-        <div>
+        <VStack gap="space-4">
           <Detail>Nais Team</Detail>
           <BodyShort>{deployment.team_slug}</BodyShort>
-        </div>
+        </VStack>
 
-        <div>
+        <VStack gap="space-4">
           <Detail>Miljø</Detail>
           <BodyShort>{deployment.environment_name}</BodyShort>
-        </div>
+        </VStack>
 
-        <div>
+        <VStack gap="space-4">
           <Detail>Deployer</Detail>
           <BodyShort>
             {deployment.deployer_username ? (
@@ -467,9 +470,9 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
               '(ukjent)'
             )}
           </BodyShort>
-        </div>
+        </VStack>
 
-        <div>
+        <VStack gap="space-4">
           <Detail>Repository (detektert)</Detail>
           <BodyShort>
             <a
@@ -481,9 +484,9 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
               {deployment.detected_github_owner}/{deployment.detected_github_repo_name}
             </a>
           </BodyShort>
-        </div>
+        </VStack>
 
-        <div>
+        <VStack gap="space-4">
           <Detail>Commit SHA</Detail>
           <BodyShort>
             {deployment.commit_sha ? (
@@ -499,10 +502,10 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
               <span className={styles.textSubtle}>(ukjent)</span>
             )}
           </BodyShort>
-        </div>
+        </VStack>
 
         {deployment.branch_name && (
-          <div>
+          <VStack gap="space-4">
             <Detail>Branch</Detail>
             <BodyShort>
               <a
@@ -514,11 +517,11 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                 {deployment.branch_name}
               </a>
             </BodyShort>
-          </div>
+          </VStack>
         )}
 
         {deployment.parent_commits && deployment.parent_commits.length > 1 && (
-          <div>
+          <VStack gap="space-4">
             <Detail>Merge commit (parents)</Detail>
             <BodyShort>
               {deployment.parent_commits.map((parent, index) => (
@@ -535,54 +538,54 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                 </span>
               ))}
             </BodyShort>
-          </div>
+          </VStack>
         )}
 
         {deployment.trigger_url && (
-          <div>
+          <VStack gap="space-4">
             <Detail>GitHub Actions</Detail>
             <BodyShort>
               <a href={deployment.trigger_url} target="_blank" rel="noopener noreferrer">
                 Se workflow run
               </a>
             </BodyShort>
-          </div>
+          </VStack>
         )}
 
-        <div>
+        <VStack gap="space-4">
           <Detail>Nais Console</Detail>
           <BodyShort>
             <a href={naisConsoleUrl} target="_blank" rel="noopener noreferrer">
               Åpne i Nais Console
             </a>
           </BodyShort>
-        </div>
+        </VStack>
 
-        <div>
+        <VStack gap="space-4">
           <Detail>Nais Deployment ID</Detail>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <HStack gap="space-8" align="center">
             <BodyShort>
               <code className={styles.codeSmall}>{deployment.nais_deployment_id}</code>
             </BodyShort>
             <CopyButton copyText={deployment.nais_deployment_id} size="small" title="Kopier deployment ID" />
-          </div>
-        </div>
+          </HStack>
+        </VStack>
 
         {/* PR-specific fields in same grid */}
         {deployment.github_pr_number && deployment.github_pr_url && (
-          <div>
+          <VStack gap="space-4">
             <Detail>Pull Request</Detail>
             <BodyShort>
               <a href={deployment.github_pr_url} target="_blank" rel="noopener noreferrer">
                 #{deployment.github_pr_number}
               </a>
             </BodyShort>
-          </div>
+          </VStack>
         )}
 
         {deployment.github_pr_data && (
           <>
-            <div>
+            <VStack gap="space-4">
               <Detail>PR Opprettet av</Detail>
               <BodyShort>
                 <a
@@ -599,10 +602,10 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                   </span>
                 )}
               </BodyShort>
-            </div>
+            </VStack>
 
             {deployment.github_pr_data.merger && (
-              <div>
+              <VStack gap="space-4">
                 <Detail>Merget av</Detail>
                 <BodyShort>
                   <a
@@ -619,10 +622,10 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                     </span>
                   )}
                 </BodyShort>
-              </div>
+              </VStack>
             )}
 
-            <div>
+            <VStack gap="space-4">
               <Detail>PR Opprettet</Detail>
               <BodyShort>
                 {new Date(deployment.github_pr_data.created_at).toLocaleString('no-NO', {
@@ -630,10 +633,10 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                   timeStyle: 'short',
                 })}
               </BodyShort>
-            </div>
+            </VStack>
 
             {deployment.github_pr_data.merged_at && (
-              <div>
+              <VStack gap="space-4">
                 <Detail>Merget</Detail>
                 <BodyShort>
                   {new Date(deployment.github_pr_data.merged_at).toLocaleString('no-NO', {
@@ -641,23 +644,23 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                     timeStyle: 'short',
                   })}
                 </BodyShort>
-              </div>
+              </VStack>
             )}
 
-            <div>
+            <VStack gap="space-4">
               <Detail>Base branch</Detail>
               <BodyShort>{deployment.github_pr_data.base_branch}</BodyShort>
-            </div>
+            </VStack>
 
             {deployment.github_pr_data.head_branch && (
-              <div>
+              <VStack gap="space-4">
                 <Detail>Head branch</Detail>
                 <BodyShort>{deployment.github_pr_data.head_branch}</BodyShort>
-              </div>
+              </VStack>
             )}
 
             {deployment.github_pr_data.merge_commit_sha && (
-              <div>
+              <VStack gap="space-4">
                 <Detail>Merge commit</Detail>
                 <BodyShort>
                   <a
@@ -668,12 +671,12 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                     {deployment.github_pr_data.merge_commit_sha.substring(0, 7)}
                   </a>
                 </BodyShort>
-              </div>
+              </VStack>
             )}
 
-            <div>
+            <VStack gap="space-4">
               <Detail>PR Status</Detail>
-              <div className={styles.actionButtons}>
+              <HStack gap="space-8" wrap>
                 {deployment.github_pr_data.draft && (
                   <Tag variant="warning" size="small">
                     Draft
@@ -699,60 +702,60 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                     ✗ Checks failed
                   </Tag>
                 )}
-              </div>
-            </div>
+              </HStack>
+            </VStack>
 
             {deployment.github_pr_data.assignees && deployment.github_pr_data.assignees.length > 0 && (
-              <div>
+              <VStack gap="space-4">
                 <Detail>Tildelt</Detail>
-                <div className={styles.actionButtons}>
+                <HStack gap="space-8" wrap>
                   {deployment.github_pr_data.assignees.map((a) => (
                     <Tag key={a.username} variant="neutral" size="small">
                       {a.username}
                     </Tag>
                   ))}
-                </div>
-              </div>
+                </HStack>
+              </VStack>
             )}
 
             {deployment.github_pr_data.requested_reviewers &&
               deployment.github_pr_data.requested_reviewers.length > 0 && (
-                <div>
+                <VStack gap="space-4">
                   <Detail>Forespurte reviewers</Detail>
-                  <div className={styles.actionButtons}>
+                  <HStack gap="space-8" wrap>
                     {deployment.github_pr_data.requested_reviewers.map((r) => (
                       <Tag key={r.username} variant="neutral" size="small">
                         {r.username}
                       </Tag>
                     ))}
-                  </div>
-                </div>
+                  </HStack>
+                </VStack>
               )}
 
             {deployment.github_pr_data.requested_teams && deployment.github_pr_data.requested_teams.length > 0 && (
-              <div>
+              <VStack gap="space-4">
                 <Detail>Forespurte teams</Detail>
-                <div className={styles.actionButtons}>
+                <HStack gap="space-8" wrap>
                   {deployment.github_pr_data.requested_teams.map((t) => (
                     <Tag key={t.slug} variant="neutral" size="small">
                       {t.name}
                     </Tag>
                   ))}
-                </div>
-              </div>
+                </HStack>
+              </VStack>
             )}
 
             {deployment.github_pr_data.milestone && (
-              <div>
+              <VStack gap="space-4">
                 <Detail>Milestone</Detail>
                 <Tag variant="info" size="small">
                   {deployment.github_pr_data.milestone.title} ({deployment.github_pr_data.milestone.state})
                 </Tag>
-              </div>
+              </VStack>
             )}
           </>
         )}
-      </div>
+      </HGrid>
 
       {/* Reviewers section - shown separately as it's more detailed */}
       {deployment.github_pr_data && (
