@@ -399,7 +399,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
 
       {/* Deployment Method Section */}
       <Box background="neutral-soft" padding="space-24" borderRadius="8">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           {deployment.github_pr_number ? (
             <>
               <Tag variant="info" size="medium">
@@ -433,101 +433,6 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
               </Tag>
               <Heading size="small">Metode ikke fastslått</Heading>
             </>
-          )}
-        </div>
-
-        {/* Quick summary row */}
-        <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
-          <div>
-            <Detail>Tidspunkt</Detail>
-            <BodyShort>
-              {new Date(deployment.created_at).toLocaleString('no-NO', {
-                dateStyle: 'medium',
-                timeStyle: 'short',
-              })}
-            </BodyShort>
-          </div>
-          <div>
-            <Detail>Deployer</Detail>
-            <BodyShort>
-              {deployment.deployer_username ? (
-                <>
-                  <a
-                    href={`https://github.com/${deployment.deployer_username}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {deployment.deployer_username}
-                  </a>
-                  {getUserDisplay(deployment.deployer_username) && (
-                    <span className={styles.textSubtle}> ({getUserDisplay(deployment.deployer_username)})</span>
-                  )}
-                </>
-              ) : (
-                '(ukjent)'
-              )}
-            </BodyShort>
-          </div>
-          <div>
-            <Detail>Commit</Detail>
-            <BodyShort>
-              {deployment.commit_sha ? (
-                <a
-                  href={`https://github.com/${deployment.detected_github_owner}/${deployment.detected_github_repo_name}/commit/${deployment.commit_sha}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={styles.codeMedium}
-                >
-                  {deployment.commit_sha.substring(0, 7)}
-                </a>
-              ) : (
-                <span className={styles.textSubtle}>(ukjent)</span>
-              )}
-            </BodyShort>
-          </div>
-          <div>
-            <Detail>Miljø</Detail>
-            <BodyShort>{deployment.environment_name}</BodyShort>
-          </div>
-          {deployment.github_pr_data?.creator && (
-            <div>
-              <Detail>PR Opprettet av</Detail>
-              <BodyShort>
-                <a
-                  href={`https://github.com/${deployment.github_pr_data.creator.username}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {deployment.github_pr_data.creator.username}
-                </a>
-                {getUserDisplay(deployment.github_pr_data.creator.username) && (
-                  <span className={styles.textSubtle}>
-                    {' '}
-                    ({getUserDisplay(deployment.github_pr_data.creator.username)})
-                  </span>
-                )}
-              </BodyShort>
-            </div>
-          )}
-          {deployment.github_pr_data?.merged_by && (
-            <div>
-              <Detail>Merget av</Detail>
-              <BodyShort>
-                <a
-                  href={`https://github.com/${deployment.github_pr_data.merged_by.username}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {deployment.github_pr_data.merged_by.username}
-                </a>
-                {getUserDisplay(deployment.github_pr_data.merged_by.username) && (
-                  <span className={styles.textSubtle}>
-                    {' '}
-                    ({getUserDisplay(deployment.github_pr_data.merged_by.username)})
-                  </span>
-                )}
-              </BodyShort>
-            </div>
           )}
         </div>
       </Box>
@@ -643,17 +548,6 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
           </div>
         )}
 
-        {deployment.github_pr_number && deployment.github_pr_url && (
-          <div>
-            <Detail>Pull Request</Detail>
-            <BodyShort>
-              <a href={deployment.github_pr_url} target="_blank" rel="noopener noreferrer">
-                #{deployment.github_pr_number}
-              </a>
-            </BodyShort>
-          </div>
-        )}
-
         {deployment.trigger_url && (
           <div>
             <Detail>GitHub Actions</Detail>
@@ -683,53 +577,23 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
             <CopyButton copyText={deployment.nais_deployment_id} size="small" title="Kopier deployment ID" />
           </div>
         </div>
-      </div>
 
-      {/* Resources section */}
-      {deployment.resources && deployment.resources.length > 0 && (
-        <div>
-          <Heading size="small" spacing>
-            Kubernetes Resources
-          </Heading>
-          <div className={styles.actionButtons}>
-            {deployment.resources.map((resource: any) => (
-              <Tag key={`${resource.kind}:${resource.name}`} variant="info" size="small">
-                {resource.kind}: {resource.name}
-              </Tag>
-            ))}
+        {/* PR-specific fields in same grid */}
+        {deployment.github_pr_number && deployment.github_pr_url && (
+          <div>
+            <Detail>Pull Request</Detail>
+            <BodyShort>
+              <a href={deployment.github_pr_url} target="_blank" rel="noopener noreferrer">
+                #{deployment.github_pr_number}
+              </a>
+            </BodyShort>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* PR Details section */}
-      {deployment.github_pr_data && (
-        <Box>
-          <Heading size="small" spacing>
-            Pull Request Informasjon
-          </Heading>
-
-          <div className={styles.detailsGrid}>
-            <div style={{ gridColumn: '1 / -1' }}>
-              <Detail>Tittel</Detail>
-              <BodyShort>
-                <strong>{deployment.github_pr_data.title}</strong>
-              </BodyShort>
-            </div>
-
-            {deployment.github_pr_data.body && (
-              <div style={{ gridColumn: '1 / -1' }}>
-                <Detail>Beskrivelse</Detail>
-                <Box background="neutral-soft" padding="space-16" borderRadius="12" className={styles.marginTop2}>
-                  <BodyShort style={{ whiteSpace: 'pre-wrap' }}>
-                    {/* biome-ignore lint/security/noDangerouslySetInnerHtml: GitHub PR body contains safe markdown HTML */}
-                    <div dangerouslySetInnerHTML={{ __html: deployment.github_pr_data.body }} />
-                  </BodyShort>
-                </Box>
-              </div>
-            )}
-
+        {deployment.github_pr_data && (
+          <>
             <div>
-              <Detail>Opprettet av</Detail>
+              <Detail>PR Opprettet av</Detail>
               <BodyShort>
                 <a
                   href={`https://github.com/${deployment.github_pr_data.creator.username}`}
@@ -769,7 +633,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
             )}
 
             <div>
-              <Detail>Opprettet</Detail>
+              <Detail>PR Opprettet</Detail>
               <BodyShort>
                 {new Date(deployment.github_pr_data.created_at).toLocaleString('no-NO', {
                   dateStyle: 'short',
@@ -818,7 +682,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
             )}
 
             <div>
-              <Detail>Status</Detail>
+              <Detail>PR Status</Detail>
               <div className={styles.actionButtons}>
                 {deployment.github_pr_data.draft && (
                   <Tag variant="warning" size="small">
@@ -847,63 +711,276 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                 )}
               </div>
             </div>
-          </div>
 
-          {/* Assignees and Requested Reviewers */}
-          {((deployment.github_pr_data.assignees && deployment.github_pr_data.assignees.length > 0) ||
-            (deployment.github_pr_data.requested_reviewers &&
-              deployment.github_pr_data.requested_reviewers.length > 0) ||
-            (deployment.github_pr_data.requested_teams && deployment.github_pr_data.requested_teams.length > 0)) && (
-            <div className={styles.detailsGrid} style={{ marginTop: '1rem' }}>
-              {deployment.github_pr_data.assignees && deployment.github_pr_data.assignees.length > 0 && (
+            {deployment.github_pr_data.assignees && deployment.github_pr_data.assignees.length > 0 && (
+              <div>
+                <Detail>Tildelt</Detail>
+                <div className={styles.actionButtons}>
+                  {deployment.github_pr_data.assignees.map((a) => (
+                    <Tag key={a.username} variant="neutral" size="small">
+                      {a.username}
+                    </Tag>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {deployment.github_pr_data.requested_reviewers &&
+              deployment.github_pr_data.requested_reviewers.length > 0 && (
                 <div>
-                  <Detail>Tildelt</Detail>
+                  <Detail>Forespurte reviewers</Detail>
                   <div className={styles.actionButtons}>
-                    {deployment.github_pr_data.assignees.map((a) => (
-                      <Tag key={a.username} variant="neutral" size="small">
-                        {a.username}
+                    {deployment.github_pr_data.requested_reviewers.map((r) => (
+                      <Tag key={r.username} variant="neutral" size="small">
+                        {r.username}
                       </Tag>
                     ))}
                   </div>
                 </div>
               )}
-              {deployment.github_pr_data.requested_reviewers &&
-                deployment.github_pr_data.requested_reviewers.length > 0 && (
-                  <div>
-                    <Detail>Forespurte reviewers</Detail>
-                    <div className={styles.actionButtons}>
-                      {deployment.github_pr_data.requested_reviewers.map((r) => (
-                        <Tag key={r.username} variant="neutral" size="small">
-                          {r.username}
-                        </Tag>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              {deployment.github_pr_data.requested_teams && deployment.github_pr_data.requested_teams.length > 0 && (
-                <div>
-                  <Detail>Forespurte teams</Detail>
-                  <div className={styles.actionButtons}>
-                    {deployment.github_pr_data.requested_teams.map((t) => (
-                      <Tag key={t.slug} variant="neutral" size="small">
-                        {t.name}
-                      </Tag>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
 
-          {/* Milestone */}
-          {deployment.github_pr_data.milestone && (
+            {deployment.github_pr_data.requested_teams && deployment.github_pr_data.requested_teams.length > 0 && (
+              <div>
+                <Detail>Forespurte teams</Detail>
+                <div className={styles.actionButtons}>
+                  {deployment.github_pr_data.requested_teams.map((t) => (
+                    <Tag key={t.slug} variant="neutral" size="small">
+                      {t.name}
+                    </Tag>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {deployment.github_pr_data.milestone && (
+              <div>
+                <Detail>Milestone</Detail>
+                <Tag variant="info" size="small">
+                  {deployment.github_pr_data.milestone.title} ({deployment.github_pr_data.milestone.state})
+                </Tag>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Reviewers section - shown separately as it's more detailed */}
+      {deployment.github_pr_data && (
+        <Box>
+
+          {/* Reviewers */}
+          {deployment.github_pr_data.reviewers && deployment.github_pr_data.reviewers.length > 0 && (
             <div style={{ marginTop: '1rem' }}>
-              <Detail>Milestone</Detail>
-              <Tag variant="info" size="small">
-                {deployment.github_pr_data.milestone.title} ({deployment.github_pr_data.milestone.state})
-              </Tag>
+              <Detail>Reviewers</Detail>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {deployment.github_pr_data.reviewers.map((reviewer) => (
+                  <div
+                    key={`${reviewer.username}:${reviewer.submitted_at}`}
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                  >
+                    {reviewer.state === 'APPROVED' && <span style={{ fontSize: '1.2rem' }}>✅</span>}
+                    {reviewer.state === 'CHANGES_REQUESTED' && <span style={{ fontSize: '1.2rem' }}>🔴</span>}
+                    {reviewer.state === 'COMMENTED' && <span style={{ fontSize: '1.2rem' }}>💬</span>}
+                    <a href={`https://github.com/${reviewer.username}`} target="_blank" rel="noopener noreferrer">
+                      {reviewer.username}
+                    </a>
+                    <span className={styles.textSubtle}>
+                      -{' '}
+                      {new Date(reviewer.submitted_at).toLocaleString('no-NO', {
+                        dateStyle: 'short',
+                        timeStyle: 'short',
+                      })}
+                    </span>
+                    <Tag
+                      variant={
+                        reviewer.state === 'APPROVED'
+                          ? 'success'
+                          : reviewer.state === 'CHANGES_REQUESTED'
+                            ? 'error'
+                            : 'neutral'
+                      }
+                      size="small"
+                    >
+                      {reviewer.state}
+                    </Tag>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
+
+          {/* Unreviewed commits warning */}
+          {deployment.github_pr_data?.unreviewed_commits && deployment.github_pr_data.unreviewed_commits.length > 0 && (
+            <div>
+              <Alert variant="error">
+                <Heading size="small" spacing>
+                  ⚠️ Ureviewed commits funnet
+                </Heading>
+                <BodyShort spacing>
+                  Følgende commits var på main mellom PR base og merge, men mangler godkjenning:
+                </BodyShort>
+              </Alert>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {deployment.github_pr_data.unreviewed_commits.map((commit) => (
+                  <Box
+                    key={commit.sha}
+                    background="danger-soft"
+                    padding="space-16"
+                    borderRadius="8"
+                    borderWidth="1"
+                    borderColor="danger-subtleA"
+                  >
+                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                          style={{
+                            display: 'flex',
+                            gap: '0.5rem',
+                            alignItems: 'baseline',
+                            flexWrap: 'wrap',
+                          }}
+                        >
+                          <a
+                            href={commit.html_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ fontFamily: 'monospace', fontSize: '0.875rem' }}
+                          >
+                            {commit.sha.substring(0, 7)}
+                          </a>
+                          <span className={styles.textSubtle}>{commit.author}</span>
+                          <span className={styles.textSubtle}>
+                            {new Date(commit.date).toLocaleDateString('no-NO', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
+                        </div>
+                        <BodyShort size="small" style={{ marginTop: '0.25rem' }}>
+                          {commit.message.split('\n')[0]}
+                        </BodyShort>
+                        <Detail style={{ marginTop: '0.5rem', color: 'var(--a-text-danger)' }}>{commit.reason}</Detail>
+                      </div>
+                    </div>
+                  </Box>
+                ))}
+              </div>
+
+              {/* Manual approval section */}
+              {manualApproval ? (
+                <Alert variant="success">
+                  <Heading size="small">✅ Manuelt godkjent</Heading>
+                  <BodyShort>
+                    Godkjent av <strong>{manualApproval.approved_by}</strong> den{' '}
+                    {new Date(manualApproval.approved_at!).toLocaleDateString('no-NO', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </BodyShort>
+                  {manualApproval.comment_text && (
+                    <BodyShort style={{ marginTop: '0.5rem', fontStyle: 'italic' }}>
+                      "{manualApproval.comment_text}"
+                    </BodyShort>
+                  )}
+                </Alert>
+              ) : (
+                <Box background="warning-soft" padding="space-16" borderRadius="8">
+                  <Heading size="small" spacing>
+                    Krever manuell godkjenning
+                  </Heading>
+                  <BodyShort spacing>
+                    Gjennomgå de unreviewed commits over. Hvis endringene er OK (f.eks. hotfix eller revert), godkjenn
+                    manuelt.
+                  </BodyShort>
+
+                  {!showApprovalForm ? (
+                    <Button variant="primary" size="small" onClick={() => setShowApprovalForm(true)}>
+                      Godkjenn etter gjennomgang
+                    </Button>
+                  ) : (
+                    <Form method="post">
+                      <input type="hidden" name="intent" value="manual_approval" />
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        <TextField
+                          label="Godkjenner (ditt navn)"
+                          name="approved_by"
+                          value={approvedBy}
+                          onChange={(e) => setApprovedBy(e.target.value)}
+                          required
+                          size="small"
+                        />
+                        <Textarea
+                          label="Begrunnelse (valgfritt)"
+                          name="reason"
+                          value={approvalReason}
+                          onChange={(e) => setApprovalReason(e.target.value)}
+                          description="F.eks: 'Hotfix godkjent i Slack' eller 'Revert av feil deployment'"
+                          size="small"
+                          rows={2}
+                        />
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <Button type="submit" variant="primary" size="small">
+                            Godkjenn
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="small"
+                            onClick={() => setShowApprovalForm(false)}
+                          >
+                            Avbryt
+                          </Button>
+                        </div>
+                      </div>
+                    </Form>
+                  )}
+                </Box>
+              )}
+            </div>
+          )}
+        </Box>
+      )}
+
+      {/* Resources section */}
+      {deployment.resources && deployment.resources.length > 0 && (
+        <div>
+          <Heading size="small" spacing>
+            Kubernetes Resources
+          </Heading>
+          <div className={styles.actionButtons}>
+            {deployment.resources.map((resource: any) => (
+              <Tag key={`${resource.kind}:${resource.name}`} variant="info" size="small">
+                {resource.kind}: {resource.name}
+              </Tag>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* PR Details section */}
+      {deployment.github_pr_data && (
+        <Box>
+          <div className={styles.detailsGrid}>
+            {deployment.github_pr_data.body && (
+              <div style={{ gridColumn: '1 / -1' }}>
+                <Heading size="medium">Beskrivelse</Heading>
+                <Box background="neutral-soft" padding="space-16" borderRadius="12" className={styles.marginTop2}>
+                  <BodyShort style={{ whiteSpace: 'pre-wrap' }}>
+                    {/* biome-ignore lint/security/noDangerouslySetInnerHtml: GitHub PR body contains safe markdown HTML */}
+                    <div dangerouslySetInnerHTML={{ __html: deployment.github_pr_data.body }} />
+                  </BodyShort>
+                </Box>
+              </div>
+            )}
+
+          </div>
 
           {/* PR Stats */}
           <div className={styles.statsGrid} style={{ marginTop: '1rem' }}>
@@ -958,47 +1035,6 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                   <Tag key={label} variant="neutral" size="small">
                     {label}
                   </Tag>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Reviewers */}
-          {deployment.github_pr_data.reviewers && deployment.github_pr_data.reviewers.length > 0 && (
-            <div style={{ marginTop: '1rem' }}>
-              <Detail>Reviewers</Detail>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {deployment.github_pr_data.reviewers.map((reviewer) => (
-                  <div
-                    key={`${reviewer.username}:${reviewer.submitted_at}`}
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                  >
-                    {reviewer.state === 'APPROVED' && <span style={{ fontSize: '1.2rem' }}>✅</span>}
-                    {reviewer.state === 'CHANGES_REQUESTED' && <span style={{ fontSize: '1.2rem' }}>🔴</span>}
-                    {reviewer.state === 'COMMENTED' && <span style={{ fontSize: '1.2rem' }}>💬</span>}
-                    <a href={`https://github.com/${reviewer.username}`} target="_blank" rel="noopener noreferrer">
-                      {reviewer.username}
-                    </a>
-                    <span className={styles.textSubtle}>
-                      -{' '}
-                      {new Date(reviewer.submitted_at).toLocaleString('no-NO', {
-                        dateStyle: 'short',
-                        timeStyle: 'short',
-                      })}
-                    </span>
-                    <Tag
-                      variant={
-                        reviewer.state === 'APPROVED'
-                          ? 'success'
-                          : reviewer.state === 'CHANGES_REQUESTED'
-                            ? 'error'
-                            : 'neutral'
-                      }
-                      size="small"
-                    >
-                      {reviewer.state}
-                    </Tag>
-                  </div>
                 ))}
               </div>
             </div>
