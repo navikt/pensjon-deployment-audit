@@ -35,6 +35,12 @@ export default function Layout() {
           >
             Varsler
           </Link>
+          <Link
+            to="/admin/users"
+            className={isActive('/admin') ? styles.navLinkActive : styles.navLink}
+          >
+            Admin
+          </Link>
         </nav>
       </InternalHeader>
 

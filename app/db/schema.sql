@@ -193,6 +193,20 @@ CREATE INDEX IF NOT EXISTS idx_commits_pr ON commits(repo_owner, repo_name, orig
 CREATE INDEX IF NOT EXISTS idx_commits_unverified ON commits(repo_owner, repo_name) 
   WHERE pr_approved IS NULL OR pr_approved = false;
 
+-- User mappings (GitHub username to Nav identity and Slack)
+CREATE TABLE IF NOT EXISTS user_mappings (
+  github_username TEXT PRIMARY KEY,
+  display_name TEXT,
+  nav_email TEXT,
+  nav_ident TEXT,
+  slack_member_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_mappings_slack ON user_mappings(slack_member_id);
+CREATE INDEX IF NOT EXISTS idx_user_mappings_email ON user_mappings(nav_email);
+
 -- Triggers for updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$

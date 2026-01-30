@@ -59,6 +59,92 @@ export interface PullRequest {
   state: string;
 }
 
+export interface NavIdentity {
+  github_username: string;
+  nav_username: string | null;
+  nav_email: string | null;
+  display_name: string | null;
+}
+
+// Cache for SAML identities to avoid repeated API calls
+const samlIdentityCache = new Map<string, NavIdentity>();
+
+/**
+ * Get Nav identity for a GitHub user via SAML SSO
+ * Requires org:read or admin:org scope on the token
+ */
+export async function getNavIdentityForGitHubUser(
+  githubUsername: string,
+  org: string = 'navikt'
+): Promise<NavIdentity> {
+  // Check cache first
+  const cached = samlIdentityCache.get(githubUsername);
+  if (cached) {
+    return cached;
+  }
+
+  const client = getGitHubClient();
+
+  try {
+    // Try to get SAML identity via org membership
+    // This requires the token to have org:read or admin:org scope
+    const response = await client.request('GET /orgs/{org}/members/{username}', {
+      org,
+      username: githubUsername,
+    });
+
+    // The SAML identity is in the response if the org uses SAML SSO
+    // @ts-expect-error - SAML fields not in types
+    const samlIdentity = response.data?.saml_identity;
+    // @ts-expect-error - email/name might be in response
+    const email = samlIdentity?.email || response.data?.email || null;
+    // @ts-expect-error - name might be in response
+    const name = response.data?.name || null;
+    
+    const identity: NavIdentity = {
+      github_username: githubUsername,
+      nav_username: samlIdentity?.username || null,
+      nav_email: email,
+      display_name: name,
+    };
+
+    samlIdentityCache.set(githubUsername, identity);
+    console.log(`👤 SAML identity for ${githubUsername}: ${identity.nav_username || 'not found'}`);
+    
+    return identity;
+  } catch (error) {
+    // If we can't get SAML identity, return what we have
+    console.log(`⚠️  Could not get SAML identity for ${githubUsername}: ${error instanceof Error ? error.message : 'unknown error'}`);
+    
+    const identity: NavIdentity = {
+      github_username: githubUsername,
+      nav_username: null,
+      nav_email: null,
+      display_name: null,
+    };
+    
+    samlIdentityCache.set(githubUsername, identity);
+    return identity;
+  }
+}
+
+/**
+ * Get Nav identities for multiple GitHub users (batch)
+ */
+export async function getNavIdentitiesForGitHubUsers(
+  githubUsernames: string[],
+  org: string = 'navikt'
+): Promise<Map<string, NavIdentity>> {
+  const results = new Map<string, NavIdentity>();
+  
+  for (const username of githubUsernames) {
+    const identity = await getNavIdentityForGitHubUser(username, org);
+    results.set(username, identity);
+  }
+  
+  return results;
+}
+
 export async function getPullRequestForCommit(
   owner: string,
   repo: string,

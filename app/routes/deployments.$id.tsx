@@ -33,6 +33,7 @@ import {
   getPreviousDeploymentForNav,
   updateDeploymentFourEyes,
 } from '~/db/deployments.server';
+import { getUserMappings, type UserMapping } from '~/db/user-mappings.server';
 import { verifyDeploymentFourEyes } from '~/lib/sync.server';
 import styles from '../styles/common.module.css';
 import type { Route } from './+types/deployments.$id';
@@ -55,7 +56,23 @@ export async function loader({ params }: Route.LoaderArgs) {
   );
   const nextDeployment = await getNextDeployment(deploymentId, deployment.monitored_app_id);
 
-  return { deployment, comments, manualApproval, previousDeployment, nextDeployment };
+  // Collect all GitHub usernames we need to look up
+  const usernames: string[] = [];
+  if (deployment.deployer_username) usernames.push(deployment.deployer_username);
+  if (deployment.github_pr_data?.creator?.username) usernames.push(deployment.github_pr_data.creator.username);
+  if (deployment.github_pr_data?.merger?.username) usernames.push(deployment.github_pr_data.merger.username);
+
+  // Get all user mappings in one query
+  const userMappings = await getUserMappings(usernames);
+
+  return { 
+    deployment, 
+    comments, 
+    manualApproval, 
+    previousDeployment, 
+    nextDeployment,
+    userMappings: Object.fromEntries(userMappings),
+  };
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
@@ -260,7 +277,14 @@ function getFourEyesStatus(deployment: any): {
 }
 
 export default function DeploymentDetail({ loaderData, actionData }: Route.ComponentProps) {
-  const { deployment, comments, manualApproval, previousDeployment, nextDeployment } = loaderData;
+  const { 
+    deployment, 
+    comments, 
+    manualApproval, 
+    previousDeployment, 
+    nextDeployment,
+    userMappings,
+  } = loaderData;
   const [commentText, setCommentText] = useState('');
   const [slackLink, setSlackLink] = useState('');
   const [approvedBy, setApprovedBy] = useState('');
@@ -268,6 +292,13 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
   const [showApprovalForm, setShowApprovalForm] = useState(false);
 
   const status = getFourEyesStatus(deployment);
+  
+  // Helper to get user display info
+  const getUserDisplay = (githubUsername: string | undefined | null) => {
+    if (!githubUsername) return null;
+    const mapping = userMappings[githubUsername];
+    return mapping?.display_name || mapping?.nav_email || null;
+  };
 
   // Extract app name from deployment (might not match exactly, but we have it in the data)
   const appName = deployment.app_name || deployment.detected_github_repo_name;
@@ -423,7 +454,24 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
 
         <div>
           <Detail>Deployer</Detail>
-          <BodyShort>{deployment.deployer_username || '(ukjent)'}</BodyShort>
+          <BodyShort>
+            {deployment.deployer_username ? (
+              <>
+                <a
+                  href={`https://github.com/${deployment.deployer_username}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {deployment.deployer_username}
+                </a>
+                {getUserDisplay(deployment.deployer_username) && (
+                  <span className={styles.textSubtle}> ({getUserDisplay(deployment.deployer_username)})</span>
+                )}
+              </>
+            ) : (
+              '(ukjent)'
+            )}
+          </BodyShort>
         </div>
 
         <div>
@@ -599,6 +647,9 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                 >
                   {deployment.github_pr_data.creator.username}
                 </a>
+                {getUserDisplay(deployment.github_pr_data.creator.username) && (
+                  <span className={styles.textSubtle}> ({getUserDisplay(deployment.github_pr_data.creator.username)})</span>
+                )}
               </BodyShort>
             </div>
 
@@ -613,6 +664,9 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                   >
                     {deployment.github_pr_data.merger.username}
                   </a>
+                  {getUserDisplay(deployment.github_pr_data.merger.username) && (
+                    <span className={styles.textSubtle}> ({getUserDisplay(deployment.github_pr_data.merger.username)})</span>
+                  )}
                 </BodyShort>
               </div>
             )}
