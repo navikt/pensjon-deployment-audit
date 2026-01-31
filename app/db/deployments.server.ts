@@ -30,6 +30,7 @@ export interface Deployment {
   unverified_commits: UnverifiedCommit[] | null
   resources: any // JSONB
   synced_at: Date
+  title: string | null
 }
 
 export interface GitHubPRData {
@@ -403,6 +404,7 @@ export async function updateDeploymentFourEyes(
     branchName?: string | null
     parentCommits?: Array<{ sha: string }> | null
     unverifiedCommits?: UnverifiedCommit[] | null
+    title?: string | null
   },
 ): Promise<Deployment> {
   const result = await pool.query(
@@ -414,8 +416,9 @@ export async function updateDeploymentFourEyes(
          github_pr_data = $5,
          branch_name = $6,
          parent_commits = $7,
-         unverified_commits = $8
-     WHERE id = $9
+         unverified_commits = $8,
+         title = $9
+     WHERE id = $10
      RETURNING *`,
     [
       data.hasFourEyes,
@@ -426,6 +429,7 @@ export async function updateDeploymentFourEyes(
       data.branchName || null,
       data.parentCommits ? JSON.stringify(data.parentCommits) : null,
       data.unverifiedCommits ? JSON.stringify(data.unverifiedCommits) : null,
+      data.title || null,
       deploymentId,
     ],
   )

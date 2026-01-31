@@ -245,6 +245,9 @@ export default function AppDeployments() {
                       {getMethodTag(deployment)}
                       {getStatusTag(deployment)}
                     </HStack>
+                    {deployment.title && (
+                      <BodyShort>{deployment.title}</BodyShort>
+                    )}
                     <HStack gap="space-16" wrap>
                       <Detail>
                         Deployer:{' '}

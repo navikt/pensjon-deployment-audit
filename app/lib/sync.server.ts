@@ -353,6 +353,7 @@ export async function verifyDeploymentFourEyes(
         githubPrNumber: deployedPrNumber,
         githubPrUrl: deployedPrUrl,
         githubPrData: deployedPrData,
+        title: deployedPrData?.title || null,
       })
       return true
     }
@@ -375,6 +376,7 @@ export async function verifyDeploymentFourEyes(
         githubPrNumber: deployedPrNumber,
         githubPrUrl: deployedPrUrl,
         githubPrData: deployedPrData,
+        title: deployedPrData?.title || null,
       })
       return false
     }
@@ -408,6 +410,7 @@ export async function verifyDeploymentFourEyes(
         githubPrNumber: deployedPrNumber,
         githubPrUrl: deployedPrUrl,
         githubPrData: deployedPrData,
+        title: deployedPrData?.title || null,
       })
       return true
     }
@@ -525,6 +528,7 @@ export async function verifyDeploymentFourEyes(
         githubPrUrl: deployedPrUrl,
         githubPrData: deployedPrData,
         unverifiedCommits,
+        title: deployedPrData?.title || null,
       })
     } else {
       console.log(`✅ [Deployment ${deploymentId}] All ${commitsBetween.length} commit(s) verified`)
@@ -534,6 +538,7 @@ export async function verifyDeploymentFourEyes(
         githubPrNumber: deployedPrNumber,
         githubPrUrl: deployedPrUrl,
         githubPrData: deployedPrData,
+        title: deployedPrData?.title || null,
       })
     }
 
