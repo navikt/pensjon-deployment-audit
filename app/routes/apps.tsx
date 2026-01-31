@@ -159,7 +159,7 @@ export default function Apps({ loaderData, actionData }: Route.ComponentProps) {
           <BodyShort textColor="subtle">Administrer hvilke applikasjoner som overvåkes for deployments.</BodyShort>
         </div>
         <Button as={Link} to="/apps/discover">
-          Oppdag nye applikasjoner
+          Legg til applikasjon
         </Button>
       </HStack>
 

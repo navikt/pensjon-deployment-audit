@@ -1,4 +1,4 @@
-import { BellIcon, CheckmarkCircleIcon, MagnifyingGlassIcon, RocketIcon, TableIcon } from '@navikt/aksel-icons'
+import { BellIcon, CheckmarkCircleIcon, RocketIcon, TableIcon } from '@navikt/aksel-icons'
 import { Alert, BodyShort, Box, Heading, HGrid, LinkPanel, VStack } from '@navikt/ds-react'
 import { Link } from 'react-router'
 import { getUnresolvedAlerts } from '../db/alerts.server'
@@ -124,20 +124,12 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
       {/* Navigation Panels */}
       <HGrid gap="space-16" columns={{ xs: 1, md: 2, lg: 3 }}>
-        <LinkPanel as={Link} to="/apps/discover">
-          <LinkPanel.Title>
-            <MagnifyingGlassIcon aria-hidden />
-            Oppdag applikasjoner
-          </LinkPanel.Title>
-          <LinkPanel.Description>Søk etter team og finn tilgjengelige applikasjoner</LinkPanel.Description>
-        </LinkPanel>
-
         <LinkPanel as={Link} to="/apps">
           <LinkPanel.Title>
             <TableIcon aria-hidden />
-            Overvåkede applikasjoner
+            Applikasjoner
           </LinkPanel.Title>
-          <LinkPanel.Description>Administrer hvilke applikasjoner som overvåkes</LinkPanel.Description>
+          <LinkPanel.Description>Se og administrer overvåkede applikasjoner</LinkPanel.Description>
         </LinkPanel>
 
         <LinkPanel as={Link} to="/deployments">
