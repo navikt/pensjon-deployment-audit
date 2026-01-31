@@ -26,7 +26,10 @@ commit-msg:
   commands:
     message-format:
       run: |
-        MSG_FILE="${LEFTHOOK_FIRST_ARG}"
+        MSG_FILE="$1"
+        if [ -z "$MSG_FILE" ]; then
+          MSG_FILE=".git/COMMIT_EDITMSG"
+        fi
         if ! head -1 "$MSG_FILE" | grep -qE "^(feat|fix|docs|style|refactor|perf|test|chore|build|ci|revert)(\(.+?\))?: .{1,}$"; then
           echo "⛔️ Feil commit-melding format!"
           echo ""

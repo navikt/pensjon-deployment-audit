@@ -321,7 +321,7 @@ export async function syncNewDeploymentsFromNais(
   if (detectedRepository) {
     const existingRepos = await getRepositoriesByAppId(monitoredAppId)
     const matchingRepo = existingRepos.find(
-      (r) => r.github_owner === detectedRepository!.owner && r.github_repo_name === detectedRepository!.repo,
+      (r) => r.github_owner === detectedRepository.owner && r.github_repo_name === detectedRepository.repo,
     )
 
     if (!matchingRepo) {

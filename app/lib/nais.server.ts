@@ -286,7 +286,7 @@ export async function fetchNewDeployments(
     team: teamSlug,
     environment: environmentName,
     app: appName,
-    stopAt: stopAtDeploymentId.substring(0, 20) + '...',
+    stopAt: `${stopAtDeploymentId.substring(0, 20)}...`,
   })
 
   const newDeployments: NaisDeployment[] = []

@@ -59,7 +59,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
       {/* Stats - clickable cards */}
       {stats && stats.total > 0 && (
-        <HGrid gap="space-16" columns={{ xs: 1, sm: 2, lg: 5 }} align="stretch">
+        <HGrid gap="space-16" columns={{ xs: 1, sm: 2, lg: 5 }}>
           <Link to="/deployments" className={styles.statCardLink}>
             <Box
               padding="space-20"
