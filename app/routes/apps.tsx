@@ -1,15 +1,9 @@
-import {
-  ArrowsCirclepathIcon,
-  CheckmarkCircleIcon,
-  ExclamationmarkTriangleIcon,
-  XMarkOctagonIcon,
-} from '@navikt/aksel-icons'
+import { CheckmarkCircleIcon, ExclamationmarkTriangleIcon, XMarkOctagonIcon } from '@navikt/aksel-icons'
 import { Alert, BodyShort, Box, Button, Detail, Heading, Hide, HStack, Show, Tag, VStack } from '@navikt/ds-react'
-import { Form, Link } from 'react-router'
+import { Link } from 'react-router'
 import { getRepositoriesByAppId } from '~/db/application-repositories.server'
 import { getAppDeploymentStats } from '~/db/deployments.server'
 import { getAllMonitoredApplications } from '~/db/monitored-applications.server'
-import { syncDeploymentsFromNaisWithLock, verifyDeploymentsWithLock } from '~/lib/sync.server'
 import type { Route } from './+types/apps'
 
 export function meta(_args: Route.MetaArgs) {
@@ -34,75 +28,6 @@ export async function loader() {
   )
 
   return { apps: appsWithData }
-}
-
-export async function action({ request }: Route.ActionArgs) {
-  const formData = await request.formData()
-  const intent = formData.get('intent')
-
-  if (intent === 'sync-nais') {
-    const teamSlug = formData.get('team_slug') as string
-    const environmentName = formData.get('environment_name') as string
-    const appName = formData.get('app_name') as string
-    const monitoredAppId = Number(formData.get('monitored_app_id'))
-
-    try {
-      const lockResult = await syncDeploymentsFromNaisWithLock(monitoredAppId, teamSlug, environmentName, appName)
-
-      if (lockResult.locked || !lockResult.result) {
-        return {
-          success: null,
-          error: 'En annen synkronisering kjører allerede for denne applikasjonen. Prøv igjen om litt.',
-        }
-      }
-
-      const result = lockResult.result
-      return {
-        success: `Hentet ${result.newCount} nye deployments fra Nais. ${result.alertsCreated > 0 ? `${result.alertsCreated} nye varsler opprettet.` : ''} Kjør GitHub-verifisering for å sjekke godkjenning.`,
-        error: null,
-      }
-    } catch (error) {
-      console.error('Nais sync error:', error)
-      return {
-        success: null,
-        error: error instanceof Error ? error.message : 'Kunne ikke hente deployments fra Nais',
-      }
-    }
-  }
-
-  if (intent === 'verify-github') {
-    const monitoredAppId = Number(formData.get('monitored_app_id'))
-
-    try {
-      const lockResult = await verifyDeploymentsWithLock(monitoredAppId, 1000)
-
-      if (lockResult.locked || !lockResult.result) {
-        return {
-          success: null,
-          error: 'En annen verifisering kjører allerede for denne applikasjonen. Prøv igjen om litt.',
-        }
-      }
-
-      const result = lockResult.result
-      return {
-        success: `Verifiserte ${result.verified} deployments med GitHub. ${result.failed > 0 ? `${result.failed} feilet.` : ''}`,
-        error: null,
-      }
-    } catch (error) {
-      console.error('GitHub verify error:', error)
-      return {
-        success: null,
-        error:
-          error instanceof Error
-            ? error.message.includes('rate limit')
-              ? 'GitHub rate limit nådd. Vent litt før du prøver igjen.'
-              : error.message
-            : 'Kunne ikke verifisere deployments med GitHub',
-      }
-    }
-  }
-
-  return { success: null, error: 'Ugyldig handling' }
 }
 
 function getStatusTag(stats: { total: number; without_four_eyes: number; pending_verification: number }) {
@@ -134,7 +59,7 @@ function getStatusTag(stats: { total: number; without_four_eyes: number; pending
   )
 }
 
-export default function Apps({ loaderData, actionData }: Route.ComponentProps) {
+export default function Apps({ loaderData }: Route.ComponentProps) {
   const { apps } = loaderData
 
   // Group apps by team
@@ -158,18 +83,10 @@ export default function Apps({ loaderData, actionData }: Route.ComponentProps) {
           </Heading>
           <BodyShort textColor="subtle">Administrer hvilke applikasjoner som overvåkes for deployments.</BodyShort>
         </div>
-        <Button as={Link} to="/apps/discover">
+        <Button as={Link} to="/apps/discover" size="small" variant="secondary">
           Legg til applikasjon
         </Button>
       </HStack>
-
-      {actionData?.success && (
-        <Alert variant="success" closeButton>
-          {actionData.success}
-        </Alert>
-      )}
-
-      {actionData?.error && <Alert variant="error">{actionData.error}</Alert>}
 
       {apps.length === 0 && (
         <Alert variant="info">
@@ -219,49 +136,16 @@ export default function Apps({ loaderData, actionData }: Route.ComponentProps) {
                       <Detail textColor="subtle">{app.environment_name}</Detail>
                     </Hide>
 
-                    {/* Repository and actions row */}
-                    <HStack gap="space-16" align="center" justify="space-between" wrap>
-                      <Detail textColor="subtle">
-                        {app.active_repo ? (
-                          <a href={`https://github.com/${app.active_repo}`} target="_blank" rel="noopener noreferrer">
-                            {app.active_repo}
-                          </a>
-                        ) : (
-                          '(ingen aktivt repo)'
-                        )}
-                      </Detail>
-                      <HStack gap="space-8">
-                        <Form method="post">
-                          <input type="hidden" name="intent" value="sync-nais" />
-                          <input type="hidden" name="monitored_app_id" value={app.id} />
-                          <input type="hidden" name="team_slug" value={app.team_slug} />
-                          <input type="hidden" name="environment_name" value={app.environment_name} />
-                          <input type="hidden" name="app_name" value={app.app_name} />
-                          <Button
-                            type="submit"
-                            size="small"
-                            variant="tertiary"
-                            icon={<ArrowsCirclepathIcon aria-hidden />}
-                            title="Hent deployments fra Nais"
-                          >
-                            <Show above="sm">Hent</Show>
-                          </Button>
-                        </Form>
-                        <Form method="post">
-                          <input type="hidden" name="intent" value="verify-github" />
-                          <input type="hidden" name="monitored_app_id" value={app.id} />
-                          <Button
-                            type="submit"
-                            size="small"
-                            variant="tertiary"
-                            icon={<CheckmarkCircleIcon aria-hidden />}
-                            title="Verifiser godkjenning med GitHub"
-                          >
-                            <Show above="sm">Verifiser</Show>
-                          </Button>
-                        </Form>
-                      </HStack>
-                    </HStack>
+                    {/* Repository row */}
+                    <Detail textColor="subtle">
+                      {app.active_repo ? (
+                        <a href={`https://github.com/${app.active_repo}`} target="_blank" rel="noopener noreferrer">
+                          {app.active_repo}
+                        </a>
+                      ) : (
+                        '(ingen aktivt repo)'
+                      )}
+                    </Detail>
                   </VStack>
                 </Box>
               ))}
