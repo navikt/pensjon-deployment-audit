@@ -1,9 +1,12 @@
-import { InternalHeader, Spacer, Theme } from '@navikt/ds-react'
+import { MoonIcon, SunIcon } from '@navikt/aksel-icons'
+import { Button, InternalHeader, Spacer } from '@navikt/ds-react'
 import { Link, Outlet, useLocation } from 'react-router'
+import { useTheme } from '~/hooks/useTheme'
 import styles from '../styles/common.module.css'
 
 export default function Layout() {
   const location = useLocation()
+  const { theme, toggleTheme } = useTheme()
 
   const isActive = (path: string) => {
     if (path === '/') {
@@ -33,12 +36,16 @@ export default function Layout() {
             Admin
           </Link>
         </nav>
+        <Button
+          variant="tertiary-neutral"
+          size="small"
+          icon={theme === 'light' ? <MoonIcon title="Bytt til mørkt tema" /> : <SunIcon title="Bytt til lyst tema" />}
+          onClick={toggleTheme}
+        />
       </InternalHeader>
 
       <div className={styles.layoutMain}>
-        <Theme theme="light">
-          <Outlet />
-        </Theme>
+        <Outlet />
       </div>
     </div>
   )

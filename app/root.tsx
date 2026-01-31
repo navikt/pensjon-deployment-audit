@@ -4,6 +4,7 @@ import type { Route } from './+types/root'
 import './app.css'
 import '@navikt/ds-css'
 import { Page, Theme } from '@navikt/ds-react'
+import { ThemeProvider, useTheme } from './hooks/useTheme'
 
 export const links: Route.LinksFunction = () => []
 
@@ -25,11 +26,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
   )
 }
 
-export default function App() {
+function ThemedApp() {
+  const { theme } = useTheme()
   return (
-    <Theme theme="light">
+    <Theme theme={theme}>
       <Outlet />
     </Theme>
+  )
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <ThemedApp />
+    </ThemeProvider>
   )
 }
 
