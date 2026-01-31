@@ -101,7 +101,7 @@ export default function Deployments({ loaderData }: Route.ComponentProps) {
         <Form method="get" onChange={(e) => e.currentTarget.submit()}>
           <VStack gap="space-16">
             <HGrid gap="space-16" columns={{ xs: 1, sm: 2, lg: 3 }}>
-              <Select label="Team" name="team" defaultValue={currentTeam || ''}>
+              <Select label="Team" name="team" size="small" defaultValue={currentTeam || ''}>
                 <option value="">Alle teams</option>
                 {teams.map((team) => (
                   <option key={team} value={team}>
@@ -110,7 +110,7 @@ export default function Deployments({ loaderData }: Route.ComponentProps) {
                 ))}
               </Select>
 
-              <Select label="Applikasjon" name="app" defaultValue={currentApp || ''}>
+              <Select label="Applikasjon" name="app" size="small" defaultValue={currentApp || ''}>
                 <option value="">Alle applikasjoner</option>
                 {apps.map((app) => (
                   <option key={app.id} value={app.id}>
@@ -119,7 +119,7 @@ export default function Deployments({ loaderData }: Route.ComponentProps) {
                 ))}
               </Select>
 
-              <Select label="Miljø" name="environment" defaultValue={currentEnvironment || ''}>
+              <Select label="Miljø" name="environment" size="small" defaultValue={currentEnvironment || ''}>
                 <option value="">Alle miljøer</option>
                 {environments.map((env) => (
                   <option key={env} value={env}>
@@ -128,7 +128,7 @@ export default function Deployments({ loaderData }: Route.ComponentProps) {
                 ))}
               </Select>
 
-              <Select label="Tidsperiode" name="period" defaultValue={currentPeriod}>
+              <Select label="Tidsperiode" name="period" size="small" defaultValue={currentPeriod}>
                 <option value="last-month">Siste måned</option>
                 <option value="last-12-months">Siste 12 måneder</option>
                 <option value="this-year">I år</option>
@@ -136,7 +136,7 @@ export default function Deployments({ loaderData }: Route.ComponentProps) {
                 <option value="all">Alle</option>
               </Select>
 
-              <Select label="Status" name="status" defaultValue={currentStatus}>
+              <Select label="Status" name="status" size="small" defaultValue={currentStatus}>
                 <option value="">Alle</option>
                 <option value="approved">Godkjent</option>
                 <option value="manually_approved">Manuelt godkjent</option>
@@ -146,7 +146,7 @@ export default function Deployments({ loaderData }: Route.ComponentProps) {
                 <option value="error">Feil</option>
               </Select>
 
-              <Select label="Metode" name="method" defaultValue={currentMethod}>
+              <Select label="Metode" name="method" size="small" defaultValue={currentMethod}>
                 <option value="">Alle</option>
                 <option value="pr">Pull Request</option>
                 <option value="direct_push">Direct Push</option>
