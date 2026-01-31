@@ -17,7 +17,6 @@ import { Form, Link, type LoaderFunctionArgs, useLoaderData, useSearchParams } f
 import { type DeploymentFilters, getDeploymentsPaginated } from '~/db/deployments.server'
 import { getMonitoredApplicationById } from '~/db/monitored-applications.server'
 import { getUserMappings } from '~/db/user-mappings.server'
-import styles from '~/styles/common.module.css'
 import type { Route } from './+types/apps.$id.deployments'
 
 export function meta({ data }: Route.MetaArgs) {
@@ -177,8 +176,7 @@ export default function AppDeployments() {
   }
 
   return (
-    <div className={styles.pageContainer}>
-      <VStack gap="space-32">
+    <VStack gap="space-32">
         {/* Header */}
         <div>
           <Detail textColor="subtle">
@@ -202,7 +200,6 @@ export default function AppDeployments() {
                   size="small"
                   value={currentStatus}
                   onChange={(e) => updateFilter('status', e.target.value)}
-                  style={{ minWidth: '150px' }}
                 >
                   <option value="">Alle</option>
                   <option value="approved">Godkjent</option>
@@ -219,7 +216,6 @@ export default function AppDeployments() {
                   size="small"
                   value={currentMethod}
                   onChange={(e) => updateFilter('method', e.target.value)}
-                  style={{ minWidth: '150px' }}
                 >
                   <option value="">Alle</option>
                   <option value="pr">Pull Request</option>
@@ -232,7 +228,6 @@ export default function AppDeployments() {
                   size="small"
                   value={currentPeriod}
                   onChange={(e) => updateFilter('period', e.target.value)}
-                  style={{ minWidth: '150px' }}
                 >
                   <option value="">Alle</option>
                   <option value="week">Siste uke</option>
@@ -246,7 +241,6 @@ export default function AppDeployments() {
                   value={currentDeployer}
                   onChange={(e) => updateFilter('deployer', e.target.value)}
                   placeholder="Søk..."
-                  style={{ minWidth: '150px' }}
                 />
 
                 <TextField
@@ -255,7 +249,6 @@ export default function AppDeployments() {
                   value={currentSha}
                   onChange={(e) => updateFilter('sha', e.target.value)}
                   placeholder="Søk..."
-                  style={{ minWidth: '150px' }}
                 />
               </HStack>
             </VStack>
@@ -387,7 +380,6 @@ export default function AppDeployments() {
             </Button>
           </HStack>
         )}
-      </VStack>
-    </div>
+    </VStack>
   )
 }
