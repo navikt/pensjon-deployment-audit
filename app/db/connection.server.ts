@@ -3,8 +3,9 @@ import { Pool, type PoolClient, type QueryResult } from 'pg'
 let poolInstance: Pool | null = null
 
 function buildConnectionConfig() {
-  // Nais injects DB_URL with envVarPrefix: DB in nais.yaml
-  const naisDbUrl = process.env.DB_URL
+  // Nais injects NAIS_DATABASE_<APP>_<DB>_URL
+  // App: pensjon-deployment-audit, DB: pensjon-deployment-audit
+  const naisDbUrl = process.env.NAIS_DATABASE_PENSJON_DEPLOYMENT_AUDIT_PENSJON_DEPLOYMENT_AUDIT_URL
 
   if (naisDbUrl) {
     return { connectionString: naisDbUrl }
@@ -16,7 +17,9 @@ function buildConnectionConfig() {
     return { connectionString }
   }
 
-  throw new Error('Database configuration missing. Set DB_URL (Nais) or DATABASE_URL (local)')
+  throw new Error(
+    'Database configuration missing. Set NAIS_DATABASE_PENSJON_DEPLOYMENT_AUDIT_PENSJON_DEPLOYMENT_AUDIT_URL (Nais) or DATABASE_URL (local)',
+  )
 }
 
 export function getPool(): Pool {
