@@ -6,6 +6,11 @@ import '@navikt/ds-css'
 import { Page, Theme } from '@navikt/ds-react'
 import { ThemeProvider, useTheme } from './hooks/useTheme'
 
+// Server-side initialization (runs once on server startup)
+if (typeof window === 'undefined') {
+  import('./init.server').then(({ initializeServer }) => initializeServer())
+}
+
 export const links: Route.LinksFunction = () => []
 
 export function Layout({ children }: { children: React.ReactNode }) {

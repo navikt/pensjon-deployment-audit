@@ -3,7 +3,8 @@ import { Alert, BodyShort, Box, Button, Heading, HGrid, ProgressBar, TextField, 
 import { useEffect, useState } from 'react'
 import { Form, useNavigation } from 'react-router'
 import { getVerificationStats } from '../db/deployments.server'
-import { verifyDeploymentsFourEyes } from '../lib/sync.server'
+import { getAllMonitoredApplications } from '../db/monitored-applications.server'
+import { verifyDeploymentsWithLock } from '../lib/sync.server'
 import type { Route } from './+types/deployments.verify'
 
 export function meta(_args: Route.MetaArgs) {
@@ -26,20 +27,59 @@ export async function loader({ request }: Route.LoaderArgs) {
 export async function action({ request }: Route.ActionArgs) {
   const formData = await request.formData()
   const limit = Number(formData.get('limit')) || 50
-  const appId = formData.get('app_id')
+  const appIdParam = formData.get('app_id')
 
   try {
     console.log(`🔍 Starting batch verification (limit: ${limit})`)
 
-    const result = await verifyDeploymentsFourEyes({
-      limit,
-      monitored_app_id: appId ? parseInt(appId as string, 10) : undefined,
-    })
+    // If specific app, use locking for that app
+    if (appIdParam) {
+      const appId = parseInt(appIdParam as string, 10)
+      const lockResult = await verifyDeploymentsWithLock(appId, limit)
 
+      if (lockResult.locked || !lockResult.result) {
+        return {
+          success: null,
+          error: 'En annen verifisering kjører allerede for denne applikasjonen. Prøv igjen om litt.',
+          result: null,
+        }
+      }
+
+      const result = lockResult.result
+      return {
+        success: `Verifisert ${result.verified} deployments. ${result.failed > 0 ? `${result.failed} feilet.` : ''} ${result.skipped > 0 ? `${result.skipped} hoppet over.` : ''}`,
+        error: null,
+        result,
+      }
+    }
+
+    // For all apps, iterate through each and use locking
+    const apps = await getAllMonitoredApplications()
+    let totalVerified = 0
+    let totalFailed = 0
+    let totalSkipped = 0
+    let lockedCount = 0
+
+    for (const app of apps) {
+      const lockResult = await verifyDeploymentsWithLock(app.id, Math.ceil(limit / apps.length))
+
+      if (lockResult.locked) {
+        lockedCount++
+        continue
+      }
+
+      if (lockResult.result) {
+        totalVerified += lockResult.result.verified
+        totalFailed += lockResult.result.failed
+        totalSkipped += lockResult.result.skipped
+      }
+    }
+
+    const lockedMsg = lockedCount > 0 ? ` ${lockedCount} app(er) hadde allerede en kjørende verifisering.` : ''
     return {
-      success: `Verifisert ${result.verified} deployments. ${result.failed > 0 ? `${result.failed} feilet.` : ''} ${result.skipped > 0 ? `${result.skipped} hoppet over.` : ''}`,
+      success: `Verifisert ${totalVerified} deployments. ${totalFailed > 0 ? `${totalFailed} feilet.` : ''} ${totalSkipped > 0 ? `${totalSkipped} hoppet over.` : ''}${lockedMsg}`,
       error: null,
-      result,
+      result: { verified: totalVerified, failed: totalFailed, skipped: totalSkipped },
     }
   } catch (error) {
     console.error('Batch verification error:', error)

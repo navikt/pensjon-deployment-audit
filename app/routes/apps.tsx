@@ -10,7 +10,7 @@ import { resolveAlertsForLegacyDeployments } from '~/db/alerts.server'
 import { getRepositoriesByAppId } from '~/db/application-repositories.server'
 import { getAppDeploymentStats } from '~/db/deployments.server'
 import { getAllMonitoredApplications } from '~/db/monitored-applications.server'
-import { syncDeploymentsFromNais, verifyDeploymentsFourEyes } from '~/lib/sync.server'
+import { syncDeploymentsFromNaisWithLock, verifyDeploymentsWithLock } from '~/lib/sync.server'
 import type { Route } from './+types/apps'
 
 export function meta(_args: Route.MetaArgs) {
@@ -45,10 +45,19 @@ export async function action({ request }: Route.ActionArgs) {
     const teamSlug = formData.get('team_slug') as string
     const environmentName = formData.get('environment_name') as string
     const appName = formData.get('app_name') as string
+    const monitoredAppId = Number(formData.get('monitored_app_id'))
 
     try {
-      const result = await syncDeploymentsFromNais(teamSlug, environmentName, appName)
+      const lockResult = await syncDeploymentsFromNaisWithLock(monitoredAppId, teamSlug, environmentName, appName)
 
+      if (lockResult.locked || !lockResult.result) {
+        return {
+          success: null,
+          error: 'En annen synkronisering kjører allerede for denne applikasjonen. Prøv igjen om litt.',
+        }
+      }
+
+      const result = lockResult.result
       return {
         success: `Hentet ${result.newCount} nye deployments fra Nais. ${result.alertsCreated > 0 ? `${result.alertsCreated} nye varsler opprettet.` : ''} Kjør GitHub-verifisering for å sjekke godkjenning.`,
         error: null,
@@ -66,11 +75,16 @@ export async function action({ request }: Route.ActionArgs) {
     const monitoredAppId = Number(formData.get('monitored_app_id'))
 
     try {
-      const result = await verifyDeploymentsFourEyes({
-        monitored_app_id: monitoredAppId,
-        limit: 1000, // Verify max 1000 deployments at a time
-      })
+      const lockResult = await verifyDeploymentsWithLock(monitoredAppId, 1000)
 
+      if (lockResult.locked || !lockResult.result) {
+        return {
+          success: null,
+          error: 'En annen verifisering kjører allerede for denne applikasjonen. Prøv igjen om litt.',
+        }
+      }
+
+      const result = lockResult.result
       return {
         success: `Verifiserte ${result.verified} deployments med GitHub. ${result.failed > 0 ? `${result.failed} feilet.` : ''}`,
         error: null,
@@ -249,6 +263,7 @@ export default function Apps({ loaderData, actionData }: Route.ComponentProps) {
                       <HStack gap="space-8">
                         <Form method="post">
                           <input type="hidden" name="intent" value="sync-nais" />
+                          <input type="hidden" name="monitored_app_id" value={app.id} />
                           <input type="hidden" name="team_slug" value={app.team_slug} />
                           <input type="hidden" name="environment_name" value={app.environment_name} />
                           <input type="hidden" name="app_name" value={app.app_name} />

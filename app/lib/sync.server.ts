@@ -619,3 +619,170 @@ export async function syncAndVerifyDeployments(
     alertsCreated: naisResult.alertsCreated,
   }
 }
+
+// ============================================================================
+// Locked sync functions - for distributed execution across multiple pods
+// ============================================================================
+
+import { acquireSyncLock, cleanupOldSyncJobs, releaseSyncLock } from '~/db/sync-jobs.server'
+
+/**
+ * Sync deployments from Nais with distributed locking
+ * Only one pod will run sync for a given app at a time
+ */
+export async function syncDeploymentsFromNaisWithLock(
+  monitoredAppId: number,
+  teamSlug: string,
+  environmentName: string,
+  appName: string,
+): Promise<{ success: boolean; result?: Awaited<ReturnType<typeof syncDeploymentsFromNais>>; locked?: boolean }> {
+  const lockId = await acquireSyncLock('nais_sync', monitoredAppId)
+  if (!lockId) {
+    return { success: false, locked: true }
+  }
+
+  try {
+    const result = await syncDeploymentsFromNais(teamSlug, environmentName, appName)
+    await releaseSyncLock(lockId, 'completed', result)
+    return { success: true, result }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    await releaseSyncLock(lockId, 'failed', undefined, errorMessage)
+    throw error
+  }
+}
+
+/**
+ * Verify deployments with distributed locking
+ * Only one pod will run verification for a given app at a time
+ */
+export async function verifyDeploymentsWithLock(
+  monitoredAppId: number,
+  limit?: number,
+): Promise<{ success: boolean; result?: Awaited<ReturnType<typeof verifyDeploymentsFourEyes>>; locked?: boolean }> {
+  const lockId = await acquireSyncLock('github_verify', monitoredAppId, 15) // 15 min timeout for verification
+  if (!lockId) {
+    return { success: false, locked: true }
+  }
+
+  try {
+    const result = await verifyDeploymentsFourEyes({
+      monitored_app_id: monitoredAppId,
+      limit,
+    })
+    await releaseSyncLock(lockId, 'completed', result)
+    return { success: true, result }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    await releaseSyncLock(lockId, 'failed', undefined, errorMessage)
+    throw error
+  }
+}
+
+// ============================================================================
+// Periodic sync scheduler
+// ============================================================================
+
+import { getAllMonitoredApplications } from '~/db/monitored-applications.server'
+
+let periodicSyncInterval: ReturnType<typeof setInterval> | null = null
+let isPeriodicSyncRunning = false
+
+const SYNC_INTERVAL_MS = 5 * 60 * 1000 // 5 minutes
+const VERIFY_LIMIT_PER_APP = 20 // Limit verifications per app per cycle
+
+/**
+ * Run periodic sync for all monitored applications
+ * Uses locking to ensure only one pod syncs each app
+ */
+async function runPeriodicSync(): Promise<void> {
+  if (isPeriodicSyncRunning) {
+    console.log('⏳ Periodic sync already running, skipping...')
+    return
+  }
+
+  isPeriodicSyncRunning = true
+  console.log('🔄 Starting periodic sync cycle...')
+
+  try {
+    const apps = await getAllMonitoredApplications()
+    console.log(`📋 Found ${apps.length} monitored applications`)
+
+    let syncedCount = 0
+    let verifiedCount = 0
+    let lockedCount = 0
+
+    for (const app of apps) {
+      // Try Nais sync
+      const syncResult = await syncDeploymentsFromNaisWithLock(
+        app.id,
+        app.team_slug,
+        app.environment_name,
+        app.app_name,
+      )
+
+      if (syncResult.locked) {
+        lockedCount++
+      } else if (syncResult.success) {
+        syncedCount++
+      }
+
+      // Try GitHub verification
+      const verifyResult = await verifyDeploymentsWithLock(app.id, VERIFY_LIMIT_PER_APP)
+
+      if (verifyResult.success && verifyResult.result) {
+        verifiedCount += verifyResult.result.verified
+      }
+
+      // Small delay between apps to be nice to APIs
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+    }
+
+    // Cleanup old job records periodically
+    const cleaned = await cleanupOldSyncJobs(50)
+    if (cleaned > 0) {
+      console.log(`🧹 Cleaned up ${cleaned} old sync job records`)
+    }
+
+    console.log(
+      `✅ Periodic sync complete: synced ${syncedCount} apps, verified ${verifiedCount} deployments, ${lockedCount} locked`,
+    )
+  } catch (error) {
+    console.error('❌ Periodic sync error:', error)
+  } finally {
+    isPeriodicSyncRunning = false
+  }
+}
+
+/**
+ * Start the periodic sync scheduler
+ */
+export function startPeriodicSync(): void {
+  if (periodicSyncInterval) {
+    console.log('⚠️ Periodic sync already started')
+    return
+  }
+
+  console.log(`🚀 Starting periodic sync scheduler (interval: ${SYNC_INTERVAL_MS / 1000}s)`)
+
+  // Run first sync after a short delay (allow server to fully start)
+  setTimeout(() => {
+    runPeriodicSync().catch(console.error)
+  }, 10_000) // 10 second delay
+
+  // Schedule recurring syncs
+  periodicSyncInterval = setInterval(() => {
+    runPeriodicSync().catch(console.error)
+  }, SYNC_INTERVAL_MS)
+}
+
+/**
+ * Stop the periodic sync scheduler
+ */
+export function stopPeriodicSync(): void {
+  if (periodicSyncInterval) {
+    clearInterval(periodicSyncInterval)
+    periodicSyncInterval = null
+    console.log('🛑 Periodic sync scheduler stopped')
+  }
+}
