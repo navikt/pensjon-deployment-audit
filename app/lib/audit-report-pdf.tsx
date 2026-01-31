@@ -1,18 +1,21 @@
 import { Document, Font, Page, renderToBuffer, StyleSheet, Text, View } from '@react-pdf/renderer'
 import type { AuditReportData, ContributorEntry, ManualApprovalEntry, ReviewerEntry } from '~/db/audit-reports.server'
 
-// Register a font that supports Norwegian characters
+// Register a font that supports Norwegian characters (using TTF format for compatibility)
 Font.register({
   family: 'Source Sans Pro',
   fonts: [
-    { src: 'https://fonts.gstatic.com/s/sourcesanspro/v22/6xK3dSBYKcSV-LCoeQqfX1RYOo3qOK7l.woff2', fontWeight: 400 },
     {
-      src: 'https://fonts.gstatic.com/s/sourcesanspro/v22/6xK1dSBYKcSV-LCoeQqfX1RYOo3qPZ7nsDI.woff2',
+      src: 'https://cdn.jsdelivr.net/fontsource/fonts/source-sans-pro@latest/latin-400-normal.ttf',
+      fontWeight: 400,
+    },
+    {
+      src: 'https://cdn.jsdelivr.net/fontsource/fonts/source-sans-pro@latest/latin-400-italic.ttf',
       fontWeight: 400,
       fontStyle: 'italic',
     },
     {
-      src: 'https://fonts.gstatic.com/s/sourcesanspro/v22/6xKydSBYKcSV-LCoeQqfX1RYOo3ig4vwlxdu.woff2',
+      src: 'https://cdn.jsdelivr.net/fontsource/fonts/source-sans-pro@latest/latin-600-normal.ttf',
       fontWeight: 600,
     },
   ],
