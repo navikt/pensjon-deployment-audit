@@ -50,8 +50,19 @@ async function runMigrations() {
     }
 
     // Run migrations
+    // For Nais/Cloud SQL Proxy, we need custom SSL config to skip hostname verification
+    const isNais = !!naisDbUrl;
     await runner({
-      databaseUrl,
+      databaseUrl: isNais
+        ? {
+            connectionString: databaseUrl,
+            ssl: {
+              rejectUnauthorized: true,
+              // Skip hostname verification since we connect via Cloud SQL Proxy (localhost)
+              checkServerIdentity: () => undefined,
+            },
+          }
+        : databaseUrl,
       dir: join(__dirname, '..', config['migrations-dir']),
       direction: 'up',
       migrationsTable: config['migrations-table'],

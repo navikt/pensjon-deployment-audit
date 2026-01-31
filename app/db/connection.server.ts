@@ -7,7 +7,16 @@ function buildConnectionConfig() {
   const naisDbUrl = process.env.DB_URL
 
   if (naisDbUrl) {
-    return { connectionString: naisDbUrl }
+    // Cloud SQL Proxy runs on localhost, but cert is for Cloud SQL instance
+    // We need to skip hostname verification when connecting via proxy
+    return {
+      connectionString: naisDbUrl,
+      ssl: {
+        rejectUnauthorized: true,
+        // Skip hostname verification since we connect via Cloud SQL Proxy (localhost)
+        checkServerIdentity: () => undefined,
+      },
+    }
   }
 
   // Fall back to DATABASE_URL for local development
