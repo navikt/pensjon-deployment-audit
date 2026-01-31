@@ -71,7 +71,7 @@ function getMethodTag(deployment: DeploymentWithApp) {
   if (deployment.github_pr_number) {
     return (
       <Tag data-color="info" variant="outline" size="small">
-        PR #{deployment.github_pr_number}
+        #{deployment.github_pr_number}
       </Tag>
     )
   }
@@ -296,7 +296,7 @@ export default function Deployments({ loaderData }: Route.ComponentProps) {
                     {deployment.github_pr_url && (
                       <Detail textColor="subtle">
                         <a href={deployment.github_pr_url} target="_blank" rel="noopener noreferrer">
-                          PR #{deployment.github_pr_number}
+                          #{deployment.github_pr_number}
                         </a>
                       </Detail>
                     )}

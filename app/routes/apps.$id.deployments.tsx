@@ -339,7 +339,7 @@ export default function AppDeployments() {
                     {deployment.github_pr_number && (
                       <Detail textColor="subtle">
                         <a href={deployment.github_pr_url || '#'} target="_blank" rel="noopener noreferrer">
-                          PR #{deployment.github_pr_number}
+                          #{deployment.github_pr_number}
                         </a>
                       </Detail>
                     )}
