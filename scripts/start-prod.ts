@@ -17,11 +17,17 @@ async function runMigrations() {
   console.log('🔄 Running database migrations...');
 
   // Log available database-related environment variables for debugging
-  console.log('📋 Available database environment variables:');
-  for (const key of Object.keys(process.env)) {
-    if (key.includes('DATABASE') || key.includes('NAIS_DATABASE') || key.includes('DB_') || key.includes('POSTGRES')) {
-      console.log(`  - ${key}`);
-    }
+  const allKeys = Object.keys(process.env);
+  const dbKeys = allKeys.filter(
+    (key) =>
+      key.includes('DATABASE') ||
+      key.includes('NAIS_DATABASE') ||
+      key.includes('DB_') ||
+      key.includes('POSTGRES'),
+  );
+  console.log(`📋 Environment variables: ${allKeys.length} total, ${dbKeys.length} database-related:`);
+  for (const key of dbKeys) {
+    console.log(`  - ${key}`);
   }
 
   try {
