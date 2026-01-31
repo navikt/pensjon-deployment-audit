@@ -7,14 +7,17 @@ import {
   Detail,
   Heading,
   HGrid,
+  Hide,
+  HStack,
   Select,
-  Table,
+  Show,
   Tag,
   VStack,
 } from '@navikt/ds-react'
 import { Form, Link, useSearchParams } from 'react-router'
 import { type DeploymentWithApp, getAllDeployments } from '~/db/deployments.server'
 import { getAllMonitoredApplications } from '~/db/monitored-applications.server'
+import { getUserMappings } from '~/db/user-mappings.server'
 import { getDateRange } from '~/lib/nais.server'
 import type { Route } from './+types/deployments'
 
@@ -50,92 +53,87 @@ export async function loader({ request }: Route.LoaderArgs) {
   const teams = Array.from(new Set(deployments.map((d) => d.team_slug))).sort()
   const environments = Array.from(new Set(deployments.map((d) => d.environment_name))).sort()
 
-  return { deployments, apps, teams, environments }
-}
-
-function getFourEyesLabel(deployment: DeploymentWithApp): {
-  text: string
-  color: 'success' | 'warning' | 'danger' | 'info' | 'neutral'
-} {
-  if (deployment.has_four_eyes) {
-    return { text: 'Godkjent PR', color: 'success' }
-  }
-
-  switch (deployment.four_eyes_status) {
-    case 'approved':
-    case 'approved_pr':
-      return { text: 'Godkjent PR', color: 'success' }
-    case 'baseline':
-      return { text: 'Baseline', color: 'success' }
-    case 'no_changes':
-      return { text: 'Ingen endringer', color: 'success' }
-    case 'unverified_commits':
-      return { text: 'Uverifiserte commits', color: 'danger' }
-    case 'approved_pr_with_unreviewed':
-      return { text: 'Ureviewed i merge', color: 'danger' }
-    case 'legacy':
-      return { text: 'Legacy (ignorert)', color: 'success' }
-    case 'direct_push':
-      return { text: 'Direct push', color: 'warning' }
-    case 'missing':
-      return { text: 'Mangler godkjenning', color: 'danger' }
-    case 'error':
-      return { text: 'Feil ved sjekk', color: 'danger' }
-    case 'pending':
-      return { text: 'Venter', color: 'info' }
-    default:
-      return { text: 'Ukjent status', color: 'neutral' }
-  }
-}
-
-function getDeploymentMethod(deployment: DeploymentWithApp): {
-  type: 'pr' | 'direct' | 'unknown'
-  label: string
-  prNumber: number | null
-  prUrl: string | null
-} {
-  if (deployment.github_pr_number && deployment.github_pr_url) {
-    return {
-      type: 'pr',
-      label: `PR #${deployment.github_pr_number}`,
-      prNumber: deployment.github_pr_number,
-      prUrl: deployment.github_pr_url,
+  // Get display names for deployers
+  const deployerUsernames = [...new Set(deployments.map((d) => d.deployer_username).filter(Boolean))] as string[]
+  const userMappingsMap = await getUserMappings(deployerUsernames)
+  const userMappings: Record<string, string> = {}
+  for (const [username, mapping] of userMappingsMap) {
+    if (mapping.display_name) {
+      userMappings[username] = mapping.display_name
     }
   }
-  if (deployment.four_eyes_status === 'direct_push' || deployment.four_eyes_status === 'unverified_commits') {
-    return {
-      type: 'direct',
-      label: 'Direct push',
-      prNumber: null,
-      prUrl: null,
-    }
+
+  return { deployments, apps, teams, environments, userMappings }
+}
+
+function getMethodTag(deployment: DeploymentWithApp) {
+  if (deployment.github_pr_number) {
+    return (
+      <Tag data-color="info" variant="outline" size="small">
+        PR #{deployment.github_pr_number}
+      </Tag>
+    )
   }
   if (deployment.four_eyes_status === 'legacy') {
-    return {
-      type: 'unknown',
-      label: 'Legacy',
-      prNumber: null,
-      prUrl: null,
-    }
+    return (
+      <Tag data-color="neutral" variant="outline" size="small">
+        Legacy
+      </Tag>
+    )
   }
-  if (deployment.four_eyes_status === 'pending') {
-    return {
-      type: 'unknown',
-      label: 'Venter...',
-      prNumber: null,
-      prUrl: null,
-    }
+  return (
+    <Tag data-color="warning" variant="outline" size="small">
+      Direct Push
+    </Tag>
+  )
+}
+
+function getStatusTag(deployment: DeploymentWithApp) {
+  if (deployment.has_four_eyes) {
+    return (
+      <Tag data-color="success" variant="outline" size="small">
+        ✓ Godkjent
+      </Tag>
+    )
   }
-  return {
-    type: 'unknown',
-    label: '-',
-    prNumber: null,
-    prUrl: null,
+  switch (deployment.four_eyes_status) {
+    case 'pending':
+      return (
+        <Tag data-color="neutral" variant="outline" size="small">
+          Venter
+        </Tag>
+      )
+    case 'direct_push':
+    case 'unverified_commits':
+      return (
+        <Tag data-color="warning" variant="outline" size="small">
+          ✗ Ikke godkjent
+        </Tag>
+      )
+    case 'approved_pr_with_unreviewed':
+      return (
+        <Tag data-color="warning" variant="outline" size="small">
+          ⚠ Ureviewed
+        </Tag>
+      )
+    case 'error':
+    case 'missing':
+      return (
+        <Tag data-color="danger" variant="outline" size="small">
+          ✗ Feil
+        </Tag>
+      )
+    default:
+      return (
+        <Tag data-color="neutral" variant="outline" size="small">
+          {deployment.four_eyes_status}
+        </Tag>
+      )
   }
 }
 
 export default function Deployments({ loaderData }: Route.ComponentProps) {
-  const { deployments, apps, teams, environments } = loaderData
+  const { deployments, apps, teams, environments, userMappings } = loaderData
   const [searchParams] = useSearchParams()
 
   const currentApp = searchParams.get('app')
@@ -217,92 +215,92 @@ export default function Deployments({ loaderData }: Route.ComponentProps) {
           applikasjoner.
         </Alert>
       ) : (
-        <Box padding="space-20" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
-          <Table>
-            <Table.Header>
-              <Table.Row>
-                <Table.HeaderCell>Tidspunkt</Table.HeaderCell>
-                <Table.HeaderCell>Applikasjon</Table.HeaderCell>
-                <Table.HeaderCell>Miljø</Table.HeaderCell>
-                <Table.HeaderCell>Metode</Table.HeaderCell>
-                <Table.HeaderCell>Deployer</Table.HeaderCell>
-                <Table.HeaderCell>Commit</Table.HeaderCell>
-                <Table.HeaderCell>Status</Table.HeaderCell>
-                <Table.HeaderCell></Table.HeaderCell>
-              </Table.Row>
-            </Table.Header>
-            <Table.Body>
-              {deployments.map((deployment) => {
-                const status = getFourEyesLabel(deployment)
-                const method = getDeploymentMethod(deployment)
+        <VStack gap="space-16">
+          {deployments.map((deployment) => (
+            <Box key={deployment.id} padding="space-20" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
+              <VStack gap="space-12">
+                {/* First row: Time, App name (desktop), Tags */}
+                <HStack gap="space-8" align="center" justify="space-between" wrap>
+                  <HStack gap="space-12" align="center" style={{ flex: 1 }}>
+                    <BodyShort weight="semibold" style={{ whiteSpace: 'nowrap' }}>
+                      {new Date(deployment.created_at).toLocaleString('no-NO', {
+                        dateStyle: 'short',
+                        timeStyle: 'short',
+                      })}
+                    </BodyShort>
+                    {/* App name and environment on desktop */}
+                    <Show above="md">
+                      <HStack gap="space-8" align="center">
+                        <Link to={`/apps/${deployment.monitored_app_id}`}>
+                          <BodyShort weight="semibold">{deployment.app_name}</BodyShort>
+                        </Link>
+                        <Detail textColor="subtle">{deployment.environment_name}</Detail>
+                      </HStack>
+                    </Show>
+                  </HStack>
+                  <HStack gap="space-8">
+                    {getMethodTag(deployment)}
+                    {getStatusTag(deployment)}
+                  </HStack>
+                </HStack>
 
-                return (
-                  <Table.Row key={deployment.id}>
-                    <Table.DataCell>
-                      <Detail textColor="subtle">
-                        {new Date(deployment.created_at).toLocaleString('no-NO', {
-                          year: 'numeric',
-                          month: '2-digit',
-                          day: '2-digit',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </Detail>
-                    </Table.DataCell>
-                    <Table.DataCell>
-                      <Link to={`/apps/${deployment.monitored_app_id}`}>
-                        <strong>{deployment.app_name}</strong>
-                      </Link>
-                    </Table.DataCell>
-                    <Table.DataCell>
-                      <code style={{ fontSize: '0.75rem' }}>{deployment.environment_name}</code>
-                    </Table.DataCell>
-                    <Table.DataCell>
-                      {method.type === 'pr' && method.prUrl ? (
-                        <Link to={method.prUrl} target="_blank">
-                          <Tag data-color="info" variant="outline" size="small">
-                            {method.label}
-                          </Tag>
-                        </Link>
-                      ) : method.type === 'direct' ? (
-                        <Tag data-color="warning" variant="outline" size="small">
-                          {method.label}
-                        </Tag>
-                      ) : (
-                        <Detail textColor="subtle">{method.label}</Detail>
-                      )}
-                    </Table.DataCell>
-                    <Table.DataCell>
-                      {deployment.deployer_username || <Detail textColor="subtle">(ukjent)</Detail>}
-                    </Table.DataCell>
-                    <Table.DataCell>
-                      {deployment.commit_sha ? (
-                        <Link
-                          to={`https://github.com/${deployment.detected_github_owner}/${deployment.detected_github_repo_name}/commit/${deployment.commit_sha}`}
+                {/* App name on mobile - separate line */}
+                <Hide above="md">
+                  <HStack gap="space-8" align="center">
+                    <Link to={`/apps/${deployment.monitored_app_id}`}>
+                      <BodyShort weight="semibold">{deployment.app_name}</BodyShort>
+                    </Link>
+                    <Detail textColor="subtle">{deployment.environment_name}</Detail>
+                  </HStack>
+                </Hide>
+
+                {/* Second row: Deployer, commit, and View button */}
+                <HStack gap="space-16" align="center" justify="space-between" wrap>
+                  <HStack gap="space-16" wrap>
+                    <Detail textColor="subtle">
+                      {deployment.deployer_username ? (
+                        <a
+                          href={`https://github.com/${deployment.deployer_username}`}
                           target="_blank"
+                          rel="noopener noreferrer"
+                          title={deployment.deployer_username}
                         >
-                          <code style={{ fontSize: '0.8rem' }}>{deployment.commit_sha.substring(0, 7)}</code>
-                        </Link>
+                          {userMappings[deployment.deployer_username] || deployment.deployer_username}
+                        </a>
                       ) : (
-                        <Detail textColor="subtle">(ukjent)</Detail>
+                        '(ukjent)'
                       )}
-                    </Table.DataCell>
-                    <Table.DataCell>
-                      <Tag data-color={status.color} variant="outline" size="small">
-                        {deployment.has_four_eyes ? '✓' : '✗'} {status.text}
-                      </Tag>
-                    </Table.DataCell>
-                    <Table.DataCell>
-                      <Button as={Link} to={`/deployments/${deployment.id}`} size="small" variant="secondary">
-                        Vis
-                      </Button>
-                    </Table.DataCell>
-                  </Table.Row>
-                )
-              })}
-            </Table.Body>
-          </Table>
-        </Box>
+                    </Detail>
+                    <Detail textColor="subtle">
+                      {deployment.commit_sha ? (
+                        <a
+                          href={`https://github.com/${deployment.detected_github_owner}/${deployment.detected_github_repo_name}/commit/${deployment.commit_sha}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ fontFamily: 'monospace' }}
+                        >
+                          {deployment.commit_sha.substring(0, 7)}
+                        </a>
+                      ) : (
+                        '(ukjent)'
+                      )}
+                    </Detail>
+                    {deployment.github_pr_url && (
+                      <Detail textColor="subtle">
+                        <a href={deployment.github_pr_url} target="_blank" rel="noopener noreferrer">
+                          PR #{deployment.github_pr_number}
+                        </a>
+                      </Detail>
+                    )}
+                  </HStack>
+                  <Button as={Link} to={`/deployments/${deployment.id}`} variant="tertiary" size="small">
+                    Vis
+                  </Button>
+                </HStack>
+              </VStack>
+            </Box>
+          ))}
+        </VStack>
       )}
     </VStack>
   )
