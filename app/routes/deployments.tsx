@@ -1,9 +1,21 @@
-import { Alert, Button, Checkbox, Detail, Heading, Select, Table, Tag } from '@navikt/ds-react'
+import {
+  Alert,
+  BodyShort,
+  Box,
+  Button,
+  Checkbox,
+  Detail,
+  Heading,
+  HGrid,
+  Select,
+  Table,
+  Tag,
+  VStack,
+} from '@navikt/ds-react'
 import { Form, Link, useSearchParams } from 'react-router'
 import { type DeploymentWithApp, getAllDeployments } from '~/db/deployments.server'
 import { getAllMonitoredApplications } from '~/db/monitored-applications.server'
 import { getDateRange } from '~/lib/nais.server'
-import styles from '../styles/common.module.css'
 import type { Route } from './+types/deployments'
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -141,154 +153,157 @@ export default function Deployments({ loaderData }: Route.ComponentProps) {
   const percentage = stats.total > 0 ? Math.round((stats.withFourEyes / stats.total) * 100) : 0
 
   return (
-    <div className={styles.pageContainer}>
+    <VStack gap="space-32">
       <div>
         <Heading size="large" spacing>
           Deployments
         </Heading>
-        <Detail>
+        <BodyShort textColor="subtle">
           {stats.total} deployments totalt • {stats.withFourEyes} med four-eyes ({percentage}%) •{' '}
           {stats.withoutFourEyes} mangler four-eyes
-        </Detail>
+        </BodyShort>
       </div>
-      <Form method="get" onChange={(e) => e.currentTarget.submit()}>
-        <div className={styles.filterForm}>
-          <div className={styles.filterRow}>
-            <Select label="Team" name="team" defaultValue={currentTeam || ''} className={styles.filterSelect}>
-              <option value="">Alle teams</option>
-              {teams.map((team) => (
-                <option key={team} value={team}>
-                  {team}
-                </option>
-              ))}
-            </Select>
 
-            <Select label="Applikasjon" name="app" defaultValue={currentApp || ''} className={styles.filterSelectWide}>
-              <option value="">Alle applikasjoner</option>
-              {apps.map((app) => (
-                <option key={app.id} value={app.id}>
-                  {app.app_name} ({app.environment_name})
-                </option>
-              ))}
-            </Select>
+      <Box padding="space-20" borderRadius="8" background="sunken">
+        <Form method="get" onChange={(e) => e.currentTarget.submit()}>
+          <VStack gap="space-16">
+            <HGrid gap="space-16" columns={{ xs: 1, sm: 2, lg: 4 }}>
+              <Select label="Team" name="team" defaultValue={currentTeam || ''}>
+                <option value="">Alle teams</option>
+                {teams.map((team) => (
+                  <option key={team} value={team}>
+                    {team}
+                  </option>
+                ))}
+              </Select>
 
-            <Select
-              label="Miljø"
-              name="environment"
-              defaultValue={currentEnvironment || ''}
-              className={styles.filterSelectNarrow}
-            >
-              <option value="">Alle miljøer</option>
-              {environments.map((env) => (
-                <option key={env} value={env}>
-                  {env}
-                </option>
-              ))}
-            </Select>
+              <Select label="Applikasjon" name="app" defaultValue={currentApp || ''}>
+                <option value="">Alle applikasjoner</option>
+                {apps.map((app) => (
+                  <option key={app.id} value={app.id}>
+                    {app.app_name} ({app.environment_name})
+                  </option>
+                ))}
+              </Select>
 
-            <Select label="Tidsperiode" name="period" defaultValue={currentPeriod} className={styles.filterSelect}>
-              <option value="last-month">Siste måned</option>
-              <option value="last-12-months">Siste 12 måneder</option>
-              <option value="this-year">I år</option>
-              <option value="year-2025">Hele 2025</option>
-              <option value="all">Alle</option>
-            </Select>
-          </div>
+              <Select label="Miljø" name="environment" defaultValue={currentEnvironment || ''}>
+                <option value="">Alle miljøer</option>
+                {environments.map((env) => (
+                  <option key={env} value={env}>
+                    {env}
+                  </option>
+                ))}
+              </Select>
 
-          <Checkbox name="only_missing" value="true" defaultChecked={onlyMissing}>
-            Vis kun deployments som mangler four-eyes
-          </Checkbox>
-        </div>
-      </Form>
+              <Select label="Tidsperiode" name="period" defaultValue={currentPeriod}>
+                <option value="last-month">Siste måned</option>
+                <option value="last-12-months">Siste 12 måneder</option>
+                <option value="this-year">I år</option>
+                <option value="year-2025">Hele 2025</option>
+                <option value="all">Alle</option>
+              </Select>
+            </HGrid>
+
+            <Checkbox name="only_missing" value="true" defaultChecked={onlyMissing}>
+              Vis kun deployments som mangler four-eyes
+            </Checkbox>
+          </VStack>
+        </Form>
+      </Box>
+
       {deployments.length === 0 ? (
         <Alert variant="info">
           Ingen deployments funnet med de valgte filtrene. Prøv å endre filtrene eller synkroniser deployments fra
           applikasjoner.
         </Alert>
       ) : (
-        <Table>
-          <Table.Header>
-            <Table.Row>
-              <Table.HeaderCell>Tidspunkt</Table.HeaderCell>
-              <Table.HeaderCell>Applikasjon</Table.HeaderCell>
-              <Table.HeaderCell>Miljø</Table.HeaderCell>
-              <Table.HeaderCell>Metode</Table.HeaderCell>
-              <Table.HeaderCell>Deployer</Table.HeaderCell>
-              <Table.HeaderCell>Commit</Table.HeaderCell>
-              <Table.HeaderCell>Status</Table.HeaderCell>
-              <Table.HeaderCell></Table.HeaderCell>
-            </Table.Row>
-          </Table.Header>
-          <Table.Body>
-            {deployments.map((deployment) => {
-              const status = getFourEyesLabel(deployment)
-              const method = getDeploymentMethod(deployment)
+        <Box padding="space-20" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
+          <Table>
+            <Table.Header>
+              <Table.Row>
+                <Table.HeaderCell>Tidspunkt</Table.HeaderCell>
+                <Table.HeaderCell>Applikasjon</Table.HeaderCell>
+                <Table.HeaderCell>Miljø</Table.HeaderCell>
+                <Table.HeaderCell>Metode</Table.HeaderCell>
+                <Table.HeaderCell>Deployer</Table.HeaderCell>
+                <Table.HeaderCell>Commit</Table.HeaderCell>
+                <Table.HeaderCell>Status</Table.HeaderCell>
+                <Table.HeaderCell></Table.HeaderCell>
+              </Table.Row>
+            </Table.Header>
+            <Table.Body>
+              {deployments.map((deployment) => {
+                const status = getFourEyesLabel(deployment)
+                const method = getDeploymentMethod(deployment)
 
-              return (
-                <Table.Row key={deployment.id}>
-                  <Table.DataCell>
-                    {new Date(deployment.created_at).toLocaleString('no-NO', {
-                      year: 'numeric',
-                      month: '2-digit',
-                      day: '2-digit',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </Table.DataCell>
-                  <Table.DataCell>
-                    <Link to={`/apps/${deployment.monitored_app_id}`} className={styles.linkExternal}>
-                      <strong>{deployment.app_name}</strong>
-                    </Link>
-                  </Table.DataCell>
-                  <Table.DataCell>
-                    <code className={styles.codeSmall}>{deployment.environment_name}</code>
-                  </Table.DataCell>
-                  <Table.DataCell>
-                    {method.type === 'pr' && method.prUrl ? (
-                      <a href={method.prUrl} target="_blank" rel="noopener noreferrer" className={styles.linkExternal}>
-                        <Tag data-color="info" variant="outline" size="small">
+                return (
+                  <Table.Row key={deployment.id}>
+                    <Table.DataCell>
+                      <Detail textColor="subtle">
+                        {new Date(deployment.created_at).toLocaleString('no-NO', {
+                          year: 'numeric',
+                          month: '2-digit',
+                          day: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </Detail>
+                    </Table.DataCell>
+                    <Table.DataCell>
+                      <Link to={`/apps/${deployment.monitored_app_id}`}>
+                        <strong>{deployment.app_name}</strong>
+                      </Link>
+                    </Table.DataCell>
+                    <Table.DataCell>
+                      <code style={{ fontSize: '0.75rem' }}>{deployment.environment_name}</code>
+                    </Table.DataCell>
+                    <Table.DataCell>
+                      {method.type === 'pr' && method.prUrl ? (
+                        <Link to={method.prUrl} target="_blank">
+                          <Tag data-color="info" variant="outline" size="small">
+                            {method.label}
+                          </Tag>
+                        </Link>
+                      ) : method.type === 'direct' ? (
+                        <Tag data-color="warning" variant="outline" size="small">
                           {method.label}
                         </Tag>
-                      </a>
-                    ) : method.type === 'direct' ? (
-                      <Tag data-color="warning" variant="outline" size="small">
-                        {method.label}
+                      ) : (
+                        <Detail textColor="subtle">{method.label}</Detail>
+                      )}
+                    </Table.DataCell>
+                    <Table.DataCell>
+                      {deployment.deployer_username || <Detail textColor="subtle">(ukjent)</Detail>}
+                    </Table.DataCell>
+                    <Table.DataCell>
+                      {deployment.commit_sha ? (
+                        <Link
+                          to={`https://github.com/${deployment.detected_github_owner}/${deployment.detected_github_repo_name}/commit/${deployment.commit_sha}`}
+                          target="_blank"
+                        >
+                          <code style={{ fontSize: '0.8rem' }}>{deployment.commit_sha.substring(0, 7)}</code>
+                        </Link>
+                      ) : (
+                        <Detail textColor="subtle">(ukjent)</Detail>
+                      )}
+                    </Table.DataCell>
+                    <Table.DataCell>
+                      <Tag data-color={status.color} variant="outline" size="small">
+                        {deployment.has_four_eyes ? '✓' : '✗'} {status.text}
                       </Tag>
-                    ) : (
-                      <span className={styles.textSubtle}>{method.label}</span>
-                    )}
-                  </Table.DataCell>
-                  <Table.DataCell>{deployment.deployer_username || '(ukjent)'}</Table.DataCell>
-                  <Table.DataCell>
-                    {deployment.commit_sha ? (
-                      <a
-                        href={`https://github.com/${deployment.detected_github_owner}/${deployment.detected_github_repo_name}/commit/${deployment.commit_sha}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={styles.codeMedium}
-                      >
-                        {deployment.commit_sha.substring(0, 7)}
-                      </a>
-                    ) : (
-                      <span className={styles.textSubtle}>(ukjent)</span>
-                    )}
-                  </Table.DataCell>
-                  <Table.DataCell>
-                    <Tag data-color={status.color} variant="outline" size="small">
-                      {deployment.has_four_eyes ? '✓' : '✗'} {status.text}
-                    </Tag>
-                  </Table.DataCell>
-                  <Table.DataCell>
-                    <Button as={Link} to={`/deployments/${deployment.id}`} size="small" variant="secondary">
-                      Vis
-                    </Button>
-                  </Table.DataCell>
-                </Table.Row>
-              )
-            })}
-          </Table.Body>
-        </Table>
+                    </Table.DataCell>
+                    <Table.DataCell>
+                      <Button as={Link} to={`/deployments/${deployment.id}`} size="small" variant="secondary">
+                        Vis
+                      </Button>
+                    </Table.DataCell>
+                  </Table.Row>
+                )
+              })}
+            </Table.Body>
+          </Table>
+        </Box>
       )}
-    </div>
+    </VStack>
   )
 }

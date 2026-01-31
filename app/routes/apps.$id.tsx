@@ -1,5 +1,19 @@
 import { CheckmarkCircleIcon, ExclamationmarkTriangleIcon, XMarkOctagonIcon } from '@navikt/aksel-icons'
-import { Alert, BodyShort, Box, Button, Detail, Heading, Label, Select, Table, Tag } from '@navikt/ds-react'
+import {
+  Alert,
+  BodyShort,
+  Box,
+  Button,
+  Detail,
+  Heading,
+  HGrid,
+  HStack,
+  Label,
+  Select,
+  Table,
+  Tag,
+  VStack,
+} from '@navikt/ds-react'
 import {
   type ActionFunctionArgs,
   Form,
@@ -20,7 +34,6 @@ import { getAppDeploymentStats } from '~/db/deployments.server'
 import { getMonitoredApplicationById } from '~/db/monitored-applications.server'
 import { getDateRange } from '~/lib/nais.server'
 import { syncDeploymentsFromNais } from '~/lib/sync.server'
-import styles from '~/styles/common.module.css'
 
 export async function loader({ params, request }: LoaderFunctionArgs) {
   const id = parseInt(params.id || '', 10)
@@ -141,317 +154,324 @@ export default function AppDetail() {
   const naisConsoleUrl = `https://console.nav.cloud.nais.io/team/${app.team_slug}/${app.environment_name}/app/${app.app_name}`
 
   return (
-    <div className={styles.pageContainer}>
-      <div className={styles.flexRowSpaceBetween}>
+    <VStack gap="space-32">
+      <HStack justify="space-between" align="start" wrap>
         <div>
-          <Detail>Applikasjon</Detail>
+          <Detail textColor="subtle">Applikasjon</Detail>
           <Heading size="large">{app.app_name}</Heading>
-          <BodyShort>
-            Team: <code className={styles.codeSmall}>{app.team_slug}</code> | Miljø:{' '}
-            <code className={styles.codeSmall}>{app.environment_name}</code>
+          <BodyShort textColor="subtle">
+            Team: <code style={{ fontSize: '0.75rem' }}>{app.team_slug}</code> | Miljø:{' '}
+            <code style={{ fontSize: '0.75rem' }}>{app.environment_name}</code>
           </BodyShort>
         </div>
-        <div className={styles.flexColumnEnd}>
+        <div>
           <Tag data-color={statusColor} variant="moderate" size="medium">
             {statusIcon} {statusText}
           </Tag>
         </div>
-      </div>
-      {actionData?.success && (
-        <Alert variant="success" className={styles.marginTop1}>
-          {actionData.success}
-        </Alert>
-      )}
-      {actionData?.error && (
-        <Alert variant="error" className={styles.marginTop1}>
-          {actionData.error}
-        </Alert>
-      )}
+      </HStack>
+
+      {actionData?.success && <Alert variant="success">{actionData.success}</Alert>}
+      {actionData?.error && <Alert variant="error">{actionData.error}</Alert>}
+
       {/* Time Period Filter */}
-      <Form method="get" className={styles.marginTop2} onChange={(e) => e.currentTarget.submit()}>
-        <Select label="Tidsperiode" name="period" defaultValue={currentPeriod} className={styles.filterSelect}>
-          <option value="last-month">Siste måned</option>
-          <option value="last-12-months">Siste 12 måneder</option>
-          <option value="this-year">I år</option>
-          <option value="year-2025">Hele 2025</option>
-          <option value="all">Alle</option>
-        </Select>
-      </Form>
+      <Box padding="space-20" borderRadius="8" background="sunken">
+        <Form method="get" onChange={(e) => e.currentTarget.submit()}>
+          <Select label="Tidsperiode" name="period" defaultValue={currentPeriod} style={{ maxWidth: '200px' }}>
+            <option value="last-month">Siste måned</option>
+            <option value="last-12-months">Siste 12 måneder</option>
+            <option value="this-year">I år</option>
+            <option value="year-2025">Hele 2025</option>
+            <option value="all">Alle</option>
+          </Select>
+        </Form>
+      </Box>
+
       {/* Statistics Section */}
-      <Box background="neutral-soft" padding="space-16" borderRadius="12" className={styles.marginTop2}>
-        <Heading size="medium" spacing>
-          📊 Statistikk
-        </Heading>
-        <div className={styles.statsGrid}>
-          <div className={styles.statCard}>
-            <Label>Totalt antall deployments</Label>
-            <Heading size="large">{deploymentStats.total}</Heading>
-          </div>
-          <div className={styles.statCard}>
-            <Label>Med fire øyne</Label>
-            <Heading size="large" className={styles.textSuccess}>
-              {deploymentStats.with_four_eyes} ({deploymentStats.four_eyes_percentage}%)
-            </Heading>
-          </div>
-          <div className={styles.statCard}>
-            <Label>Uten fire øyne</Label>
-            <Heading size="large" className={styles.textDanger}>
-              {deploymentStats.without_four_eyes}
-            </Heading>
-          </div>
-          <div className={styles.statCard}>
-            <Label>Venter verifisering</Label>
-            <Heading size="large" className={styles.textWarning}>
-              {deploymentStats.pending_verification}
-            </Heading>
-          </div>
-          <div className={styles.statCard}>
-            <Label>Siste deployment</Label>
-            <BodyShort>
-              {deploymentStats.last_deployment
-                ? new Date(deploymentStats.last_deployment).toLocaleString('no-NO')
-                : 'Ingen deployments'}
-            </BodyShort>
-          </div>
-        </div>
-        <div className={`${styles.flexRowGap1} ${styles.marginTop1}`}>
-          <Button as={Link} to={`/apps/${app.id}/deployments`} variant="secondary" size="small">
-            Se alle deployments →
-          </Button>
-          <Button
-            as="a"
-            href={naisConsoleUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            variant="secondary"
-            size="small"
-          >
-            Åpne i Nais Console ↗
-          </Button>
-        </div>
-      </Box>
-      {/* Quick Actions */}
-      <Box background="neutral-soft" padding="space-16" borderRadius="12" className={styles.marginTop2}>
-        <Heading size="medium" spacing>
-          ⚡ Handlinger
-        </Heading>
-        <div className={styles.flexRowGap1}>
-          <form method="post">
-            <input type="hidden" name="action" value="sync" />
-            <Button type="submit" size="small">
-              🔄 Hent deployments fra Nais
+      <Box padding="space-24" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
+        <VStack gap="space-20">
+          <Heading size="medium">📊 Statistikk</Heading>
+          <HGrid gap="space-16" columns={{ xs: 2, md: 3, lg: 5 }}>
+            <Box padding="space-12" borderRadius="8" background="sunken">
+              <VStack gap="space-4">
+                <Detail textColor="subtle">Totalt deployments</Detail>
+                <Heading size="large">{deploymentStats.total}</Heading>
+              </VStack>
+            </Box>
+            <Box padding="space-12" borderRadius="8" background="sunken">
+              <VStack gap="space-4">
+                <Detail textColor="subtle">Med fire øyne</Detail>
+                <Heading size="large" style={{ color: 'var(--ax-text-success)' }}>
+                  {deploymentStats.with_four_eyes} ({deploymentStats.four_eyes_percentage}%)
+                </Heading>
+              </VStack>
+            </Box>
+            <Box padding="space-12" borderRadius="8" background="sunken">
+              <VStack gap="space-4">
+                <Detail textColor="subtle">Uten fire øyne</Detail>
+                <Heading size="large" style={{ color: 'var(--ax-text-danger)' }}>
+                  {deploymentStats.without_four_eyes}
+                </Heading>
+              </VStack>
+            </Box>
+            <Box padding="space-12" borderRadius="8" background="sunken">
+              <VStack gap="space-4">
+                <Detail textColor="subtle">Venter verifisering</Detail>
+                <Heading size="large" style={{ color: 'var(--ax-text-warning)' }}>
+                  {deploymentStats.pending_verification}
+                </Heading>
+              </VStack>
+            </Box>
+            <Box padding="space-12" borderRadius="8" background="sunken">
+              <VStack gap="space-4">
+                <Detail textColor="subtle">Siste deployment</Detail>
+                <BodyShort>
+                  {deploymentStats.last_deployment
+                    ? new Date(deploymentStats.last_deployment).toLocaleString('no-NO')
+                    : 'Ingen deployments'}
+                </BodyShort>
+              </VStack>
+            </Box>
+          </HGrid>
+          <HStack gap="space-8">
+            <Button as={Link} to={`/apps/${app.id}/deployments`} variant="secondary" size="small">
+              Se alle deployments →
             </Button>
-          </form>
-          <Button as={Link} to={`/deployments/verify?app=${app.id}`} variant="secondary" size="small">
-            ✓ Verifiser deployments mot GitHub
-          </Button>
-        </div>
+            <Button
+              as="a"
+              href={naisConsoleUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              variant="secondary"
+              size="small"
+            >
+              Åpne i Nais Console ↗
+            </Button>
+          </HStack>
+        </VStack>
       </Box>
+
+      {/* Quick Actions */}
+      <Box padding="space-24" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
+        <VStack gap="space-16">
+          <Heading size="medium">⚡ Handlinger</Heading>
+          <HStack gap="space-8">
+            <form method="post">
+              <input type="hidden" name="action" value="sync" />
+              <Button type="submit" size="small">
+                🔄 Hent deployments fra Nais
+              </Button>
+            </form>
+            <Button as={Link} to={`/deployments/verify?app=${app.id}`} variant="secondary" size="small">
+              ✓ Verifiser deployments mot GitHub
+            </Button>
+          </HStack>
+        </VStack>
+      </Box>
+
       {/* Alerts Section */}
       {alerts.length > 0 && (
-        <Box background="neutral-soft" padding="space-16" borderRadius="12" className={styles.marginTop2}>
-          <Heading size="medium" spacing>
-            ⚠️ Åpne varsler ({alerts.length})
-          </Heading>
-          <Table size="small">
-            <Table.Header>
-              <Table.Row>
-                <Table.HeaderCell>Dato</Table.HeaderCell>
-                <Table.HeaderCell>Type</Table.HeaderCell>
-                <Table.HeaderCell>Forventet repo</Table.HeaderCell>
-                <Table.HeaderCell>Detektert repo</Table.HeaderCell>
-                <Table.HeaderCell>Deployment</Table.HeaderCell>
-              </Table.Row>
-            </Table.Header>
-            <Table.Body>
-              {alerts.map((alert) => (
-                <Table.Row key={alert.id}>
-                  <Table.DataCell>{new Date(alert.created_at).toLocaleDateString('no-NO')}</Table.DataCell>
-                  <Table.DataCell>
-                    <Tag data-color="warning" size="xsmall" variant="outline">
-                      {alert.alert_type === 'repository_mismatch' && 'Ukjent repo'}
-                      {alert.alert_type === 'pending_approval' && 'Venter godkjenning'}
-                      {alert.alert_type === 'historical_repository' && 'Historisk repo'}
-                    </Tag>
-                  </Table.DataCell>
-                  <Table.DataCell>
-                    <code className={styles.codeSmall}>
-                      {alert.expected_github_owner}/{alert.expected_github_repo_name}
-                    </code>
-                  </Table.DataCell>
-                  <Table.DataCell>
-                    <code className={styles.codeSmall}>
-                      {alert.detected_github_owner}/{alert.detected_github_repo_name}
-                    </code>
-                  </Table.DataCell>
-                  <Table.DataCell>
-                    <Button as={Link} to={`/deployments/${alert.deployment_id}`} size="xsmall" variant="tertiary">
-                      Se deployment
-                    </Button>
-                  </Table.DataCell>
+        <Box padding="space-24" borderRadius="8" background="raised" borderColor="warning-subtle" borderWidth="1">
+          <VStack gap="space-16">
+            <Heading size="medium">⚠️ Åpne varsler ({alerts.length})</Heading>
+            <Table size="small">
+              <Table.Header>
+                <Table.Row>
+                  <Table.HeaderCell>Dato</Table.HeaderCell>
+                  <Table.HeaderCell>Type</Table.HeaderCell>
+                  <Table.HeaderCell>Forventet repo</Table.HeaderCell>
+                  <Table.HeaderCell>Detektert repo</Table.HeaderCell>
+                  <Table.HeaderCell>Deployment</Table.HeaderCell>
                 </Table.Row>
-              ))}
-            </Table.Body>
-          </Table>
-          <div className={styles.marginTop1}>
-            <Button as={Link} to="/alerts" variant="secondary" size="small">
-              Se alle varsler →
-            </Button>
-          </div>
+              </Table.Header>
+              <Table.Body>
+                {alerts.map((alert) => (
+                  <Table.Row key={alert.id}>
+                    <Table.DataCell>
+                      <Detail textColor="subtle">{new Date(alert.created_at).toLocaleDateString('no-NO')}</Detail>
+                    </Table.DataCell>
+                    <Table.DataCell>
+                      <Tag data-color="warning" size="xsmall" variant="outline">
+                        {alert.alert_type === 'repository_mismatch' && 'Ukjent repo'}
+                        {alert.alert_type === 'pending_approval' && 'Venter godkjenning'}
+                        {alert.alert_type === 'historical_repository' && 'Historisk repo'}
+                      </Tag>
+                    </Table.DataCell>
+                    <Table.DataCell>
+                      <code style={{ fontSize: '0.75rem' }}>
+                        {alert.expected_github_owner}/{alert.expected_github_repo_name}
+                      </code>
+                    </Table.DataCell>
+                    <Table.DataCell>
+                      <code style={{ fontSize: '0.75rem' }}>
+                        {alert.detected_github_owner}/{alert.detected_github_repo_name}
+                      </code>
+                    </Table.DataCell>
+                    <Table.DataCell>
+                      <Button as={Link} to={`/deployments/${alert.deployment_id}`} size="xsmall" variant="tertiary">
+                        Se deployment
+                      </Button>
+                    </Table.DataCell>
+                  </Table.Row>
+                ))}
+              </Table.Body>
+            </Table>
+            <div>
+              <Button as={Link} to="/alerts" variant="secondary" size="small">
+                Se alle varsler →
+              </Button>
+            </div>
+          </VStack>
         </Box>
       )}
-      {/* Repositories Section */}
-      <Box background="neutral-soft" padding="space-16" borderRadius="12" className={styles.marginTop2}>
-        <Heading size="medium" spacing>
-          📦 Repositories
-        </Heading>
 
-        {/* Active Repository */}
-        {activeRepo && (
-          <div className={styles.marginBottom2}>
-            <Label>Aktivt repository</Label>
-            <div className={`${styles.flexRowSpaceBetween} ${styles.marginTop05}`}>
-              <div className={styles.flexRowGap05}>
-                <CheckmarkCircleIcon className={styles.textSuccess} />
-                <a
-                  href={`https://github.com/${activeRepo.github_owner}/${activeRepo.github_repo_name}`}
+      {/* Repositories Section */}
+      <Box padding="space-24" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
+        <VStack gap="space-20">
+          <Heading size="medium">📦 Repositories</Heading>
+
+          {/* Active Repository */}
+          {activeRepo && (
+            <VStack gap="space-8">
+              <Label>Aktivt repository</Label>
+              <HStack gap="space-8" align="center">
+                <CheckmarkCircleIcon style={{ color: 'var(--ax-text-success)' }} />
+                <Link
+                  to={`https://github.com/${activeRepo.github_owner}/${activeRepo.github_repo_name}`}
                   target="_blank"
-                  rel="noopener noreferrer"
-                  className={styles.linkExternal}
                 >
                   {activeRepo.github_owner}/{activeRepo.github_repo_name}
-                </a>
+                </Link>
                 <Tag data-color="success" size="xsmall" variant="outline">
                   AKTIV
                 </Tag>
-              </div>
-            </div>
-          </div>
-        )}
+              </HStack>
+            </VStack>
+          )}
 
-        {!activeRepo && (
-          <Alert variant="warning" size="small" className={styles.marginBottom2}>
-            Ingen aktivt repository satt for denne applikasjonen
-          </Alert>
-        )}
+          {!activeRepo && (
+            <Alert variant="warning" size="small">
+              Ingen aktivt repository satt for denne applikasjonen
+            </Alert>
+          )}
 
-        {/* Pending Approval */}
-        {pendingRepos.length > 0 && (
-          <div className={styles.marginTop2}>
-            <Label>Venter godkjenning ({pendingRepos.length})</Label>
-            <Table size="small" className={styles.marginTop05}>
-              <Table.Header>
-                <Table.Row>
-                  <Table.HeaderCell>Repository</Table.HeaderCell>
-                  <Table.HeaderCell>Opprettet</Table.HeaderCell>
-                  <Table.HeaderCell>Handlinger</Table.HeaderCell>
-                </Table.Row>
-              </Table.Header>
-              <Table.Body>
-                {pendingRepos.map((repo) => (
-                  <Table.Row key={repo.id}>
-                    <Table.DataCell>
-                      <div className={styles.flexRowGap05}>
-                        <ExclamationmarkTriangleIcon className={styles.textWarning} />
-                        <a
-                          href={`https://github.com/${repo.github_owner}/${repo.github_repo_name}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={styles.linkExternal}
-                        >
-                          {repo.github_owner}/{repo.github_repo_name}
-                        </a>
-                      </div>
-                    </Table.DataCell>
-                    <Table.DataCell>{new Date(repo.created_at).toLocaleDateString('no-NO')}</Table.DataCell>
-                    <Table.DataCell>
-                      <div className={styles.flexRowGap05}>
+          {/* Pending Approval */}
+          {pendingRepos.length > 0 && (
+            <VStack gap="space-12">
+              <Label>Venter godkjenning ({pendingRepos.length})</Label>
+              <Table size="small">
+                <Table.Header>
+                  <Table.Row>
+                    <Table.HeaderCell>Repository</Table.HeaderCell>
+                    <Table.HeaderCell>Opprettet</Table.HeaderCell>
+                    <Table.HeaderCell>Handlinger</Table.HeaderCell>
+                  </Table.Row>
+                </Table.Header>
+                <Table.Body>
+                  {pendingRepos.map((repo) => (
+                    <Table.Row key={repo.id}>
+                      <Table.DataCell>
+                        <HStack gap="space-8" align="center">
+                          <ExclamationmarkTriangleIcon style={{ color: 'var(--ax-text-warning)' }} />
+                          <Link to={`https://github.com/${repo.github_owner}/${repo.github_repo_name}`} target="_blank">
+                            {repo.github_owner}/{repo.github_repo_name}
+                          </Link>
+                        </HStack>
+                      </Table.DataCell>
+                      <Table.DataCell>
+                        <Detail textColor="subtle">{new Date(repo.created_at).toLocaleDateString('no-NO')}</Detail>
+                      </Table.DataCell>
+                      <Table.DataCell>
+                        <HStack gap="space-8">
+                          <form method="post" style={{ display: 'inline' }}>
+                            <input type="hidden" name="action" value="approve_repo" />
+                            <input type="hidden" name="repo_id" value={repo.id} />
+                            <input type="hidden" name="set_active" value="true" />
+                            <Button type="submit" size="xsmall" variant="primary">
+                              ✓ Godkjenn som aktiv
+                            </Button>
+                          </form>
+                          <form method="post" style={{ display: 'inline' }}>
+                            <input type="hidden" name="action" value="approve_repo" />
+                            <input type="hidden" name="repo_id" value={repo.id} />
+                            <input type="hidden" name="set_active" value="false" />
+                            <Button type="submit" size="xsmall" variant="secondary">
+                              Godkjenn som historisk
+                            </Button>
+                          </form>
+                          <form method="post" style={{ display: 'inline' }}>
+                            <input type="hidden" name="action" value="reject_repo" />
+                            <input type="hidden" name="repo_id" value={repo.id} />
+                            <Button type="submit" size="xsmall" variant="danger">
+                              ✗ Avvis
+                            </Button>
+                          </form>
+                        </HStack>
+                      </Table.DataCell>
+                    </Table.Row>
+                  ))}
+                </Table.Body>
+              </Table>
+            </VStack>
+          )}
+
+          {/* Historical Repositories */}
+          {historicalRepos.length > 0 && (
+            <VStack gap="space-12">
+              <Label>Historiske repositories ({historicalRepos.length})</Label>
+              <Table size="small">
+                <Table.Header>
+                  <Table.Row>
+                    <Table.HeaderCell>Repository</Table.HeaderCell>
+                    <Table.HeaderCell>Opprettet</Table.HeaderCell>
+                    <Table.HeaderCell>Handlinger</Table.HeaderCell>
+                  </Table.Row>
+                </Table.Header>
+                <Table.Body>
+                  {historicalRepos.map((repo) => (
+                    <Table.Row key={repo.id}>
+                      <Table.DataCell>
+                        <HStack gap="space-8" align="center">
+                          <Link to={`https://github.com/${repo.github_owner}/${repo.github_repo_name}`} target="_blank">
+                            {repo.github_owner}/{repo.github_repo_name}
+                          </Link>
+                          {repo.redirects_to_owner && (
+                            <Tag data-color="info" size="xsmall" variant="outline">
+                              → {repo.redirects_to_owner}/{repo.redirects_to_repo}
+                            </Tag>
+                          )}
+                        </HStack>
+                      </Table.DataCell>
+                      <Table.DataCell>
+                        <Detail textColor="subtle">{new Date(repo.created_at).toLocaleDateString('no-NO')}</Detail>
+                      </Table.DataCell>
+                      <Table.DataCell>
                         <form method="post" style={{ display: 'inline' }}>
-                          <input type="hidden" name="action" value="approve_repo" />
+                          <input type="hidden" name="action" value="set_active" />
                           <input type="hidden" name="repo_id" value={repo.id} />
-                          <input type="hidden" name="set_active" value="true" />
-                          <Button type="submit" size="xsmall" variant="primary">
-                            ✓ Godkjenn som aktiv
-                          </Button>
-                        </form>
-                        <form method="post" style={{ display: 'inline' }}>
-                          <input type="hidden" name="action" value="approve_repo" />
-                          <input type="hidden" name="repo_id" value={repo.id} />
-                          <input type="hidden" name="set_active" value="false" />
                           <Button type="submit" size="xsmall" variant="secondary">
-                            Godkjenn som historisk
+                            Sett som aktiv
                           </Button>
                         </form>
-                        <form method="post" style={{ display: 'inline' }}>
-                          <input type="hidden" name="action" value="reject_repo" />
-                          <input type="hidden" name="repo_id" value={repo.id} />
-                          <Button type="submit" size="xsmall" variant="danger">
-                            ✗ Avvis
-                          </Button>
-                        </form>
-                      </div>
-                    </Table.DataCell>
-                  </Table.Row>
-                ))}
-              </Table.Body>
-            </Table>
-          </div>
-        )}
+                      </Table.DataCell>
+                    </Table.Row>
+                  ))}
+                </Table.Body>
+              </Table>
+            </VStack>
+          )}
 
-        {/* Historical Repositories */}
-        {historicalRepos.length > 0 && (
-          <div className={styles.marginTop2}>
-            <Label>Historiske repositories ({historicalRepos.length})</Label>
-            <Table size="small" className={styles.marginTop05}>
-              <Table.Header>
-                <Table.Row>
-                  <Table.HeaderCell>Repository</Table.HeaderCell>
-                  <Table.HeaderCell>Opprettet</Table.HeaderCell>
-                  <Table.HeaderCell>Handlinger</Table.HeaderCell>
-                </Table.Row>
-              </Table.Header>
-              <Table.Body>
-                {historicalRepos.map((repo) => (
-                  <Table.Row key={repo.id}>
-                    <Table.DataCell>
-                      <a
-                        href={`https://github.com/${repo.github_owner}/${repo.github_repo_name}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={styles.linkExternal}
-                      >
-                        {repo.github_owner}/{repo.github_repo_name}
-                      </a>
-                      {repo.redirects_to_owner && (
-                        <Tag data-color="info" size="xsmall" variant="outline" className={styles.marginLeft05}>
-                          → {repo.redirects_to_owner}/{repo.redirects_to_repo}
-                        </Tag>
-                      )}
-                    </Table.DataCell>
-                    <Table.DataCell>{new Date(repo.created_at).toLocaleDateString('no-NO')}</Table.DataCell>
-                    <Table.DataCell>
-                      <form method="post" style={{ display: 'inline' }}>
-                        <input type="hidden" name="action" value="set_active" />
-                        <input type="hidden" name="repo_id" value={repo.id} />
-                        <Button type="submit" size="xsmall" variant="secondary">
-                          Sett som aktiv
-                        </Button>
-                      </form>
-                    </Table.DataCell>
-                  </Table.Row>
-                ))}
-              </Table.Body>
-            </Table>
-          </div>
-        )}
-
-        {repositories.length === 0 && <BodyShort>Ingen repositories registrert for denne applikasjonen</BodyShort>}
+          {repositories.length === 0 && (
+            <BodyShort textColor="subtle">Ingen repositories registrert for denne applikasjonen</BodyShort>
+          )}
+        </VStack>
       </Box>
-      <div className={styles.marginTop2}>
+
+      <div>
         <Button as={Link} to="/apps" variant="tertiary" size="small">
           ← Tilbake til applikasjoner
         </Button>
       </div>
-    </div>
+    </VStack>
   )
 }

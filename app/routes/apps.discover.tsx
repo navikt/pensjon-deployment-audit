@@ -1,11 +1,10 @@
 import { PlusIcon } from '@navikt/aksel-icons'
-import { Alert, BodyShort, Button, Checkbox, Heading, Table, TextField } from '@navikt/ds-react'
+import { Alert, BodyShort, Box, Button, Checkbox, Detail, Heading, Table, TextField, VStack } from '@navikt/ds-react'
 import { useState } from 'react'
 import { Form, useNavigation } from 'react-router'
 import { upsertApplicationRepository } from '../db/application-repositories.server'
 import { createMonitoredApplication } from '../db/monitored-applications.server'
 import { fetchAllTeamsAndApplications, getApplicationInfo } from '../lib/nais.server'
-import styles from '../styles/common.module.css'
 import type { Route } from './+types/apps.discover'
 
 export function meta(_args: Route.MetaArgs) {
@@ -140,12 +139,12 @@ export default function AppsDiscover({ loaderData, actionData }: Route.Component
   const totalTeams = Object.keys(appsByTeam).length
 
   return (
-    <div className={styles.stackContainerLarge}>
+    <VStack gap="space-32">
       <div>
         <Heading size="large" spacing>
           Oppdag applikasjoner
         </Heading>
-        <BodyShort>
+        <BodyShort textColor="subtle">
           Søk etter team eller applikasjonsnavn. Søket filtrerer i sanntid blant alle tilgjengelige applikasjoner.
         </BodyShort>
       </div>
@@ -161,19 +160,21 @@ export default function AppsDiscover({ loaderData, actionData }: Route.Component
 
       {!loaderData.error && (
         <>
-          <TextField
-            label="Søk etter team eller applikasjon"
-            description={`Viser ${totalResults} applikasjoner fra ${totalTeams} team`}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="F.eks. pensjon, pen, rocket..."
-          />
+          <Box padding="space-20" borderRadius="8" background="sunken">
+            <TextField
+              label="Søk etter team eller applikasjon"
+              description={`Viser ${totalResults} applikasjoner fra ${totalTeams} team`}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="F.eks. pensjon, pen, rocket..."
+            />
+          </Box>
 
           {searchQuery && (
             <Form method="post">
               <input type="hidden" name="intent" value="add" />
 
-              <div className={styles.stackContainer}>
+              <VStack gap="space-24">
                 <BodyShort>
                   <strong>{selectedApps.size}</strong> applikasjon(er) valgt
                 </BodyShort>
@@ -181,46 +182,60 @@ export default function AppsDiscover({ loaderData, actionData }: Route.Component
                 {Object.entries(appsByTeam)
                   .sort(([a], [b]) => a.localeCompare(b))
                   .map(([teamSlug, apps]) => (
-                    <div key={teamSlug}>
-                      <Heading size="small" spacing>
-                        {teamSlug} ({apps.length} treff)
-                      </Heading>
+                    <Box
+                      key={teamSlug}
+                      padding="space-20"
+                      borderRadius="8"
+                      background="raised"
+                      borderColor="neutral-subtle"
+                      borderWidth="1"
+                    >
+                      <VStack gap="space-16">
+                        <Heading size="small">
+                          {teamSlug}{' '}
+                          <Detail as="span" textColor="subtle">
+                            ({apps.length} treff)
+                          </Detail>
+                        </Heading>
 
-                      <Table size="small">
-                        <Table.Header>
-                          <Table.Row>
-                            <Table.HeaderCell scope="col">Velg</Table.HeaderCell>
-                            <Table.HeaderCell scope="col">Applikasjon</Table.HeaderCell>
-                            <Table.HeaderCell scope="col">Team</Table.HeaderCell>
-                          </Table.Row>
-                        </Table.Header>
-                        <Table.Body>
-                          {apps.sort().map((appName) => {
-                            const appKey = `${teamSlug}|${appName}`
-                            const isSelected = selectedApps.has(appKey)
-                            return (
-                              <Table.Row key={appKey}>
-                                <Table.DataCell>
-                                  <Checkbox
-                                    name="app"
-                                    value={appKey}
-                                    checked={isSelected}
-                                    onChange={() => toggleApp(appKey)}
-                                    hideLabel
-                                  >
-                                    Velg {appName}
-                                  </Checkbox>
-                                </Table.DataCell>
-                                <Table.DataCell>
-                                  <strong>{appName}</strong>
-                                </Table.DataCell>
-                                <Table.DataCell>{teamSlug}</Table.DataCell>
-                              </Table.Row>
-                            )
-                          })}
-                        </Table.Body>
-                      </Table>
-                    </div>
+                        <Table size="small">
+                          <Table.Header>
+                            <Table.Row>
+                              <Table.HeaderCell scope="col">Velg</Table.HeaderCell>
+                              <Table.HeaderCell scope="col">Applikasjon</Table.HeaderCell>
+                              <Table.HeaderCell scope="col">Team</Table.HeaderCell>
+                            </Table.Row>
+                          </Table.Header>
+                          <Table.Body>
+                            {apps.sort().map((appName) => {
+                              const appKey = `${teamSlug}|${appName}`
+                              const isSelected = selectedApps.has(appKey)
+                              return (
+                                <Table.Row key={appKey}>
+                                  <Table.DataCell>
+                                    <Checkbox
+                                      name="app"
+                                      value={appKey}
+                                      checked={isSelected}
+                                      onChange={() => toggleApp(appKey)}
+                                      hideLabel
+                                    >
+                                      Velg {appName}
+                                    </Checkbox>
+                                  </Table.DataCell>
+                                  <Table.DataCell>
+                                    <strong>{appName}</strong>
+                                  </Table.DataCell>
+                                  <Table.DataCell>
+                                    <Detail textColor="subtle">{teamSlug}</Detail>
+                                  </Table.DataCell>
+                                </Table.Row>
+                              )
+                            })}
+                          </Table.Body>
+                        </Table>
+                      </VStack>
+                    </Box>
                   ))}
 
                 {selectedApps.size > 0 && (
@@ -230,7 +245,7 @@ export default function AppsDiscover({ loaderData, actionData }: Route.Component
                     </Button>
                   </div>
                 )}
-              </div>
+              </VStack>
             </Form>
           )}
 
@@ -242,6 +257,6 @@ export default function AppsDiscover({ loaderData, actionData }: Route.Component
           )}
         </>
       )}
-    </div>
+    </VStack>
   )
 }

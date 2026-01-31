@@ -37,7 +37,6 @@ import {
 } from '~/db/deployments.server'
 import { getUserMappings } from '~/db/user-mappings.server'
 import { verifyDeploymentFourEyes } from '~/lib/sync.server'
-import styles from '../styles/common.module.css'
 import type { Route } from './+types/deployments.$id'
 
 export async function loader({ params }: Route.LoaderArgs) {
@@ -295,10 +294,10 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
   const naisConsoleUrl = `https://console.nav.cloud.nais.io/team/${deployment.team_slug}/${deployment.environment_name}/app/${appName}`
 
   return (
-    <div className={styles.pageContainer}>
+    <VStack gap="space-32">
       {/* Breadcrumb with navigation */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Detail className={styles.textSubtle}>
+        <Detail textColor="subtle">
           {deployment.team_slug} / {deployment.environment_name} / {deployment.app_name}
         </Detail>
         <HStack gap="space-8">
@@ -378,7 +377,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
               )}
           </HStack>
         </div>
-        <BodyShort className={styles.textSubtle}>
+        <BodyShort textColor="subtle">
           {new Date(deployment.created_at).toLocaleString('no-NO', {
             dateStyle: 'long',
             timeStyle: 'short',
@@ -387,9 +386,9 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
             <>
               {' '}
               via{' '}
-              <a href={deployment.github_pr_url} target="_blank" rel="noopener noreferrer">
+              <Link to={deployment.github_pr_url} target="_blank">
                 #{deployment.github_pr_number}
-              </a>
+              </Link>
             </>
           )}
         </BodyShort>
@@ -429,7 +428,12 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
           <ul style={{ margin: 0, paddingLeft: '1.5rem' }}>
             {deployment.unverified_commits.map((commit: any) => (
               <li key={commit.sha} style={{ marginBottom: '0.5rem' }}>
-                <a href={commit.html_url} target="_blank" rel="noopener noreferrer" className={styles.codeMedium}>
+                <a
+                  href={commit.html_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ fontFamily: 'monospace', fontSize: '0.875rem' }}
+                >
                   {commit.sha.substring(0, 7)}
                 </a>{' '}
                 - {commit.message}
@@ -459,7 +463,10 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                   {deployment.deployer_username}
                 </a>
                 {getUserDisplay(deployment.deployer_username) && (
-                  <span className={styles.textSubtle}> ({getUserDisplay(deployment.deployer_username)})</span>
+                  <span style={{ color: 'var(--ax-text-neutral-subtle)' }}>
+                    {' '}
+                    ({getUserDisplay(deployment.deployer_username)})
+                  </span>
                 )}
               </>
             ) : (
@@ -476,12 +483,12 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                 href={`https://github.com/${deployment.detected_github_owner}/${deployment.detected_github_repo_name}/commit/${deployment.commit_sha}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={styles.codeMedium}
+                style={{ fontFamily: 'monospace', fontSize: '0.875rem' }}
               >
                 {deployment.commit_sha.substring(0, 7)}
               </a>
             ) : (
-              <span className={styles.textSubtle}>(ukjent)</span>
+              <span style={{ color: 'var(--ax-text-neutral-subtle)' }}>(ukjent)</span>
             )}
           </BodyShort>
         </VStack>
@@ -494,7 +501,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                 href={`https://github.com/${deployment.detected_github_owner}/${deployment.detected_github_repo_name}/tree/${deployment.branch_name}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={styles.codeMedium}
+                style={{ fontFamily: 'monospace', fontSize: '0.875rem' }}
               >
                 {deployment.branch_name}
               </a>
@@ -512,7 +519,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                     href={`https://github.com/${deployment.detected_github_owner}/${deployment.detected_github_repo_name}/commit/${parent.sha}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={styles.codeMedium}
+                    style={{ fontFamily: 'monospace', fontSize: '0.875rem' }}
                   >
                     {parent.sha.substring(0, 7)}
                   </a>
@@ -538,7 +545,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
           <Detail>Nais Deployment ID</Detail>
           <HStack gap="space-8" align="center">
             <BodyShort>
-              <code className={styles.codeSmall}>{deployment.nais_deployment_id}</code>
+              <code style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>{deployment.nais_deployment_id}</code>
             </BodyShort>
             <CopyButton copyText={deployment.nais_deployment_id} size="small" title="Kopier deployment ID" />
           </HStack>
@@ -559,7 +566,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                   {deployment.github_pr_data.creator.username}
                 </a>
                 {getUserDisplay(deployment.github_pr_data.creator.username) && (
-                  <span className={styles.textSubtle}>
+                  <span style={{ color: 'var(--ax-text-neutral-subtle)' }}>
                     {' '}
                     ({getUserDisplay(deployment.github_pr_data.creator.username)})
                   </span>
@@ -579,7 +586,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                     {deployment.github_pr_data.merger.username}
                   </a>
                   {getUserDisplay(deployment.github_pr_data.merger.username) && (
-                    <span className={styles.textSubtle}>
+                    <span style={{ color: 'var(--ax-text-neutral-subtle)' }}>
                       {' '}
                       ({getUserDisplay(deployment.github_pr_data.merger.username)})
                     </span>
@@ -725,7 +732,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                       <a href={`https://github.com/${reviewer.username}`} target="_blank" rel="noopener noreferrer">
                         {reviewer.username}
                       </a>
-                      <span className={styles.textSubtle}>
+                      <span style={{ color: 'var(--ax-text-neutral-subtle)' }}>
                         {new Date(reviewer.submitted_at).toLocaleString('no-NO', {
                           dateStyle: 'short',
                           timeStyle: 'short',
@@ -797,7 +804,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                         </Tag>
 
                         {check.completed_at && (
-                          <span className={styles.textSubtle}>
+                          <span style={{ color: 'var(--ax-text-neutral-subtle)' }}>
                             {new Date(check.completed_at).toLocaleString('no-NO', {
                               dateStyle: 'short',
                               timeStyle: 'short',
@@ -842,8 +849,8 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                           >
                             {commit.sha.substring(0, 7)}
                           </a>
-                          <span className={styles.textSubtle}>{commit.author.username}</span>
-                          <span className={styles.textSubtle}>
+                          <span style={{ color: 'var(--ax-text-neutral-subtle)' }}>{commit.author.username}</span>
+                          <span style={{ color: 'var(--ax-text-neutral-subtle)' }}>
                             {new Date(commit.date).toLocaleString('no-NO', {
                               dateStyle: 'short',
                               timeStyle: 'short',
@@ -888,7 +895,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                           >
                             {comment.user.username}
                           </a>
-                          <span className={styles.textSubtle}>
+                          <span style={{ color: 'var(--ax-text-neutral-subtle)' }}>
                             {new Date(comment.created_at).toLocaleString('no-NO', {
                               dateStyle: 'short',
                               timeStyle: 'short',
@@ -898,7 +905,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                             href={comment.html_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className={styles.textSubtle}
+                            style={{ color: 'var(--ax-text-neutral-subtle)' }}
                           >
                             vis på GitHub
                           </a>
@@ -919,90 +926,100 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
           <Heading size="small" spacing>
             Kubernetes Resources
           </Heading>
-          <div className={styles.actionButtons}>
+          <HStack gap="space-8" wrap>
             {deployment.resources.map((resource: any) => (
               <Tag data-color="info" key={`${resource.kind}:${resource.name}`} variant="outline" size="small">
                 {resource.kind}: {resource.name}
               </Tag>
             ))}
-          </div>
+          </HStack>
         </div>
       )}
       {/* PR Details section */}
       {deployment.github_pr_data && (
-        <Box>
-          <div className={styles.detailsGrid}>
-            {deployment.github_pr_data.body && (
-              <div style={{ gridColumn: '1 / -1' }}>
-                <Heading size="medium">Beskrivelse</Heading>
-                <Box background="neutral-soft" padding="space-16" borderRadius="12" className={styles.marginTop2}>
-                  <BodyShort style={{ whiteSpace: 'pre-wrap' }}>
-                    {/* biome-ignore lint/security/noDangerouslySetInnerHtml: GitHub PR body contains safe markdown HTML */}
-                    <div dangerouslySetInnerHTML={{ __html: deployment.github_pr_data.body }} />
-                  </BodyShort>
-                </Box>
-              </div>
-            )}
-          </div>
+        <VStack gap="space-16">
+          {deployment.github_pr_data.body && (
+            <div>
+              <Heading size="medium">Beskrivelse</Heading>
+              <Box background="neutral-soft" padding="space-16" borderRadius="12" marginBlock="space-8 space-0">
+                <BodyShort style={{ whiteSpace: 'pre-wrap' }}>
+                  {/* biome-ignore lint/security/noDangerouslySetInnerHtml: GitHub PR body contains safe markdown HTML */}
+                  <div dangerouslySetInnerHTML={{ __html: deployment.github_pr_data.body }} />
+                </BodyShort>
+              </Box>
+            </div>
+          )}
 
           {/* PR Stats */}
-          <div className={styles.statsGrid} style={{ marginTop: '1rem' }}>
-            <div className={styles.statCard}>
-              <Detail>Commits</Detail>
-              <BodyShort>
-                <strong>{deployment.github_pr_data.commits_count}</strong>
-              </BodyShort>
-            </div>
-            <div className={styles.statCard}>
-              <Detail>Filer endret</Detail>
-              <BodyShort>
-                <strong>{deployment.github_pr_data.changed_files}</strong>
-              </BodyShort>
-            </div>
-            <div className={styles.statCard}>
-              <Detail>Linjer lagt til</Detail>
-              <BodyShort className={styles.textSuccess}>
-                <strong>+{deployment.github_pr_data.additions}</strong>
-              </BodyShort>
-            </div>
-            <div className={styles.statCard}>
-              <Detail>Linjer fjernet</Detail>
-              <BodyShort className={styles.textDanger}>
-                <strong>-{deployment.github_pr_data.deletions}</strong>
-              </BodyShort>
-            </div>
-            {deployment.github_pr_data.comments_count !== undefined && (
-              <div className={styles.statCard}>
-                <Detail>Kommentarer</Detail>
+          <HGrid gap="space-16" columns={{ xs: 2, sm: 3, md: 6 }}>
+            <Box padding="space-12" borderRadius="8" background="sunken">
+              <VStack gap="space-4">
+                <Detail textColor="subtle">Commits</Detail>
                 <BodyShort>
-                  <strong>{deployment.github_pr_data.comments_count}</strong>
+                  <strong>{deployment.github_pr_data.commits_count}</strong>
                 </BodyShort>
-              </div>
+              </VStack>
+            </Box>
+            <Box padding="space-12" borderRadius="8" background="sunken">
+              <VStack gap="space-4">
+                <Detail textColor="subtle">Filer endret</Detail>
+                <BodyShort>
+                  <strong>{deployment.github_pr_data.changed_files}</strong>
+                </BodyShort>
+              </VStack>
+            </Box>
+            <Box padding="space-12" borderRadius="8" background="sunken">
+              <VStack gap="space-4">
+                <Detail textColor="subtle">Linjer lagt til</Detail>
+                <BodyShort style={{ color: 'var(--ax-text-success)' }}>
+                  <strong>+{deployment.github_pr_data.additions}</strong>
+                </BodyShort>
+              </VStack>
+            </Box>
+            <Box padding="space-12" borderRadius="8" background="sunken">
+              <VStack gap="space-4">
+                <Detail textColor="subtle">Linjer fjernet</Detail>
+                <BodyShort style={{ color: 'var(--ax-text-danger)' }}>
+                  <strong>-{deployment.github_pr_data.deletions}</strong>
+                </BodyShort>
+              </VStack>
+            </Box>
+            {deployment.github_pr_data.comments_count !== undefined && (
+              <Box padding="space-12" borderRadius="8" background="sunken">
+                <VStack gap="space-4">
+                  <Detail textColor="subtle">Kommentarer</Detail>
+                  <BodyShort>
+                    <strong>{deployment.github_pr_data.comments_count}</strong>
+                  </BodyShort>
+                </VStack>
+              </Box>
             )}
             {deployment.github_pr_data.review_comments_count !== undefined && (
-              <div className={styles.statCard}>
-                <Detail>Review-kommentarer</Detail>
-                <BodyShort>
-                  <strong>{deployment.github_pr_data.review_comments_count}</strong>
-                </BodyShort>
-              </div>
+              <Box padding="space-12" borderRadius="8" background="sunken">
+                <VStack gap="space-4">
+                  <Detail textColor="subtle">Review-kommentarer</Detail>
+                  <BodyShort>
+                    <strong>{deployment.github_pr_data.review_comments_count}</strong>
+                  </BodyShort>
+                </VStack>
+              </Box>
             )}
-          </div>
+          </HGrid>
 
           {/* Labels */}
           {deployment.github_pr_data.labels && deployment.github_pr_data.labels.length > 0 && (
-            <div style={{ marginTop: '1rem' }}>
-              <Detail>Labels</Detail>
-              <div className={styles.actionButtons}>
+            <VStack gap="space-8">
+              <Detail textColor="subtle">Labels</Detail>
+              <HStack gap="space-8" wrap>
                 {deployment.github_pr_data.labels.map((label) => (
                   <Tag data-color="neutral" key={label} variant="outline" size="small">
                     {label}
                   </Tag>
                 ))}
-              </div>
-            </div>
+              </HStack>
+            </VStack>
           )}
-        </Box>
+        </VStack>
       )}
       {/* Unreviewed commits warning */}
       {deployment.github_pr_data?.unreviewed_commits && deployment.github_pr_data.unreviewed_commits.length > 0 && (
@@ -1044,8 +1061,8 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                       >
                         {commit.sha.substring(0, 7)}
                       </a>
-                      <span className={styles.textSubtle}>{commit.author}</span>
-                      <span className={styles.textSubtle}>
+                      <span style={{ color: 'var(--ax-text-neutral-subtle)' }}>{commit.author}</span>
+                      <span style={{ color: 'var(--ax-text-neutral-subtle)' }}>
                         {new Date(commit.date).toLocaleDateString('no-NO', {
                           year: 'numeric',
                           month: 'short',
@@ -1136,47 +1153,54 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
         </div>
       )}
       {/* Comments section */}
-      <div>
-        <Heading size="medium" spacing>
-          Kommentarer
-        </Heading>
+      <VStack gap="space-16">
+        <Heading size="medium">Kommentarer</Heading>
 
         {comments.length === 0 ? (
-          <BodyShort className={styles.textSubtleItalic}>Ingen kommentarer ennå.</BodyShort>
+          <BodyShort textColor="subtle" style={{ fontStyle: 'italic' }}>
+            Ingen kommentarer ennå.
+          </BodyShort>
         ) : (
-          <div className={styles.commentsContainer}>
+          <VStack gap="space-12">
             {comments.map((comment) => (
-              <Box key={comment.id} borderWidth="1" padding="space-16">
-                <div className={styles.commentPanel}>
-                  <div className={styles.commentContent}>
-                    <Detail>
+              <Box
+                key={comment.id}
+                padding="space-16"
+                borderRadius="8"
+                background="raised"
+                borderColor="neutral-subtle"
+                borderWidth="1"
+              >
+                <HStack justify="space-between" align="start">
+                  <VStack gap="space-4">
+                    <Detail textColor="subtle">
                       {new Date(comment.created_at).toLocaleString('no-NO', {
                         dateStyle: 'medium',
                         timeStyle: 'short',
                       })}
                     </Detail>
-                    <BodyShort spacing>{comment.comment_text}</BodyShort>
+                    <BodyShort>{comment.comment_text}</BodyShort>
                     {comment.slack_link && (
                       <BodyShort size="small">
-                        <a href={comment.slack_link} target="_blank" rel="noopener noreferrer">
+                        <Link to={comment.slack_link} target="_blank">
                           🔗 Slack-lenke
-                        </a>
+                        </Link>
                       </BodyShort>
                     )}
-                  </div>
-                  <Form method="post" className={styles.commentActions}>
+                  </VStack>
+                  <Form method="post">
                     <input type="hidden" name="intent" value="delete_comment" />
                     <input type="hidden" name="comment_id" value={comment.id} />
                     <Button type="submit" size="small" variant="tertiary" icon={<TrashIcon aria-hidden />}>
                       Slett
                     </Button>
                   </Form>
-                </div>
+                </HStack>
               </Box>
             ))}
-          </div>
+          </VStack>
         )}
-      </div>
+      </VStack>
       <Button variant="tertiary" icon={<ChatIcon aria-hidden />} onClick={() => commentDialogRef.current?.showModal()}>
         Legg til kommentar
       </Button>
@@ -1209,6 +1233,6 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
           </Form>
         </Modal.Body>
       </Modal>
-    </div>
+    </VStack>
   )
 }

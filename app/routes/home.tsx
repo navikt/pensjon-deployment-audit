@@ -1,10 +1,9 @@
 import { BellIcon, CheckmarkCircleIcon, MagnifyingGlassIcon, RocketIcon, TableIcon } from '@navikt/aksel-icons'
-import { Alert, BodyShort, Heading, LinkPanel } from '@navikt/ds-react'
+import { Alert, BodyShort, Box, Heading, HGrid, LinkPanel, VStack } from '@navikt/ds-react'
 import { Link } from 'react-router'
 import { getUnresolvedAlerts } from '../db/alerts.server'
 import { getAllDeployments, getDeploymentStats } from '../db/deployments.server'
 import { getAllMonitoredApplications } from '../db/monitored-applications.server'
-import styles from '../styles/common.module.css'
 import type { Route } from './+types/home'
 
 export function meta(_args: Route.MetaArgs) {
@@ -38,12 +37,12 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   const { stats, apps, alerts, pendingCount } = loaderData
 
   return (
-    <div className={styles.pageContainer}>
+    <VStack gap="space-32">
       <div>
         <Heading size="large" spacing>
           Pensjon Deployment Audit
         </Heading>
-        <BodyShort>
+        <BodyShort textColor="subtle">
           Overvåk deployments på Nav sin Nais-plattform og verifiser at alle har hatt to sett av øyne.
           Applikasjon-sentrisk modell med sikkerhetsvarsler.
         </BodyShort>
@@ -67,45 +66,55 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
       {/* Stats */}
       {stats && stats.total > 0 && (
-        <div className={styles.statsGrid}>
-          <div className={styles.statCard}>
-            <BodyShort size="small" className={styles.statLabel}>
+        <HGrid gap="space-16" columns={{ xs: 1, sm: 2, lg: 4 }}>
+          <Box padding="space-20" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
+            <BodyShort size="small" textColor="subtle">
               Totalt deployments
             </BodyShort>
             <Heading size="large">{stats.total}</Heading>
-          </div>
+          </Box>
 
-          <div className={styles.statCardSuccess}>
-            <BodyShort size="small" className={styles.statLabelSuccess}>
+          <Box
+            padding="space-20"
+            borderRadius="8"
+            background="raised"
+            borderColor="success-subtle"
+            borderWidth="1"
+            data-color="success"
+          >
+            <BodyShort size="small" textColor="subtle">
               Med four-eyes
             </BodyShort>
-            <Heading size="large" className={styles.textSuccess}>
-              {stats.with_four_eyes}
-            </Heading>
-            <BodyShort size="small" className={styles.textSuccess}>
+            <Heading size="large">{stats.with_four_eyes}</Heading>
+            <BodyShort size="small" textColor="subtle">
               {stats.percentage}%
             </BodyShort>
-          </div>
+          </Box>
 
-          <div className={styles.statCardDanger}>
-            <BodyShort size="small" className={styles.statLabelDanger}>
+          <Box
+            padding="space-20"
+            borderRadius="8"
+            background="raised"
+            borderColor="danger-subtle"
+            borderWidth="1"
+            data-color="danger"
+          >
+            <BodyShort size="small" textColor="subtle">
               Mangler four-eyes
             </BodyShort>
-            <Heading size="large" className={styles.textDanger}>
-              {stats.without_four_eyes}
-            </Heading>
-            <BodyShort size="small" className={styles.textDanger}>
+            <Heading size="large">{stats.without_four_eyes}</Heading>
+            <BodyShort size="small" textColor="subtle">
               {(100 - stats.percentage).toFixed(1)}%
             </BodyShort>
-          </div>
+          </Box>
 
-          <div className={styles.statCard}>
-            <BodyShort size="small" className={styles.statLabel}>
+          <Box padding="space-20" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
+            <BodyShort size="small" textColor="subtle">
               Overvåkede applikasjoner
             </BodyShort>
             <Heading size="large">{apps?.length || 0}</Heading>
-          </div>
-        </div>
+          </Box>
+        </HGrid>
       )}
 
       {stats && stats.total === 0 && (
@@ -115,7 +124,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       )}
 
       {/* Navigation Panels */}
-      <div className={styles.navLinksGrid}>
+      <HGrid gap="space-16" columns={{ xs: 1, md: 2, lg: 3 }}>
         <LinkPanel as={Link} to="/apps/discover">
           <LinkPanel.Title>
             <MagnifyingGlassIcon aria-hidden />
@@ -155,7 +164,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
           </LinkPanel.Title>
           <LinkPanel.Description>Varsler om endrede repositories (sikkerhet)</LinkPanel.Description>
         </LinkPanel>
-      </div>
+      </HGrid>
 
       {stats && stats.without_four_eyes > 0 && (
         <Alert variant="warning">
@@ -163,6 +172,6 @@ export default function Home({ loaderData }: Route.ComponentProps) {
           <Link to="/deployments?only_missing=true">Se oversikt</Link>
         </Alert>
       )}
-    </div>
+    </VStack>
   )
 }

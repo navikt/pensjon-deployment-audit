@@ -1,10 +1,9 @@
 import { CheckmarkCircleIcon } from '@navikt/aksel-icons'
-import { Alert, BodyShort, Button, Heading, ProgressBar, TextField } from '@navikt/ds-react'
+import { Alert, BodyShort, Box, Button, Heading, HGrid, ProgressBar, TextField, VStack } from '@navikt/ds-react'
 import { useEffect, useState } from 'react'
 import { Form, useNavigation } from 'react-router'
 import { getAllDeployments } from '../db/deployments.server'
 import { verifyDeploymentsFourEyes } from '../lib/sync.server'
-import styles from '../styles/common.module.css'
 import type { Route } from './+types/deployments.verify'
 
 export function meta(_args: Route.MetaArgs) {
@@ -104,12 +103,12 @@ export default function DeploymentsVerify({ loaderData, actionData }: Route.Comp
   }, [isVerifying, navigation.formData])
 
   return (
-    <div className={styles.pageContainer}>
+    <VStack gap="space-32">
       <div>
         <Heading size="large" spacing>
           Batch GitHub-verifisering{appId ? ' for applikasjon' : ''}
         </Heading>
-        <BodyShort>
+        <BodyShort textColor="subtle">
           Verifiser four-eyes status for flere deployments samtidig. Dette kaller GitHub API og bruker rate limit.
         </BodyShort>
       </div>
@@ -118,53 +117,55 @@ export default function DeploymentsVerify({ loaderData, actionData }: Route.Comp
         <Alert variant="success" closeButton>
           {actionData.success}
           {actionData.result && (
-            <div className={styles.marginTop05}>
-              <BodyShort size="small">
-                Verifisert: {actionData.result.verified} • Feilet: {actionData.result.failed} • Hoppet over:{' '}
-                {actionData.result.skipped}
-              </BodyShort>
-            </div>
+            <BodyShort size="small">
+              Verifisert: {actionData.result.verified} • Feilet: {actionData.result.failed} • Hoppet over:{' '}
+              {actionData.result.skipped}
+            </BodyShort>
           )}
         </Alert>
       )}
 
       {actionData?.error && <Alert variant="error">{actionData.error}</Alert>}
 
-      <div className={styles.statusBox}>
-        <Heading size="small" spacing>
-          Status
-        </Heading>
-        <div className={styles.statusGrid}>
-          <div className={styles.statusItem}>
-            <BodyShort size="small" className={styles.textSubtle}>
-              Totalt deployments
-            </BodyShort>
-            <Heading size="medium">{stats.total}</Heading>
-          </div>
-          <div className={styles.statusItem}>
-            <BodyShort size="small" className={styles.textWarning}>
-              Trenger verifisering
-            </BodyShort>
-            <Heading size="medium" className={styles.textWarning}>
-              {stats.needsVerification}
-            </Heading>
-          </div>
-          <div className={styles.statusItem}>
-            <BodyShort size="small" className={styles.textSubtle}>
-              Pending
-            </BodyShort>
-            <Heading size="medium">{stats.pending}</Heading>
-          </div>
-          <div className={styles.statusItem}>
-            <BodyShort size="small" className={styles.textDanger}>
-              Error
-            </BodyShort>
-            <Heading size="medium" className={styles.textDanger}>
-              {stats.error}
-            </Heading>
-          </div>
-        </div>
-      </div>
+      <Box padding="space-24" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
+        <VStack gap="space-16">
+          <Heading size="small">Status</Heading>
+          <HGrid gap="space-16" columns={{ xs: 2, md: 4 }}>
+            <Box padding="space-16" borderRadius="8" background="sunken">
+              <VStack gap="space-4">
+                <BodyShort size="small" textColor="subtle">
+                  Totalt deployments
+                </BodyShort>
+                <Heading size="medium">{stats.total}</Heading>
+              </VStack>
+            </Box>
+            <Box padding="space-16" borderRadius="8" background="sunken" data-color="warning">
+              <VStack gap="space-4">
+                <BodyShort size="small" textColor="subtle">
+                  Trenger verifisering
+                </BodyShort>
+                <Heading size="medium">{stats.needsVerification}</Heading>
+              </VStack>
+            </Box>
+            <Box padding="space-16" borderRadius="8" background="sunken">
+              <VStack gap="space-4">
+                <BodyShort size="small" textColor="subtle">
+                  Pending
+                </BodyShort>
+                <Heading size="medium">{stats.pending}</Heading>
+              </VStack>
+            </Box>
+            <Box padding="space-16" borderRadius="8" background="sunken" data-color="danger">
+              <VStack gap="space-4">
+                <BodyShort size="small" textColor="subtle">
+                  Error
+                </BodyShort>
+                <Heading size="medium">{stats.error}</Heading>
+              </VStack>
+            </Box>
+          </HGrid>
+        </VStack>
+      </Box>
 
       <Alert variant="info">
         <Heading size="small" spacing>
@@ -176,45 +177,47 @@ export default function DeploymentsVerify({ loaderData, actionData }: Route.Comp
         </BodyShort>
       </Alert>
 
-      <Form method="post">
-        <div className={styles.pageContainer}>
-          {appId && <input type="hidden" name="app_id" value={appId} />}
-          <TextField
-            name="limit"
-            label="Antall deployments å verifisere"
-            description="Maks antall som verifiseres i denne kjøringen"
-            defaultValue="50"
-            type="number"
-            min="1"
-            max="500"
-            className={styles.maxWidth300}
-          />
+      <Box padding="space-24" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
+        <Form method="post">
+          <VStack gap="space-24">
+            {appId && <input type="hidden" name="app_id" value={appId} />}
+            <TextField
+              name="limit"
+              label="Antall deployments å verifisere"
+              description="Maks antall som verifiseres i denne kjøringen"
+              defaultValue="50"
+              type="number"
+              min="1"
+              max="500"
+              style={{ maxWidth: '300px' }}
+            />
 
-          <div>
-            <Button
-              type="submit"
-              icon={<CheckmarkCircleIcon aria-hidden />}
-              disabled={isVerifying || stats.needsVerification === 0}
-            >
-              {isVerifying ? 'Verifiserer...' : 'Start verifisering'}
-            </Button>
-          </div>
-        </div>
-      </Form>
+            <div>
+              <Button
+                type="submit"
+                icon={<CheckmarkCircleIcon aria-hidden />}
+                disabled={isVerifying || stats.needsVerification === 0}
+              >
+                {isVerifying ? 'Verifiserer...' : 'Start verifisering'}
+              </Button>
+            </div>
+          </VStack>
+        </Form>
+      </Box>
 
       {isVerifying && (
-        <div className={styles.loadingCenter}>
-          <div style={{ width: '100%', maxWidth: '600px' }}>
-            <ProgressBar value={progress} size="medium" aria-label="Verifiserings-fremdrift" />
-            <BodyShort className={styles.marginTop1} textColor="subtle">
-              Verifiserer deployments... {Math.round(progress)}%
-            </BodyShort>
-            <BodyShort size="small" className={styles.marginTop05} textColor="subtle">
+        <Box padding="space-32" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
+          <VStack gap="space-16" align="center">
+            <div style={{ width: '100%', maxWidth: '600px' }}>
+              <ProgressBar value={progress} size="medium" aria-label="Verifiserings-fremdrift" />
+            </div>
+            <BodyShort textColor="subtle">Verifiserer deployments... {Math.round(progress)}%</BodyShort>
+            <BodyShort size="small" textColor="subtle">
               Dette kan ta litt tid. Ikke lukk vinduet.
             </BodyShort>
-          </div>
-        </div>
+          </VStack>
+        </Box>
       )}
-    </div>
+    </VStack>
   )
 }

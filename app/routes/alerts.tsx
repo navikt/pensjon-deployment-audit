@@ -1,9 +1,20 @@
 import { CheckmarkIcon } from '@navikt/aksel-icons'
-import { Alert, BodyShort, Button, Heading, Modal, Table, Textarea } from '@navikt/ds-react'
+import {
+  Alert,
+  BodyShort,
+  Box,
+  Button,
+  Detail,
+  Heading,
+  HStack,
+  Modal,
+  Table,
+  Textarea,
+  VStack,
+} from '@navikt/ds-react'
 import { useState } from 'react'
-import { Form } from 'react-router'
+import { Form, Link } from 'react-router'
 import { getUnresolvedAlertsWithContext, resolveRepositoryAlert } from '../db/alerts.server'
-import styles from '../styles/common.module.css'
 import type { Route } from './+types/alerts'
 
 export function meta(_args: Route.MetaArgs) {
@@ -59,12 +70,12 @@ export default function Alerts({ loaderData, actionData }: Route.ComponentProps)
   }
 
   return (
-    <div className={styles.pageContainer}>
+    <VStack gap="space-32">
       <div>
         <Heading size="large" spacing>
           Repository-varsler 🔒
         </Heading>
-        <BodyShort>
+        <BodyShort textColor="subtle">
           Disse varslene oppstår når en deployment kommer fra et annet repository enn forventet. Dette kan indikere at
           noen har «kapret» en applikasjon, og må sjekkes manuelt.
         </BodyShort>
@@ -85,92 +96,93 @@ export default function Alerts({ loaderData, actionData }: Route.ComponentProps)
       )}
 
       {alerts.length > 0 && (
-        <>
+        <VStack gap="space-16">
           <Alert variant="error">
             Du har <strong>{alerts.length} uløste varsel(er)</strong> som krever oppmerksomhet.
           </Alert>
 
-          <Table>
-            <Table.Header>
-              <Table.Row>
-                <Table.HeaderCell scope="col">Type</Table.HeaderCell>
-                <Table.HeaderCell scope="col">Applikasjon</Table.HeaderCell>
-                <Table.HeaderCell scope="col">Miljø</Table.HeaderCell>
-                <Table.HeaderCell scope="col">Forventet repo</Table.HeaderCell>
-                <Table.HeaderCell scope="col">Detektert repo</Table.HeaderCell>
-                <Table.HeaderCell scope="col">Deployment</Table.HeaderCell>
-                <Table.HeaderCell scope="col">Opprettet</Table.HeaderCell>
-                <Table.HeaderCell scope="col">Handlinger</Table.HeaderCell>
-              </Table.Row>
-            </Table.Header>
-            <Table.Body>
-              {alerts.map((alert) => {
-                const alertTypeLabel =
-                  {
-                    repository_mismatch: 'Ukjent repo',
-                    pending_approval: 'Venter godkjenning',
-                    historical_repository: 'Historisk repo',
-                  }[alert.alert_type] || alert.alert_type
+          <Box padding="space-20" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
+            <Table>
+              <Table.Header>
+                <Table.Row>
+                  <Table.HeaderCell scope="col">Type</Table.HeaderCell>
+                  <Table.HeaderCell scope="col">Applikasjon</Table.HeaderCell>
+                  <Table.HeaderCell scope="col">Miljø</Table.HeaderCell>
+                  <Table.HeaderCell scope="col">Forventet repo</Table.HeaderCell>
+                  <Table.HeaderCell scope="col">Detektert repo</Table.HeaderCell>
+                  <Table.HeaderCell scope="col">Deployment</Table.HeaderCell>
+                  <Table.HeaderCell scope="col">Opprettet</Table.HeaderCell>
+                  <Table.HeaderCell scope="col">Handlinger</Table.HeaderCell>
+                </Table.Row>
+              </Table.Header>
+              <Table.Body>
+                {alerts.map((alert) => {
+                  const alertTypeLabel =
+                    {
+                      repository_mismatch: 'Ukjent repo',
+                      pending_approval: 'Venter godkjenning',
+                      historical_repository: 'Historisk repo',
+                    }[alert.alert_type] || alert.alert_type
 
-                return (
-                  <Table.Row key={alert.id}>
-                    <Table.DataCell>
-                      <span className={styles.textSmallSubtle}>{alertTypeLabel}</span>
-                    </Table.DataCell>
-                    <Table.DataCell>
-                      <strong>{alert.app_name}</strong>
-                      <br />
-                      <span className={styles.textSmallSubtle}>Team: {alert.team_slug}</span>
-                    </Table.DataCell>
-                    <Table.DataCell>{alert.environment_name}</Table.DataCell>
-                    <Table.DataCell>
-                      <a
-                        href={`https://github.com/${alert.expected_github_owner}/${alert.expected_github_repo_name}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={styles.linkExternal}
-                      >
-                        {alert.expected_github_owner}/{alert.expected_github_repo_name}
-                      </a>
-                    </Table.DataCell>
-                    <Table.DataCell>
-                      <a
-                        href={`https://github.com/${alert.detected_github_owner}/${alert.detected_github_repo_name}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={styles.linkDanger}
-                      >
-                        {alert.detected_github_owner}/{alert.detected_github_repo_name}
-                      </a>
-                    </Table.DataCell>
-                    <Table.DataCell>
-                      <code className={styles.codeSmall}>{alert.deployment_nais_id.substring(0, 16)}...</code>
-                    </Table.DataCell>
-                    <Table.DataCell>
-                      {new Date(alert.created_at).toLocaleDateString('nb-NO', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </Table.DataCell>
-                    <Table.DataCell>
-                      <Button
-                        size="small"
-                        variant="secondary"
-                        icon={<CheckmarkIcon aria-hidden />}
-                        onClick={() => openResolveModal(alert)}
-                      >
-                        Løs
-                      </Button>
-                    </Table.DataCell>
-                  </Table.Row>
-                )
-              })}
-            </Table.Body>
-          </Table>
-        </>
+                  return (
+                    <Table.Row key={alert.id}>
+                      <Table.DataCell>
+                        <Detail textColor="subtle">{alertTypeLabel}</Detail>
+                      </Table.DataCell>
+                      <Table.DataCell>
+                        <strong>{alert.app_name}</strong>
+                        <br />
+                        <Detail textColor="subtle">Team: {alert.team_slug}</Detail>
+                      </Table.DataCell>
+                      <Table.DataCell>{alert.environment_name}</Table.DataCell>
+                      <Table.DataCell>
+                        <Link
+                          to={`https://github.com/${alert.expected_github_owner}/${alert.expected_github_repo_name}`}
+                          target="_blank"
+                        >
+                          {alert.expected_github_owner}/{alert.expected_github_repo_name}
+                        </Link>
+                      </Table.DataCell>
+                      <Table.DataCell>
+                        <Link
+                          to={`https://github.com/${alert.detected_github_owner}/${alert.detected_github_repo_name}`}
+                          target="_blank"
+                          data-color="danger"
+                        >
+                          {alert.detected_github_owner}/{alert.detected_github_repo_name}
+                        </Link>
+                      </Table.DataCell>
+                      <Table.DataCell>
+                        <code style={{ fontSize: '0.75rem' }}>{alert.deployment_nais_id.substring(0, 16)}...</code>
+                      </Table.DataCell>
+                      <Table.DataCell>
+                        <Detail textColor="subtle">
+                          {new Date(alert.created_at).toLocaleDateString('nb-NO', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </Detail>
+                      </Table.DataCell>
+                      <Table.DataCell>
+                        <Button
+                          size="small"
+                          variant="secondary"
+                          icon={<CheckmarkIcon aria-hidden />}
+                          onClick={() => openResolveModal(alert)}
+                        >
+                          Løs
+                        </Button>
+                      </Table.DataCell>
+                    </Table.Row>
+                  )
+                })}
+              </Table.Body>
+            </Table>
+          </Box>
+        </VStack>
       )}
 
       <Modal
@@ -180,9 +192,9 @@ export default function Alerts({ loaderData, actionData }: Route.ComponentProps)
       >
         <Modal.Body>
           {selectedAlert && (
-            <>
-              <BodyShort spacing>Du er i ferd med å markere dette varselet som løst:</BodyShort>
-              <Alert variant="warning" className={styles.marginBottom1}>
+            <VStack gap="space-16">
+              <BodyShort>Du er i ferd med å markere dette varselet som løst:</BodyShort>
+              <Alert variant="warning">
                 <strong>{selectedAlert.app_name}</strong> ({selectedAlert.environment_name})
                 <br />
                 Forventet: {selectedAlert.expected_github_owner}/{selectedAlert.expected_github_repo_name}
@@ -202,19 +214,19 @@ export default function Alerts({ loaderData, actionData }: Route.ComponentProps)
                   minLength={10}
                 />
 
-                <div className={styles.modalActions}>
+                <HStack gap="space-16" justify="end" marginBlock="space-16 space-0">
                   <Button type="button" variant="secondary" onClick={() => setResolveModalOpen(false)}>
                     Avbryt
                   </Button>
                   <Button type="submit" variant="primary">
                     Marker som løst
                   </Button>
-                </div>
+                </HStack>
               </Form>
-            </>
+            </VStack>
           )}
         </Modal.Body>
       </Modal>
-    </div>
+    </VStack>
   )
 }

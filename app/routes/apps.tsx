@@ -4,14 +4,13 @@ import {
   ExclamationmarkTriangleIcon,
   XMarkOctagonIcon,
 } from '@navikt/aksel-icons'
-import { Alert, BodyShort, Button, Heading, Table, Tag } from '@navikt/ds-react'
+import { Alert, BodyShort, Box, Button, Heading, HStack, Table, Tag, VStack } from '@navikt/ds-react'
 import { Form, Link } from 'react-router'
 import { resolveAlertsForLegacyDeployments } from '~/db/alerts.server'
 import { getRepositoriesByAppId } from '~/db/application-repositories.server'
 import { getAppDeploymentStats } from '~/db/deployments.server'
 import { getAllMonitoredApplications } from '~/db/monitored-applications.server'
 import { syncDeploymentsFromNais, verifyDeploymentsFourEyes } from '~/lib/sync.server'
-import styles from '../styles/common.module.css'
 import type { Route } from './+types/apps'
 
 export function meta(_args: Route.MetaArgs) {
@@ -125,15 +124,15 @@ export default function Apps({ loaderData, actionData }: Route.ComponentProps) {
   )
 
   return (
-    <div className={styles.pageContainer}>
-      <div className={styles.pageHeader}>
-        <div className={styles.pageHeaderContent}>
+    <VStack gap="space-32">
+      <HStack justify="space-between" align="start" wrap>
+        <div>
           <Heading size="large" spacing>
             Overvåkede applikasjoner
           </Heading>
-          <BodyShort>Administrer hvilke applikasjoner som overvåkes for deployments.</BodyShort>
+          <BodyShort textColor="subtle">Administrer hvilke applikasjoner som overvåkes for deployments.</BodyShort>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <HStack gap="space-8">
           <Form method="post">
             <input type="hidden" name="intent" value="resolve-legacy-alerts" />
             <Button
@@ -148,8 +147,8 @@ export default function Apps({ loaderData, actionData }: Route.ComponentProps) {
           <Button as={Link} to="/apps/discover">
             Oppdag nye applikasjoner
           </Button>
-        </div>
-      </div>
+        </HStack>
+      </HStack>
 
       {actionData?.success && (
         <Alert variant="success" closeButton>
@@ -166,111 +165,120 @@ export default function Apps({ loaderData, actionData }: Route.ComponentProps) {
       )}
 
       {Object.entries(appsByTeam).map(([teamSlug, teamApps]) => (
-        <div key={teamSlug}>
-          <Heading size="medium" spacing>
-            {teamSlug} ({teamApps.length} applikasjoner)
-          </Heading>
+        <Box
+          key={teamSlug}
+          padding="space-20"
+          borderRadius="8"
+          background="raised"
+          borderColor="neutral-subtle"
+          borderWidth="1"
+        >
+          <VStack gap="space-16">
+            <Heading size="medium">
+              {teamSlug} ({teamApps.length} applikasjoner)
+            </Heading>
 
-          <Table size="small">
-            <Table.Header>
-              <Table.Row>
-                <Table.HeaderCell scope="col">Applikasjon</Table.HeaderCell>
-                <Table.HeaderCell scope="col">Miljø</Table.HeaderCell>
-                <Table.HeaderCell scope="col">Status</Table.HeaderCell>
-                <Table.HeaderCell scope="col">Godkjent repository</Table.HeaderCell>
-                <Table.HeaderCell scope="col">Handlinger</Table.HeaderCell>
-              </Table.Row>
-            </Table.Header>
-            <Table.Body>
-              {teamApps.map((app) => {
-                // Determine status based on deployment stats
-                let statusColor: 'success' | 'warning' | 'danger' = 'success'
-                let statusIcon = <CheckmarkCircleIcon />
-                let statusText = 'OK'
+            <Table size="small">
+              <Table.Header>
+                <Table.Row>
+                  <Table.HeaderCell scope="col">Applikasjon</Table.HeaderCell>
+                  <Table.HeaderCell scope="col">Miljø</Table.HeaderCell>
+                  <Table.HeaderCell scope="col">Status</Table.HeaderCell>
+                  <Table.HeaderCell scope="col">Godkjent repository</Table.HeaderCell>
+                  <Table.HeaderCell scope="col">Handlinger</Table.HeaderCell>
+                </Table.Row>
+              </Table.Header>
+              <Table.Body>
+                {teamApps.map((app) => {
+                  // Determine status based on deployment stats
+                  let statusColor: 'success' | 'warning' | 'danger' = 'success'
+                  let statusIcon = <CheckmarkCircleIcon />
+                  let statusText = 'OK'
 
-                if (app.stats.without_four_eyes > 0) {
-                  statusColor = 'danger'
-                  statusIcon = <XMarkOctagonIcon />
-                  statusText = `${app.stats.without_four_eyes} mangler`
-                } else if (app.stats.pending_verification > 0) {
-                  statusColor = 'warning'
-                  statusIcon = <ExclamationmarkTriangleIcon />
-                  statusText = `${app.stats.pending_verification} venter`
-                } else if (app.stats.total === 0) {
-                  statusColor = 'warning'
-                  statusIcon = <ExclamationmarkTriangleIcon />
-                  statusText = 'Ingen data'
-                }
+                  if (app.stats.without_four_eyes > 0) {
+                    statusColor = 'danger'
+                    statusIcon = <XMarkOctagonIcon />
+                    statusText = `${app.stats.without_four_eyes} mangler`
+                  } else if (app.stats.pending_verification > 0) {
+                    statusColor = 'warning'
+                    statusIcon = <ExclamationmarkTriangleIcon />
+                    statusText = `${app.stats.pending_verification} venter`
+                  } else if (app.stats.total === 0) {
+                    statusColor = 'warning'
+                    statusIcon = <ExclamationmarkTriangleIcon />
+                    statusText = 'Ingen data'
+                  }
 
-                return (
-                  <Table.Row key={app.id}>
-                    <Table.DataCell>
-                      <Button as={Link} to={`/apps/${app.id}`} variant="tertiary" size="small">
-                        {app.app_name}
-                      </Button>
-                    </Table.DataCell>
-                    <Table.DataCell>{app.environment_name}</Table.DataCell>
-                    <Table.DataCell>
-                      {app.stats.without_four_eyes > 0 ? (
-                        <Link to={`/deployments?app=${app.id}&only_missing=true`} style={{ textDecoration: 'none' }}>
+                  return (
+                    <Table.Row key={app.id}>
+                      <Table.DataCell>
+                        <Button as={Link} to={`/apps/${app.id}`} variant="tertiary" size="small">
+                          {app.app_name}
+                        </Button>
+                      </Table.DataCell>
+                      <Table.DataCell>{app.environment_name}</Table.DataCell>
+                      <Table.DataCell>
+                        {app.stats.without_four_eyes > 0 ? (
+                          <Link to={`/deployments?app=${app.id}&only_missing=true`} style={{ textDecoration: 'none' }}>
+                            <Tag data-color={statusColor} variant="outline" size="small">
+                              {statusIcon} {statusText}
+                            </Tag>
+                          </Link>
+                        ) : (
                           <Tag data-color={statusColor} variant="outline" size="small">
                             {statusIcon} {statusText}
                           </Tag>
-                        </Link>
-                      ) : (
-                        <Tag data-color={statusColor} variant="outline" size="small">
-                          {statusIcon} {statusText}
-                        </Tag>
-                      )}
-                    </Table.DataCell>
-                    <Table.DataCell>
-                      {app.active_repo ? (
-                        <a href={`https://github.com/${app.active_repo}`} target="_blank" rel="noopener noreferrer">
-                          {app.active_repo}
-                        </a>
-                      ) : (
-                        <span className={styles.textSubtle}>(ingen aktivt repo)</span>
-                      )}
-                    </Table.DataCell>
-                    <Table.DataCell>
-                      <div className={styles.actionButtons}>
-                        <Form method="post">
-                          <input type="hidden" name="intent" value="sync-nais" />
-                          <input type="hidden" name="team_slug" value={app.team_slug} />
-                          <input type="hidden" name="environment_name" value={app.environment_name} />
-                          <input type="hidden" name="app_name" value={app.app_name} />
-                          <Button
-                            type="submit"
-                            size="small"
-                            variant="secondary"
-                            icon={<ArrowsCirclepathIcon aria-hidden />}
-                            title="Hent deployments fra Nais (ingen GitHub-kall)"
-                          >
-                            Hent
-                          </Button>
-                        </Form>
-                        <Form method="post">
-                          <input type="hidden" name="intent" value="verify-github" />
-                          <input type="hidden" name="monitored_app_id" value={app.id} />
-                          <Button
-                            type="submit"
-                            size="small"
-                            variant="secondary"
-                            icon={<CheckmarkCircleIcon aria-hidden />}
-                            title="Verifiser four-eyes med GitHub (bruker rate limit)"
-                          >
-                            Verifiser
-                          </Button>
-                        </Form>
-                      </div>
-                    </Table.DataCell>
-                  </Table.Row>
-                )
-              })}
-            </Table.Body>
-          </Table>
-        </div>
+                        )}
+                      </Table.DataCell>
+                      <Table.DataCell>
+                        {app.active_repo ? (
+                          <a href={`https://github.com/${app.active_repo}`} target="_blank" rel="noopener noreferrer">
+                            {app.active_repo}
+                          </a>
+                        ) : (
+                          <BodyShort textColor="subtle">(ingen aktivt repo)</BodyShort>
+                        )}
+                      </Table.DataCell>
+                      <Table.DataCell>
+                        <HStack gap="space-8">
+                          <Form method="post">
+                            <input type="hidden" name="intent" value="sync-nais" />
+                            <input type="hidden" name="team_slug" value={app.team_slug} />
+                            <input type="hidden" name="environment_name" value={app.environment_name} />
+                            <input type="hidden" name="app_name" value={app.app_name} />
+                            <Button
+                              type="submit"
+                              size="small"
+                              variant="secondary"
+                              icon={<ArrowsCirclepathIcon aria-hidden />}
+                              title="Hent deployments fra Nais (ingen GitHub-kall)"
+                            >
+                              Hent
+                            </Button>
+                          </Form>
+                          <Form method="post">
+                            <input type="hidden" name="intent" value="verify-github" />
+                            <input type="hidden" name="monitored_app_id" value={app.id} />
+                            <Button
+                              type="submit"
+                              size="small"
+                              variant="secondary"
+                              icon={<CheckmarkCircleIcon aria-hidden />}
+                              title="Verifiser four-eyes med GitHub (bruker rate limit)"
+                            >
+                              Verifiser
+                            </Button>
+                          </Form>
+                        </HStack>
+                      </Table.DataCell>
+                    </Table.Row>
+                  )
+                })}
+              </Table.Body>
+            </Table>
+          </VStack>
+        </Box>
       ))}
-    </div>
+    </VStack>
   )
 }

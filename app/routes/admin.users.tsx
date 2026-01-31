@@ -1,8 +1,20 @@
 import { PencilIcon, PlusIcon, TrashIcon } from '@navikt/aksel-icons'
-import { Alert, BodyShort, Box, Button, Heading, HStack, Modal, Table, TextField, VStack } from '@navikt/ds-react'
+import {
+  Alert,
+  BodyShort,
+  Box,
+  Button,
+  Detail,
+  Heading,
+  HStack,
+  Modal,
+  Table,
+  TextField,
+  VStack,
+} from '@navikt/ds-react'
 import { useEffect, useRef, useState } from 'react'
 import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router'
-import { Form, useActionData, useLoaderData, useNavigation } from 'react-router'
+import { Form, Link, useActionData, useLoaderData, useNavigation } from 'react-router'
 import { deleteUserMapping, getAllUserMappings, type UserMapping, upsertUserMapping } from '~/db/user-mappings.server'
 
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -77,66 +89,70 @@ export default function AdminUsers() {
           </Button>
         </HStack>
 
-        <BodyShort>Kobler GitHub-brukernavn til Nav-identitet og Slack for visning i deployment-oversikten.</BodyShort>
+        <BodyShort textColor="subtle">
+          Kobler GitHub-brukernavn til Nav-identitet og Slack for visning i deployment-oversikten.
+        </BodyShort>
 
         {mappings.length === 0 ? (
           <Alert variant="info">
             Ingen brukermappinger er lagt til ennå. Klikk "Legg til" for å opprette den første.
           </Alert>
         ) : (
-          <Table>
-            <Table.Header>
-              <Table.Row>
-                <Table.HeaderCell>GitHub</Table.HeaderCell>
-                <Table.HeaderCell>Navn</Table.HeaderCell>
-                <Table.HeaderCell>E-post</Table.HeaderCell>
-                <Table.HeaderCell>Nav-ident</Table.HeaderCell>
-                <Table.HeaderCell>Slack ID</Table.HeaderCell>
-                <Table.HeaderCell />
-              </Table.Row>
-            </Table.Header>
-            <Table.Body>
-              {mappings.map((mapping) => (
-                <Table.Row key={mapping.github_username}>
-                  <Table.DataCell>
-                    <a href={`https://github.com/${mapping.github_username}`} target="_blank" rel="noopener noreferrer">
-                      {mapping.github_username}
-                    </a>
-                  </Table.DataCell>
-                  <Table.DataCell>{mapping.display_name || '-'}</Table.DataCell>
-                  <Table.DataCell>{mapping.nav_email || '-'}</Table.DataCell>
-                  <Table.DataCell>{mapping.nav_ident || '-'}</Table.DataCell>
-                  <Table.DataCell>{mapping.slack_member_id || '-'}</Table.DataCell>
-                  <Table.DataCell>
-                    <HStack gap="space-8">
-                      <Button
-                        variant="tertiary"
-                        size="small"
-                        icon={<PencilIcon aria-hidden />}
-                        onClick={() => openEdit(mapping)}
-                      >
-                        Rediger
-                      </Button>
-                      <Form method="post">
-                        <input type="hidden" name="github_username" value={mapping.github_username} />
-                        <Button
-                          variant="tertiary-neutral"
-                          size="small"
-                          type="submit"
-                          name="intent"
-                          value="delete"
-                          icon={<TrashIcon aria-hidden />}
-                          loading={isSubmitting}
-                        >
-                          Slett
-                        </Button>
-                      </Form>
-                    </HStack>
-                  </Table.DataCell>
+          <Box padding="space-20" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
+            <Table>
+              <Table.Header>
+                <Table.Row>
+                  <Table.HeaderCell>GitHub</Table.HeaderCell>
+                  <Table.HeaderCell>Navn</Table.HeaderCell>
+                  <Table.HeaderCell>E-post</Table.HeaderCell>
+                  <Table.HeaderCell>Nav-ident</Table.HeaderCell>
+                  <Table.HeaderCell>Slack ID</Table.HeaderCell>
+                  <Table.HeaderCell />
                 </Table.Row>
-              ))}
-            </Table.Body>
-          </Table>
+              </Table.Header>
+              <Table.Body>
+                {mappings.map((mapping) => (
+                  <Table.Row key={mapping.github_username}>
+                    <Table.DataCell>
+                      <Link to={`https://github.com/${mapping.github_username}`} target="_blank">
+                        {mapping.github_username}
+                      </Link>
+                    </Table.DataCell>
+                    <Table.DataCell>{mapping.display_name || <Detail textColor="subtle">-</Detail>}</Table.DataCell>
+                    <Table.DataCell>{mapping.nav_email || <Detail textColor="subtle">-</Detail>}</Table.DataCell>
+                    <Table.DataCell>{mapping.nav_ident || <Detail textColor="subtle">-</Detail>}</Table.DataCell>
+                    <Table.DataCell>{mapping.slack_member_id || <Detail textColor="subtle">-</Detail>}</Table.DataCell>
+                    <Table.DataCell>
+                      <HStack gap="space-8">
+                        <Button
+                          variant="tertiary"
+                          size="small"
+                          icon={<PencilIcon aria-hidden />}
+                          onClick={() => openEdit(mapping)}
+                        >
+                          Rediger
+                        </Button>
+                        <Form method="post">
+                          <input type="hidden" name="github_username" value={mapping.github_username} />
+                          <Button
+                            variant="tertiary-neutral"
+                            size="small"
+                            type="submit"
+                            name="intent"
+                            value="delete"
+                            icon={<TrashIcon aria-hidden />}
+                            loading={isSubmitting}
+                          >
+                            Slett
+                          </Button>
+                        </Form>
+                      </HStack>
+                    </Table.DataCell>
+                  </Table.Row>
+                ))}
+              </Table.Body>
+            </Table>
+          </Box>
         )}
 
         {/* Add Modal */}
