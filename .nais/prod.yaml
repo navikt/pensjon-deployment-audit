@@ -36,6 +36,21 @@ spec:
     limits:
       memory: 512Mi
 
+  # Entra ID (Azure AD) authentication with login sidecar
+  azure:
+    application:
+      enabled: true
+      claims:
+        groups:
+          - id: 1e97cbc6-0687-4d23-aebd-c611035279c1
+        extra:
+          - "NAVident"
+      replyURLs:
+        - "http://localhost:3000/auth/callback"
+    sidecar:
+      enabled: true
+      autoLogin: true
+
   gcp:
     sqlInstances:
       - type: POSTGRES_15
