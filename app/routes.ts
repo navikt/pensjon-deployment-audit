@@ -1,6 +1,10 @@
 import { index, layout, type RouteConfig, route } from '@react-router/dev/routes'
 
 export default [
+  // Health check endpoints (outside layout)
+  route('api/isalive', 'routes/api.isalive.ts'),
+  route('api/isready', 'routes/api.isready.ts'),
+
   layout('routes/layout.tsx', [
     index('routes/home.tsx'),
     route('apps', 'routes/apps.tsx'),
