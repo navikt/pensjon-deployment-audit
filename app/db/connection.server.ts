@@ -4,8 +4,6 @@ let poolInstance: Pool | null = null
 
 function buildConnectionConfig() {
   // Nais injects individual DB_* variables with envVarPrefix: DB
-  // Use these instead of DB_URL to avoid SSL hostname verification issues
-  // Cloud SQL Proxy handles encryption, so we connect without SSL to localhost
   const dbHost = process.env.DB_HOST
   const dbPort = process.env.DB_PORT
   const dbDatabase = process.env.DB_DATABASE
@@ -19,8 +17,11 @@ function buildConnectionConfig() {
       database: dbDatabase,
       user: dbUsername,
       password: dbPassword,
-      // Cloud SQL Proxy handles encryption, no SSL needed to localhost
-      ssl: false,
+      // SSL required by Cloud SQL, but skip hostname verification
+      // since we connect to IP address, not the cert's DNS name
+      ssl: {
+        rejectUnauthorized: false,
+      },
     }
   }
 

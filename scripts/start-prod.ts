@@ -55,15 +55,18 @@ async function runMigrations() {
     }
 
     // Build database config
-    // For Nais/Cloud SQL Proxy, use individual vars without SSL (proxy handles encryption)
-    const databaseUrl: string | { host: string; port: number; database: string; user: string; password: string; ssl: boolean } = isNais
+    // SSL required by Cloud SQL, but skip hostname verification
+    // since we connect to IP address, not the cert's DNS name
+    const databaseUrl: string | { host: string; port: number; database: string; user: string; password: string; ssl: { rejectUnauthorized: boolean } } = isNais
       ? {
           host: dbHost!,
           port: dbPort ? parseInt(dbPort, 10) : 5432,
           database: dbDatabase!,
           user: dbUsername!,
           password: dbPassword!,
-          ssl: false,
+          ssl: {
+            rejectUnauthorized: false,
+          },
         }
       : configDbUrl!;
 
