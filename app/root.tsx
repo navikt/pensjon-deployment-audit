@@ -5,10 +5,12 @@ import './app.css'
 import '@navikt/ds-css'
 import { Page, Theme } from '@navikt/ds-react'
 import { ThemeProvider, useTheme } from './hooks/useTheme'
+import { initializeServer } from './init.server'
 
-// Server-side initialization (runs once on server startup)
-if (typeof window === 'undefined') {
-  import('./init.server').then(({ initializeServer }) => initializeServer())
+// Initialize server on first request (loader runs server-side only)
+export async function loader() {
+  initializeServer()
+  return null
 }
 
 export const links: Route.LinksFunction = () => []
