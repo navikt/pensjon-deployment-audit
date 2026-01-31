@@ -247,6 +247,26 @@ function AuditReportPdfDocument(props: AuditReportPdfProps) {
   const manualPercentage = totalDeployments > 0 ? Math.round((manuallyApprovedCount / totalDeployments) * 100) : 0
   const legacyPercentage = totalDeployments > 0 ? Math.round((legacyCount / totalDeployments) * 100) : 0
 
+  // Group deployments by month
+  const deploymentsByMonth = new Map<string, typeof reportData.deployments>()
+  for (const d of reportData.deployments) {
+    const date = new Date(d.date)
+    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+    if (!deploymentsByMonth.has(monthKey)) {
+      deploymentsByMonth.set(monthKey, [])
+    }
+    deploymentsByMonth.get(monthKey)?.push(d)
+  }
+
+  // Sort months chronologically
+  const sortedMonths = Array.from(deploymentsByMonth.keys()).sort()
+
+  const formatMonthName = (monthKey: string) => {
+    const [year, month] = monthKey.split('-')
+    const date = new Date(parseInt(year, 10), parseInt(month, 10) - 1)
+    return date.toLocaleDateString('no-NO', { month: 'long', year: 'numeric' })
+  }
+
   return (
     <Document>
       {/* Page 1: Summary */}
@@ -372,49 +392,61 @@ function AuditReportPdfDocument(props: AuditReportPdfProps) {
         />
       </Page>
 
-      {/* Page 2+: Deployments list */}
-      <Page size="A4" style={styles.page}>
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Deployments ({totalDeployments} totalt)</Text>
-          <View style={styles.table}>
-            <View style={styles.tableHeader}>
-              <Text style={[styles.tableHeaderCell, styles.col1]}>#</Text>
-              <Text style={[styles.tableHeaderCell, styles.col2]}>Dato</Text>
-              <Text style={[styles.tableHeaderCell, styles.col3]}>Commit</Text>
-              <Text style={[styles.tableHeaderCell, styles.col4]}>Metode</Text>
-              <Text style={[styles.tableHeaderCell, styles.col5]}>Deployer</Text>
-              <Text style={[styles.tableHeaderCell, styles.col6]}>Godkjenner</Text>
-              <Text style={[styles.tableHeaderCell, styles.col7]}>Referanse</Text>
-            </View>
-            {reportData.deployments.slice(0, 40).map((d, idx) => (
-              <View key={d.id} style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowAlt : {}]}>
-                <Text style={[styles.tableCell, styles.col1]}>{idx + 1}</Text>
-                <Text style={[styles.tableCell, styles.col2]}>{formatDate(d.date)}</Text>
-                <Text style={[styles.tableCell, styles.col3]}>
-                  {d.commit_sha ? d.commit_sha.substring(0, 7) : 'N/A'}
-                </Text>
-                <Text style={[styles.tableCell, styles.col4]}>
-                  {d.method === 'pr' ? 'PR' : d.method === 'legacy' ? 'Legacy' : 'Manuell'}
-                </Text>
-                <Text style={[styles.tableCell, styles.col5]}>{d.deployer || 'N/A'}</Text>
-                <Text style={[styles.tableCell, styles.col6]}>{d.approver || '-'}</Text>
-                <Text style={[styles.tableCell, styles.col7]}>
-                  {d.method === 'legacy' ? '-' : d.pr_number ? `PR #${d.pr_number}` : 'Slack'}
-                </Text>
+      {/* Pages for deployments - one page per month */}
+      {sortedMonths.map((monthKey, monthIdx) => {
+        const monthDeployments = deploymentsByMonth.get(monthKey) || []
+        let runningTotal = 0
+        for (let i = 0; i < monthIdx; i++) {
+          runningTotal += deploymentsByMonth.get(sortedMonths[i])?.length || 0
+        }
+
+        return (
+          <Page key={monthKey} size="A4" style={styles.page}>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>
+                Deployments - {formatMonthName(monthKey)} ({monthDeployments.length} stk)
+              </Text>
+              <View style={styles.table}>
+                <View style={styles.tableHeader}>
+                  <Text style={[styles.tableHeaderCell, styles.col1]}>#</Text>
+                  <Text style={[styles.tableHeaderCell, styles.col2]}>Dato</Text>
+                  <Text style={[styles.tableHeaderCell, styles.col3]}>Commit</Text>
+                  <Text style={[styles.tableHeaderCell, styles.col4]}>Metode</Text>
+                  <Text style={[styles.tableHeaderCell, styles.col5]}>Deployer</Text>
+                  <Text style={[styles.tableHeaderCell, styles.col6]}>Godkjenner</Text>
+                  <Text style={[styles.tableHeaderCell, styles.col7]}>Referanse</Text>
+                </View>
+                {monthDeployments.map((d, idx) => (
+                  <View key={d.id} style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowAlt : {}]}>
+                    <Text style={[styles.tableCell, styles.col1]}>{runningTotal + idx + 1}</Text>
+                    <Text style={[styles.tableCell, styles.col2]}>{formatDate(d.date)}</Text>
+                    <Text style={[styles.tableCell, styles.col3]}>
+                      {d.commit_sha ? d.commit_sha.substring(0, 7) : 'N/A'}
+                    </Text>
+                    <Text style={[styles.tableCell, styles.col4]}>
+                      {d.method === 'pr' ? 'PR' : d.method === 'legacy' ? 'Legacy' : 'Manuell'}
+                    </Text>
+                    <Text style={[styles.tableCell, styles.col5]}>{d.deployer || 'N/A'}</Text>
+                    <Text style={[styles.tableCell, styles.col6]}>{d.approver || '-'}</Text>
+                    <Text style={[styles.tableCell, styles.col7]}>
+                      {d.method === 'legacy' ? '-' : d.pr_number ? `PR #${d.pr_number}` : 'Slack'}
+                    </Text>
+                  </View>
+                ))}
               </View>
-            ))}
-          </View>
-          {reportData.deployments.length > 40 && (
-            <Text style={{ fontSize: 8, fontStyle: 'italic', color: '#595959' }}>
-              ... og {reportData.deployments.length - 40} flere deployments (se fullstendig liste i JSON-data)
-            </Text>
-          )}
-        </View>
-        <Text
-          style={styles.pageNumber}
-          render={({ pageNumber, totalPages }) => `Side ${pageNumber} av ${totalPages}`}
-        />
-      </Page>
+            </View>
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>
+                {appName} | {formatMonthName(monthKey)} | Totalt: {totalDeployments} deployments
+              </Text>
+            </View>
+            <Text
+              style={styles.pageNumber}
+              render={({ pageNumber, totalPages }) => `Side ${pageNumber} av ${totalPages}`}
+            />
+          </Page>
+        )
+      })}
 
       {/* Page 3: Manual approvals (if any) */}
       {reportData.manual_approvals.length > 0 && (
