@@ -38,31 +38,38 @@ async function runMigrations() {
     const configPath = join(__dirname, '..', '.node-pg-migrate.json');
     const config = JSON.parse(readFileSync(configPath, 'utf-8'));
 
-    // Check for Nais database URL (DB_URL with envVarPrefix), then fall back to DATABASE_URL
-    const naisDbUrl = process.env.DB_URL;
+    // Check for Nais individual DB_* variables first, then fall back to DATABASE_URL
+    const dbHost = process.env.DB_HOST;
+    const dbPort = process.env.DB_PORT;
+    const dbDatabase = process.env.DB_DATABASE;
+    const dbUsername = process.env.DB_USERNAME;
+    const dbPassword = process.env.DB_PASSWORD;
+    const isNais = !!(dbHost && dbDatabase && dbUsername && dbPassword);
+
     const configDbUrl = process.env[config['database-url-var']];
-    const databaseUrl = naisDbUrl || configDbUrl;
 
-    console.log(`🔍 Using database URL from: ${naisDbUrl ? 'DB_URL' : configDbUrl ? 'DATABASE_URL' : 'NOT FOUND'}`);
+    console.log(`🔍 Using database from: ${isNais ? 'DB_* variables' : configDbUrl ? 'DATABASE_URL' : 'NOT FOUND'}`);
 
-    if (!databaseUrl) {
+    if (!isNais && !configDbUrl) {
       throw new Error(`Environment variable DATABASE_URL is not set`);
     }
 
+    // Build database config
+    // For Nais/Cloud SQL Proxy, use individual vars without SSL (proxy handles encryption)
+    const databaseUrl: string | { host: string; port: number; database: string; user: string; password: string; ssl: boolean } = isNais
+      ? {
+          host: dbHost!,
+          port: dbPort ? parseInt(dbPort, 10) : 5432,
+          database: dbDatabase!,
+          user: dbUsername!,
+          password: dbPassword!,
+          ssl: false,
+        }
+      : configDbUrl!;
+
     // Run migrations
-    // For Nais/Cloud SQL Proxy, we need custom SSL config to skip hostname verification
-    const isNais = !!naisDbUrl;
     await runner({
-      databaseUrl: isNais
-        ? {
-            connectionString: databaseUrl,
-            ssl: {
-              rejectUnauthorized: true,
-              // Skip hostname verification since we connect via Cloud SQL Proxy (localhost)
-              checkServerIdentity: () => undefined,
-            },
-          }
-        : databaseUrl,
+      databaseUrl,
       dir: join(__dirname, '..', config['migrations-dir']),
       direction: 'up',
       migrationsTable: config['migrations-table'],
