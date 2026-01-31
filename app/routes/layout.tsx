@@ -26,6 +26,30 @@ export default function Layout() {
   return (
     <div className={styles.layoutContainer}>
       <InternalHeader>
+        {/* Mobile: Hamburger menu on the left */}
+        <Hide above="md" asChild>
+          <ActionMenu>
+            <ActionMenu.Trigger>
+              <InternalHeader.Button>
+                <MenuHamburgerIcon title="Meny" style={{ fontSize: '1.5rem' }} />
+              </InternalHeader.Button>
+            </ActionMenu.Trigger>
+            <ActionMenu.Content>
+              <ActionMenu.Group label="Navigasjon">
+                {navItems.map((item) => (
+                  <ActionMenu.Item
+                    key={item.path}
+                    onSelect={() => navigate(item.path)}
+                    className={isActive(item.path) ? styles.navLinkActive : undefined}
+                  >
+                    {item.label}
+                  </ActionMenu.Item>
+                ))}
+              </ActionMenu.Group>
+            </ActionMenu.Content>
+          </ActionMenu>
+        </Hide>
+
         <InternalHeader.Title as={Link} to="/">
           Pensjon Deployment Audit
         </InternalHeader.Title>
@@ -45,30 +69,6 @@ export default function Layout() {
             ))}
           </nav>
         </Show>
-
-        {/* Mobile: Hamburger menu */}
-        <Hide above="md" asChild>
-          <ActionMenu>
-            <ActionMenu.Trigger>
-              <InternalHeader.Button>
-                <MenuHamburgerIcon title="Meny" style={{ fontSize: '1.5rem' }} />
-              </InternalHeader.Button>
-            </ActionMenu.Trigger>
-            <ActionMenu.Content align="end">
-              <ActionMenu.Group label="Navigasjon">
-                {navItems.map((item) => (
-                  <ActionMenu.Item
-                    key={item.path}
-                    onSelect={() => navigate(item.path)}
-                    className={isActive(item.path) ? styles.navLinkActive : undefined}
-                  >
-                    {item.label}
-                  </ActionMenu.Item>
-                ))}
-              </ActionMenu.Group>
-            </ActionMenu.Content>
-          </ActionMenu>
-        </Hide>
 
         <Button
           variant="tertiary-neutral"
