@@ -2,7 +2,7 @@ import { CheckmarkCircleIcon } from '@navikt/aksel-icons'
 import { Alert, BodyShort, Box, Button, Heading, HGrid, ProgressBar, TextField, VStack } from '@navikt/ds-react'
 import { useEffect, useState } from 'react'
 import { Form, useNavigation } from 'react-router'
-import { getAllDeployments } from '../db/deployments.server'
+import { getVerificationStats } from '../db/deployments.server'
 import { verifyDeploymentsFourEyes } from '../lib/sync.server'
 import type { Route } from './+types/deployments.verify'
 
@@ -14,25 +14,12 @@ export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url)
   const appId = url.searchParams.get('app')
 
-  // Get stats on unverified deployments
-  const allDeployments = await getAllDeployments({
-    monitored_app_id: appId ? parseInt(appId, 10) : undefined,
-  })
-
-  const pending = allDeployments.filter((d) => d.four_eyes_status === 'pending').length
-  const missing = allDeployments.filter((d) => d.four_eyes_status === 'missing').length
-  const error = allDeployments.filter((d) => d.four_eyes_status === 'error').length
-  const needsVerification = pending + missing + error
+  // Get stats on unverified deployments using dedicated stats query
+  const stats = await getVerificationStats(appId ? parseInt(appId, 10) : undefined)
 
   return {
     appId: appId ? parseInt(appId, 10) : null,
-    stats: {
-      total: allDeployments.length,
-      needsVerification,
-      pending,
-      missing,
-      error,
-    },
+    stats,
   }
 }
 

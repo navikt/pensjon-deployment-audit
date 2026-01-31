@@ -400,6 +400,38 @@ export async function getDeploymentStats(monitoredAppId?: number): Promise<{
   }
 }
 
+export async function getVerificationStats(monitoredAppId?: number): Promise<{
+  total: number
+  needsVerification: number
+  pending: number
+  error: number
+}> {
+  let sql = `
+    SELECT 
+      COUNT(*) as total,
+      COUNT(CASE WHEN four_eyes_status = 'pending' THEN 1 END) as pending,
+      COUNT(CASE WHEN four_eyes_status = 'error' THEN 1 END) as error
+    FROM deployments
+  `
+
+  const params: any[] = []
+  if (monitoredAppId) {
+    sql += ' WHERE monitored_app_id = $1'
+    params.push(monitoredAppId)
+  }
+
+  const result = await pool.query(sql, params)
+  const pending = parseInt(result.rows[0].pending, 10)
+  const error = parseInt(result.rows[0].error, 10)
+
+  return {
+    total: parseInt(result.rows[0].total, 10),
+    needsVerification: pending + error,
+    pending,
+    error,
+  }
+}
+
 export async function updateDeploymentFourEyes(
   deploymentId: number,
   data: {
