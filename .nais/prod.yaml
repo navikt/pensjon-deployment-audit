@@ -53,7 +53,7 @@ spec:
 
   gcp:
     sqlInstances:
-      - type: POSTGRES_15
+      - type: POSTGRES_17
         tier: db-f1-micro
         diskAutoresize: true
         databases:
