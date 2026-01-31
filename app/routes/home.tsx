@@ -4,6 +4,7 @@ import { Link } from 'react-router'
 import { getUnresolvedAlerts } from '../db/alerts.server'
 import { getAllDeployments, getDeploymentStats } from '../db/deployments.server'
 import { getAllMonitoredApplications } from '../db/monitored-applications.server'
+import styles from '../styles/common.module.css'
 import type { Route } from './+types/home'
 
 export function meta(_args: Route.MetaArgs) {
@@ -27,26 +28,20 @@ export async function loader() {
       (d) => d.four_eyes_status === 'pending' || d.four_eyes_status === 'error',
     ).length
 
-    return { stats, apps, alerts, pendingCount }
+    return { stats, appsCount: apps.length, alerts, pendingCount }
   } catch (_error) {
-    return { stats: null, apps: [], alerts: [], pendingCount: 0 }
+    return { stats: null, appsCount: 0, alerts: [], pendingCount: 0 }
   }
 }
 
 export default function Home({ loaderData }: Route.ComponentProps) {
-  const { stats, apps, alerts, pendingCount } = loaderData
+  const { stats, appsCount, alerts, pendingCount } = loaderData
 
   return (
     <VStack gap="space-32">
-      <div>
-        <Heading size="large" spacing>
-          Pensjon Deployment Audit
-        </Heading>
-        <BodyShort textColor="subtle">
-          Overvåk deployments på Nav sin Nais-plattform og verifiser at alle har hatt to sett av øyne.
-          Applikasjon-sentrisk modell med sikkerhetsvarsler.
-        </BodyShort>
-      </div>
+      <BodyShort textColor="subtle">
+        Overvåk deployments og verifiser at alle har hatt godkjenning før deploy.
+      </BodyShort>
 
       {/* Security Alerts */}
       {alerts && alerts.length > 0 && (
@@ -63,62 +58,86 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         </Alert>
       )}
 
-      {/* Stats */}
+      {/* Stats - clickable cards */}
       {stats && stats.total > 0 && (
         <HGrid gap="space-16" columns={{ xs: 1, sm: 2, lg: 4 }}>
-          <Box padding="space-20" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
-            <BodyShort size="small" textColor="subtle">
-              Totalt deployments
-            </BodyShort>
-            <Heading size="large">{stats.total}</Heading>
-          </Box>
+          <Link to="/deployments" style={{ textDecoration: 'none' }}>
+            <Box
+              padding="space-20"
+              borderRadius="8"
+              background="raised"
+              borderColor="neutral-subtle"
+              borderWidth="1"
+              className={styles.clickableCard}
+            >
+              <BodyShort size="small" textColor="subtle">
+                Totalt deployments
+              </BodyShort>
+              <Heading size="large">{stats.total}</Heading>
+            </Box>
+          </Link>
 
-          <Box
-            padding="space-20"
-            borderRadius="8"
-            background="raised"
-            borderColor="success-subtle"
-            borderWidth="1"
-            data-color="success"
-          >
-            <BodyShort size="small" textColor="subtle">
-              Godkjent
-            </BodyShort>
-            <Heading size="large">{stats.with_four_eyes}</Heading>
-            <BodyShort size="small" textColor="subtle">
-              {stats.percentage}%
-            </BodyShort>
-          </Box>
+          <Link to="/deployments?only_missing=false" style={{ textDecoration: 'none' }}>
+            <Box
+              padding="space-20"
+              borderRadius="8"
+              background="raised"
+              borderColor="success-subtle"
+              borderWidth="1"
+              data-color="success"
+              className={styles.clickableCard}
+            >
+              <BodyShort size="small" textColor="subtle">
+                Godkjent
+              </BodyShort>
+              <Heading size="large">{stats.with_four_eyes}</Heading>
+              <BodyShort size="small" textColor="subtle">
+                {stats.percentage}%
+              </BodyShort>
+            </Box>
+          </Link>
 
-          <Box
-            padding="space-20"
-            borderRadius="8"
-            background="raised"
-            borderColor="danger-subtle"
-            borderWidth="1"
-            data-color="danger"
-          >
-            <BodyShort size="small" textColor="subtle">
-              Mangler godkjenning
-            </BodyShort>
-            <Heading size="large">{stats.without_four_eyes}</Heading>
-            <BodyShort size="small" textColor="subtle">
-              {(100 - stats.percentage).toFixed(1)}%
-            </BodyShort>
-          </Box>
+          <Link to="/deployments?only_missing=true" style={{ textDecoration: 'none' }}>
+            <Box
+              padding="space-20"
+              borderRadius="8"
+              background="raised"
+              borderColor="danger-subtle"
+              borderWidth="1"
+              data-color="danger"
+              className={styles.clickableCard}
+            >
+              <BodyShort size="small" textColor="subtle">
+                Mangler godkjenning
+              </BodyShort>
+              <Heading size="large">{stats.without_four_eyes}</Heading>
+              <BodyShort size="small" textColor="subtle">
+                {(100 - stats.percentage).toFixed(1)}%
+              </BodyShort>
+            </Box>
+          </Link>
 
-          <Box padding="space-20" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
-            <BodyShort size="small" textColor="subtle">
-              Overvåkede applikasjoner
-            </BodyShort>
-            <Heading size="large">{apps?.length || 0}</Heading>
-          </Box>
+          <Link to="/apps" style={{ textDecoration: 'none' }}>
+            <Box
+              padding="space-20"
+              borderRadius="8"
+              background="raised"
+              borderColor="neutral-subtle"
+              borderWidth="1"
+              className={styles.clickableCard}
+            >
+              <BodyShort size="small" textColor="subtle">
+                Overvåkede applikasjoner
+              </BodyShort>
+              <Heading size="large">{appsCount}</Heading>
+            </Box>
+          </Link>
         </HGrid>
       )}
 
       {stats && stats.total === 0 && (
         <Alert variant="info">
-          Ingen deployments funnet. Legg til applikasjoner og synkroniser deployments for å komme i gang.
+          Ingen deployments funnet. <Link to="/apps">Legg til applikasjoner</Link> for å komme i gang.
         </Alert>
       )}
 
@@ -148,13 +167,6 @@ export default function Home({ loaderData }: Route.ComponentProps) {
           <LinkPanel.Description>Varsler om endrede repositories (sikkerhet)</LinkPanel.Description>
         </LinkPanel>
       </HGrid>
-
-      {stats && stats.without_four_eyes > 0 && (
-        <Alert variant="warning">
-          Du har {stats.without_four_eyes} deployment{stats.without_four_eyes !== 1 ? 's' : ''} som mangler godkjenning.{' '}
-          <Link to="/deployments?only_missing=true">Se oversikt</Link>
-        </Alert>
-      )}
     </VStack>
   )
 }
