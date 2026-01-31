@@ -24,7 +24,7 @@ export function getNaisClient(): GraphQLClient {
     // Add API key as Bearer token if available (required in production)
     const apiKey = process.env.NAIS_API_KEY
     if (apiKey) {
-      headers['Authorization'] = `Bearer ${apiKey}`
+      headers.Authorization = `Bearer ${apiKey}`
     }
 
     client = new GraphQLClient(url, {
