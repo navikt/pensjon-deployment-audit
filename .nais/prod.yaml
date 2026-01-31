@@ -63,6 +63,8 @@ spec:
   env:
     - name: NODE_ENV
       value: production
+    - name: NAIS_GRAPHQL_URL
+      value: https://console.nav.cloud.nais.io/graphql
 
   envFrom:
     - secret: nais-deployment-audit
