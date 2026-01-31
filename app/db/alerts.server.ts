@@ -40,7 +40,7 @@ export async function getAllUnresolvedAlerts(): Promise<RepositoryAlertWithConte
     FROM repository_alerts ra
     JOIN monitored_applications ma ON ra.monitored_app_id = ma.id
     JOIN deployments d ON ra.deployment_id = d.id
-    WHERE ra.resolved = false
+    WHERE ra.resolved_at IS NULL
     ORDER BY ra.created_at DESC`,
   )
   return result.rows
@@ -187,7 +187,7 @@ export async function getUnresolvedAlertsByApp(monitoredAppId: number): Promise<
     FROM repository_alerts ra
     JOIN monitored_applications ma ON ra.monitored_app_id = ma.id
     JOIN deployments d ON ra.deployment_id = d.id
-    WHERE ra.resolved = false AND ra.monitored_app_id = $1
+    WHERE ra.resolved_at IS NULL AND ra.monitored_app_id = $1
     ORDER BY ra.created_at DESC`,
     [monitoredAppId],
   )
@@ -225,7 +225,7 @@ export async function resolveAlertsForLegacyDeployments(): Promise<{
        resolution_note = 'Legacy deployment (eldre enn 1 år, mangler commit SHA) - automatisk løst'
      FROM deployments d
      WHERE ra.deployment_id = d.id
-       AND ra.resolved = false
+       AND ra.resolved_at IS NULL
        AND d.created_at < $1
        AND d.commit_sha IS NULL
      RETURNING ra.id`,
