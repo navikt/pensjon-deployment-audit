@@ -4,7 +4,7 @@ import {
   ExclamationmarkTriangleIcon,
   XMarkOctagonIcon,
 } from '@navikt/aksel-icons'
-import { Alert, BodyShort, Box, Button, Heading, HStack, Table, Tag, VStack } from '@navikt/ds-react'
+import { Alert, BodyShort, Box, Button, Detail, Heading, Hide, HStack, Show, Tag, VStack } from '@navikt/ds-react'
 import { Form, Link } from 'react-router'
 import { resolveAlertsForLegacyDeployments } from '~/db/alerts.server'
 import { getRepositoriesByAppId } from '~/db/application-repositories.server'
@@ -108,6 +108,35 @@ export async function action({ request }: Route.ActionArgs) {
   return { success: null, error: 'Ugyldig handling' }
 }
 
+function getStatusTag(stats: { total: number; without_four_eyes: number; pending_verification: number }) {
+  if (stats.without_four_eyes > 0) {
+    return (
+      <Tag data-color="danger" variant="outline" size="small">
+        <XMarkOctagonIcon aria-hidden /> {stats.without_four_eyes} mangler
+      </Tag>
+    )
+  }
+  if (stats.pending_verification > 0) {
+    return (
+      <Tag data-color="warning" variant="outline" size="small">
+        <ExclamationmarkTriangleIcon aria-hidden /> {stats.pending_verification} venter
+      </Tag>
+    )
+  }
+  if (stats.total === 0) {
+    return (
+      <Tag data-color="warning" variant="outline" size="small">
+        <ExclamationmarkTriangleIcon aria-hidden /> Ingen data
+      </Tag>
+    )
+  }
+  return (
+    <Tag data-color="success" variant="outline" size="small">
+      <CheckmarkCircleIcon aria-hidden /> OK
+    </Tag>
+  )
+}
+
 export default function Apps({ loaderData, actionData }: Route.ComponentProps) {
   const { apps } = loaderData
 
@@ -178,104 +207,85 @@ export default function Apps({ loaderData, actionData }: Route.ComponentProps) {
               {teamSlug} ({teamApps.length} applikasjoner)
             </Heading>
 
-            <Table size="small">
-              <Table.Header>
-                <Table.Row>
-                  <Table.HeaderCell scope="col">Applikasjon</Table.HeaderCell>
-                  <Table.HeaderCell scope="col">Miljø</Table.HeaderCell>
-                  <Table.HeaderCell scope="col">Status</Table.HeaderCell>
-                  <Table.HeaderCell scope="col">Godkjent repository</Table.HeaderCell>
-                  <Table.HeaderCell scope="col">Handlinger</Table.HeaderCell>
-                </Table.Row>
-              </Table.Header>
-              <Table.Body>
-                {teamApps.map((app) => {
-                  // Determine status based on deployment stats
-                  let statusColor: 'success' | 'warning' | 'danger' = 'success'
-                  let statusIcon = <CheckmarkCircleIcon />
-                  let statusText = 'OK'
+            <VStack gap="space-12">
+              {teamApps.map((app) => (
+                <Box
+                  key={app.id}
+                  padding="space-16"
+                  borderRadius="8"
+                  background="sunken"
+                >
+                  <VStack gap="space-12">
+                    {/* First row: App name, environment (desktop), status tag */}
+                    <HStack gap="space-8" align="center" justify="space-between" wrap>
+                      <HStack gap="space-12" align="center" style={{ flex: 1 }}>
+                        <Link to={`/apps/${app.id}`}>
+                          <BodyShort weight="semibold">{app.app_name}</BodyShort>
+                        </Link>
+                        <Show above="md">
+                          <Detail textColor="subtle">{app.environment_name}</Detail>
+                        </Show>
+                      </HStack>
+                      {app.stats.without_four_eyes > 0 ? (
+                        <Link to={`/deployments?app=${app.id}&only_missing=true`} style={{ textDecoration: 'none' }}>
+                          {getStatusTag(app.stats)}
+                        </Link>
+                      ) : (
+                        getStatusTag(app.stats)
+                      )}
+                    </HStack>
 
-                  if (app.stats.without_four_eyes > 0) {
-                    statusColor = 'danger'
-                    statusIcon = <XMarkOctagonIcon />
-                    statusText = `${app.stats.without_four_eyes} mangler`
-                  } else if (app.stats.pending_verification > 0) {
-                    statusColor = 'warning'
-                    statusIcon = <ExclamationmarkTriangleIcon />
-                    statusText = `${app.stats.pending_verification} venter`
-                  } else if (app.stats.total === 0) {
-                    statusColor = 'warning'
-                    statusIcon = <ExclamationmarkTriangleIcon />
-                    statusText = 'Ingen data'
-                  }
+                    {/* Environment on mobile */}
+                    <Hide above="md">
+                      <Detail textColor="subtle">{app.environment_name}</Detail>
+                    </Hide>
 
-                  return (
-                    <Table.Row key={app.id}>
-                      <Table.DataCell>
-                        <Button as={Link} to={`/apps/${app.id}`} variant="tertiary" size="small">
-                          {app.app_name}
-                        </Button>
-                      </Table.DataCell>
-                      <Table.DataCell>{app.environment_name}</Table.DataCell>
-                      <Table.DataCell>
-                        {app.stats.without_four_eyes > 0 ? (
-                          <Link to={`/deployments?app=${app.id}&only_missing=true`} style={{ textDecoration: 'none' }}>
-                            <Tag data-color={statusColor} variant="outline" size="small">
-                              {statusIcon} {statusText}
-                            </Tag>
-                          </Link>
-                        ) : (
-                          <Tag data-color={statusColor} variant="outline" size="small">
-                            {statusIcon} {statusText}
-                          </Tag>
-                        )}
-                      </Table.DataCell>
-                      <Table.DataCell>
+                    {/* Repository and actions row */}
+                    <HStack gap="space-16" align="center" justify="space-between" wrap>
+                      <Detail textColor="subtle">
                         {app.active_repo ? (
                           <a href={`https://github.com/${app.active_repo}`} target="_blank" rel="noopener noreferrer">
                             {app.active_repo}
                           </a>
                         ) : (
-                          <BodyShort textColor="subtle">(ingen aktivt repo)</BodyShort>
+                          '(ingen aktivt repo)'
                         )}
-                      </Table.DataCell>
-                      <Table.DataCell>
-                        <HStack gap="space-8">
-                          <Form method="post">
-                            <input type="hidden" name="intent" value="sync-nais" />
-                            <input type="hidden" name="team_slug" value={app.team_slug} />
-                            <input type="hidden" name="environment_name" value={app.environment_name} />
-                            <input type="hidden" name="app_name" value={app.app_name} />
-                            <Button
-                              type="submit"
-                              size="small"
-                              variant="secondary"
-                              icon={<ArrowsCirclepathIcon aria-hidden />}
-                              title="Hent deployments fra Nais (ingen GitHub-kall)"
-                            >
-                              Hent
-                            </Button>
-                          </Form>
-                          <Form method="post">
-                            <input type="hidden" name="intent" value="verify-github" />
-                            <input type="hidden" name="monitored_app_id" value={app.id} />
-                            <Button
-                              type="submit"
-                              size="small"
-                              variant="secondary"
-                              icon={<CheckmarkCircleIcon aria-hidden />}
-                              title="Verifiser four-eyes med GitHub (bruker rate limit)"
-                            >
-                              Verifiser
-                            </Button>
-                          </Form>
-                        </HStack>
-                      </Table.DataCell>
-                    </Table.Row>
-                  )
-                })}
-              </Table.Body>
-            </Table>
+                      </Detail>
+                      <HStack gap="space-8">
+                        <Form method="post">
+                          <input type="hidden" name="intent" value="sync-nais" />
+                          <input type="hidden" name="team_slug" value={app.team_slug} />
+                          <input type="hidden" name="environment_name" value={app.environment_name} />
+                          <input type="hidden" name="app_name" value={app.app_name} />
+                          <Button
+                            type="submit"
+                            size="small"
+                            variant="tertiary"
+                            icon={<ArrowsCirclepathIcon aria-hidden />}
+                            title="Hent deployments fra Nais"
+                          >
+                            <Show above="sm">Hent</Show>
+                          </Button>
+                        </Form>
+                        <Form method="post">
+                          <input type="hidden" name="intent" value="verify-github" />
+                          <input type="hidden" name="monitored_app_id" value={app.id} />
+                          <Button
+                            type="submit"
+                            size="small"
+                            variant="tertiary"
+                            icon={<CheckmarkCircleIcon aria-hidden />}
+                            title="Verifiser four-eyes med GitHub"
+                          >
+                            <Show above="sm">Verifiser</Show>
+                          </Button>
+                        </Form>
+                      </HStack>
+                    </HStack>
+                  </VStack>
+                </Box>
+              ))}
+            </VStack>
           </VStack>
         </Box>
       ))}
