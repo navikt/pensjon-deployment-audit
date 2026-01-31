@@ -20,6 +20,7 @@ import { type DeploymentWithApp, getAllDeployments } from '~/db/deployments.serv
 import { getAllMonitoredApplications } from '~/db/monitored-applications.server'
 import { getUserMappings } from '~/db/user-mappings.server'
 import { getDateRange } from '~/lib/nais.server'
+import styles from '~/styles/common.module.css'
 import type { Route } from './+types/deployments'
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -216,16 +217,9 @@ export default function Deployments({ loaderData }: Route.ComponentProps) {
           applikasjoner.
         </Alert>
       ) : (
-        <VStack gap="space-16">
+        <div>
           {deployments.map((deployment) => (
-            <Box
-              key={deployment.id}
-              padding="space-20"
-              borderRadius="8"
-              background="raised"
-              borderColor="neutral-subtle"
-              borderWidth="1"
-            >
+            <Box key={deployment.id} padding="space-20" background="raised" className={styles.stackedListItem}>
               <VStack gap="space-12">
                 {/* First row: Time, App name (desktop), Tags */}
                 <HStack gap="space-8" align="center" justify="space-between" wrap>
@@ -308,7 +302,7 @@ export default function Deployments({ loaderData }: Route.ComponentProps) {
               </VStack>
             </Box>
           ))}
-        </VStack>
+        </div>
       )}
     </VStack>
   )
