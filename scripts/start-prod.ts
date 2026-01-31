@@ -102,9 +102,10 @@ async function startServer() {
   console.log('🚀 Starting application server...');
 
   const serverPath = join(__dirname, '..', 'build', 'server', 'index.js');
+  const reactRouterServePath = join(__dirname, '..', 'node_modules', '.bin', 'react-router-serve');
 
-  // Use process.execPath to get the node executable path (works in distroless)
-  const server = spawn(process.execPath, [serverPath], {
+  // Use react-router-serve to run the server (React Router 7 requirement)
+  const server = spawn(process.execPath, [reactRouterServePath, serverPath], {
     stdio: 'inherit',
     env: process.env,
   });
