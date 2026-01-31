@@ -6,9 +6,10 @@ import {
   Button,
   Detail,
   Heading,
+  Hide,
   HStack,
   Modal,
-  Table,
+  Show,
   TextField,
   VStack,
 } from '@navikt/ds-react'
@@ -98,61 +99,81 @@ export default function AdminUsers() {
             Ingen brukermappinger er lagt til ennå. Klikk "Legg til" for å opprette den første.
           </Alert>
         ) : (
-          <Box padding="space-20" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
-            <Table>
-              <Table.Header>
-                <Table.Row>
-                  <Table.HeaderCell>GitHub</Table.HeaderCell>
-                  <Table.HeaderCell>Navn</Table.HeaderCell>
-                  <Table.HeaderCell>E-post</Table.HeaderCell>
-                  <Table.HeaderCell>Nav-ident</Table.HeaderCell>
-                  <Table.HeaderCell>Slack ID</Table.HeaderCell>
-                  <Table.HeaderCell />
-                </Table.Row>
-              </Table.Header>
-              <Table.Body>
-                {mappings.map((mapping) => (
-                  <Table.Row key={mapping.github_username}>
-                    <Table.DataCell>
+          <VStack gap="space-12">
+            {mappings.map((mapping) => (
+              <Box
+                key={mapping.github_username}
+                padding="space-16"
+                borderRadius="8"
+                background="raised"
+                borderColor="neutral-subtle"
+                borderWidth="1"
+              >
+                <VStack gap="space-12">
+                  {/* First row: GitHub username, name (desktop), actions */}
+                  <HStack gap="space-8" align="center" justify="space-between" wrap>
+                    <HStack gap="space-12" align="center" style={{ flex: 1 }}>
                       <Link to={`https://github.com/${mapping.github_username}`} target="_blank">
-                        {mapping.github_username}
+                        <BodyShort weight="semibold">{mapping.github_username}</BodyShort>
                       </Link>
-                    </Table.DataCell>
-                    <Table.DataCell>{mapping.display_name || <Detail textColor="subtle">-</Detail>}</Table.DataCell>
-                    <Table.DataCell>{mapping.nav_email || <Detail textColor="subtle">-</Detail>}</Table.DataCell>
-                    <Table.DataCell>{mapping.nav_ident || <Detail textColor="subtle">-</Detail>}</Table.DataCell>
-                    <Table.DataCell>{mapping.slack_member_id || <Detail textColor="subtle">-</Detail>}</Table.DataCell>
-                    <Table.DataCell>
-                      <HStack gap="space-8">
+                      <Show above="md">
+                        {mapping.display_name && (
+                          <BodyShort>{mapping.display_name}</BodyShort>
+                        )}
+                      </Show>
+                    </HStack>
+                    <HStack gap="space-8">
+                      <Button
+                        variant="tertiary"
+                        size="small"
+                        icon={<PencilIcon aria-hidden />}
+                        onClick={() => openEdit(mapping)}
+                      >
+                        <Show above="sm">Rediger</Show>
+                      </Button>
+                      <Form method="post">
+                        <input type="hidden" name="github_username" value={mapping.github_username} />
                         <Button
-                          variant="tertiary"
+                          variant="tertiary-neutral"
                           size="small"
-                          icon={<PencilIcon aria-hidden />}
-                          onClick={() => openEdit(mapping)}
+                          type="submit"
+                          name="intent"
+                          value="delete"
+                          icon={<TrashIcon aria-hidden />}
+                          loading={isSubmitting}
                         >
-                          Rediger
+                          <Show above="sm">Slett</Show>
                         </Button>
-                        <Form method="post">
-                          <input type="hidden" name="github_username" value={mapping.github_username} />
-                          <Button
-                            variant="tertiary-neutral"
-                            size="small"
-                            type="submit"
-                            name="intent"
-                            value="delete"
-                            icon={<TrashIcon aria-hidden />}
-                            loading={isSubmitting}
-                          >
-                            Slett
-                          </Button>
-                        </Form>
-                      </HStack>
-                    </Table.DataCell>
-                  </Table.Row>
-                ))}
-              </Table.Body>
-            </Table>
-          </Box>
+                      </Form>
+                    </HStack>
+                  </HStack>
+
+                  {/* Name on mobile */}
+                  <Hide above="md">
+                    {mapping.display_name && (
+                      <BodyShort>{mapping.display_name}</BodyShort>
+                    )}
+                  </Hide>
+
+                  {/* Details row */}
+                  <HStack gap="space-16" wrap>
+                    {mapping.nav_email && (
+                      <Detail textColor="subtle">{mapping.nav_email}</Detail>
+                    )}
+                    {mapping.nav_ident && (
+                      <Detail textColor="subtle">Ident: {mapping.nav_ident}</Detail>
+                    )}
+                    {mapping.slack_member_id && (
+                      <Detail textColor="subtle">Slack: {mapping.slack_member_id}</Detail>
+                    )}
+                    {!mapping.nav_email && !mapping.nav_ident && !mapping.slack_member_id && (
+                      <Detail textColor="subtle">Ingen tilleggsinformasjon</Detail>
+                    )}
+                  </HStack>
+                </VStack>
+              </Box>
+            ))}
+          </VStack>
         )}
 
         {/* Add Modal */}
