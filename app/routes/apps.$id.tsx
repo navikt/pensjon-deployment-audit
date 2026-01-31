@@ -317,7 +317,6 @@ export default function AppDetail() {
             <VStack gap="space-8">
               <Label>Aktivt repository</Label>
               <HStack gap="space-8" align="center">
-                <CheckmarkCircleIcon style={{ color: 'var(--ax-text-success)' }} />
                 <Link
                   to={`https://github.com/${activeRepo.github_owner}/${activeRepo.github_repo_name}`}
                   target="_blank"
@@ -347,12 +346,14 @@ export default function AppDetail() {
                     <VStack gap="space-12">
                       <HStack gap="space-8" align="center" justify="space-between" wrap>
                         <HStack gap="space-8" align="center">
-                          <ExclamationmarkTriangleIcon style={{ color: 'var(--ax-text-warning)' }} />
                           <Link to={`https://github.com/${repo.github_owner}/${repo.github_repo_name}`} target="_blank">
                             <BodyShort weight="semibold">
                               {repo.github_owner}/{repo.github_repo_name}
                             </BodyShort>
                           </Link>
+                          <Tag data-color="warning" size="xsmall" variant="outline">
+                            Venter
+                          </Tag>
                         </HStack>
                         <Detail textColor="subtle">{new Date(repo.created_at).toLocaleDateString('no-NO')}</Detail>
                       </HStack>
