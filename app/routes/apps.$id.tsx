@@ -1,10 +1,9 @@
 import {
-  ArrowsCirclepathIcon,
   BarChartIcon,
   CheckmarkCircleIcon,
   CheckmarkIcon,
   ExclamationmarkTriangleIcon,
-  LightningIcon,
+  ExternalLinkIcon,
   PackageIcon,
   XMarkIcon,
   XMarkOctagonIcon,
@@ -43,7 +42,6 @@ import {
 import { getAppDeploymentStats } from '~/db/deployments.server'
 import { getMonitoredApplicationById } from '~/db/monitored-applications.server'
 import { getDateRange } from '~/lib/nais.server'
-import { syncDeploymentsFromNais } from '~/lib/sync.server'
 
 export async function loader({ params, request }: LoaderFunctionArgs) {
   const id = parseInt(params.id || '', 10)
@@ -99,15 +97,6 @@ export async function action({ request, params }: ActionFunctionArgs) {
   const action = formData.get('action')
 
   try {
-    if (action === 'sync') {
-      const app = await getMonitoredApplicationById(id)
-      if (!app) {
-        return { error: 'Applikasjon ikke funnet' }
-      }
-      await syncDeploymentsFromNais(app.team_slug, app.environment_name, app.app_name)
-      return { success: 'Deployments hentet fra Nais!' }
-    }
-
     if (action === 'approve_repo') {
       const repoId = parseInt(formData.get('repo_id') as string, 10)
       const setActive = formData.get('set_active') === 'true'
@@ -246,44 +235,20 @@ export default function AppDetail() {
             </Box>
           </HGrid>
           <HStack gap="space-8">
-            <Button as={Link} to={`/apps/${app.id}/deployments`} variant="secondary" size="small">
-              Se alle deployments →
+            <Button as={Link} to={`/apps/${app.id}/deployments`} variant="tertiary" size="small">
+              Se alle deployments
             </Button>
             <Button
               as="a"
               href={naisConsoleUrl}
               target="_blank"
               rel="noopener noreferrer"
-              variant="secondary"
+              variant="tertiary"
               size="small"
+              icon={<ExternalLinkIcon aria-hidden />}
+              iconPosition="right"
             >
-              Åpne i Nais Console ↗
-            </Button>
-          </HStack>
-        </VStack>
-      </Box>
-
-      {/* Quick Actions */}
-      <Box padding="space-24" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
-        <VStack gap="space-16">
-          <Heading size="medium">
-            <LightningIcon aria-hidden /> Handlinger
-          </Heading>
-          <HStack gap="space-8">
-            <form method="post">
-              <input type="hidden" name="action" value="sync" />
-              <Button type="submit" size="small" icon={<ArrowsCirclepathIcon aria-hidden />}>
-                Hent deployments fra Nais
-              </Button>
-            </form>
-            <Button
-              as={Link}
-              to={`/deployments/verify?app=${app.id}`}
-              variant="secondary"
-              size="small"
-              icon={<CheckmarkIcon aria-hidden />}
-            >
-              Verifiser deployments mot GitHub
+              Åpne i Nais Console
             </Button>
           </HStack>
         </VStack>
