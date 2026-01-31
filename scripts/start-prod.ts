@@ -103,7 +103,8 @@ async function startServer() {
 
   const serverPath = join(__dirname, '..', 'build', 'server', 'index.js');
 
-  const server = spawn('node', [serverPath], {
+  // Use process.execPath to get the node executable path (works in distroless)
+  const server = spawn(process.execPath, [serverPath], {
     stdio: 'inherit',
     env: process.env,
   });
