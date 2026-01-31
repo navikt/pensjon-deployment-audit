@@ -32,7 +32,7 @@ export default function Layout() {
         <Spacer />
 
         {/* Desktop: Inline navigation */}
-        <Show above="md">
+        <Show above="md" asChild>
           <nav className={styles.navContainer}>
             {navItems.map((item) => (
               <Link
@@ -47,7 +47,7 @@ export default function Layout() {
         </Show>
 
         {/* Mobile: Hamburger menu */}
-        <Hide above="md">
+        <Hide above="md" asChild>
           <ActionMenu>
             <ActionMenu.Trigger>
               <InternalHeader.Button>
