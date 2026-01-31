@@ -1,8 +1,4 @@
-import {
-  CheckmarkIcon,
-  ExclamationmarkTriangleIcon,
-  XMarkIcon,
-} from '@navikt/aksel-icons'
+import { CheckmarkIcon, ExclamationmarkTriangleIcon, XMarkIcon } from '@navikt/aksel-icons'
 import {
   Alert,
   BodyShort,
@@ -222,7 +218,14 @@ export default function Deployments({ loaderData }: Route.ComponentProps) {
       ) : (
         <VStack gap="space-16">
           {deployments.map((deployment) => (
-            <Box key={deployment.id} padding="space-20" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
+            <Box
+              key={deployment.id}
+              padding="space-20"
+              borderRadius="8"
+              background="raised"
+              borderColor="neutral-subtle"
+              borderWidth="1"
+            >
               <VStack gap="space-12">
                 {/* First row: Time, App name (desktop), Tags */}
                 <HStack gap="space-8" align="center" justify="space-between" wrap>

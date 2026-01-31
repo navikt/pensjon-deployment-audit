@@ -366,7 +366,18 @@ export async function verifyDeploymentFourEyes(
     // First check if we have them cached
     const hasCached = await hasCommitsCached(owner, repo, commitSha)
 
-    const commitsBetween = await getCommitsBetween(owner, repo, previousDeployment.commit_sha!, commitSha)
+    const previousCommitSha = previousDeployment.commit_sha
+    if (!previousCommitSha) {
+      console.warn(`⚠️  [Deployment ${deploymentId}] Previous deployment has no commit SHA`)
+      await updateDeploymentFourEyes(deploymentId, {
+        hasFourEyes: false,
+        fourEyesStatus: 'error',
+        githubPrNumber: null,
+        githubPrUrl: null,
+      })
+      return false
+    }
+    const commitsBetween = await getCommitsBetween(owner, repo, previousCommitSha, commitSha)
 
     if (!commitsBetween) {
       console.warn(`⚠️  [Deployment ${deploymentId}] Could not fetch commits between deployments`)

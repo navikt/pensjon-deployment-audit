@@ -18,7 +18,7 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router'
 import { Form, Link, useActionData, useLoaderData, useNavigation } from 'react-router'
 import { deleteUserMapping, getAllUserMappings, type UserMapping, upsertUserMapping } from '~/db/user-mappings.server'
 
-export async function loader({ request }: LoaderFunctionArgs) {
+export async function loader(_args: LoaderFunctionArgs) {
   const mappings = await getAllUserMappings()
   return { mappings }
 }
@@ -116,11 +116,7 @@ export default function AdminUsers() {
                       <Link to={`https://github.com/${mapping.github_username}`} target="_blank">
                         <BodyShort weight="semibold">{mapping.github_username}</BodyShort>
                       </Link>
-                      <Show above="md">
-                        {mapping.display_name && (
-                          <BodyShort>{mapping.display_name}</BodyShort>
-                        )}
-                      </Show>
+                      <Show above="md">{mapping.display_name && <BodyShort>{mapping.display_name}</BodyShort>}</Show>
                     </HStack>
                     <HStack gap="space-8">
                       <Button
@@ -149,23 +145,13 @@ export default function AdminUsers() {
                   </HStack>
 
                   {/* Name on mobile */}
-                  <Hide above="md">
-                    {mapping.display_name && (
-                      <BodyShort>{mapping.display_name}</BodyShort>
-                    )}
-                  </Hide>
+                  <Hide above="md">{mapping.display_name && <BodyShort>{mapping.display_name}</BodyShort>}</Hide>
 
                   {/* Details row */}
                   <HStack gap="space-16" wrap>
-                    {mapping.nav_email && (
-                      <Detail textColor="subtle">{mapping.nav_email}</Detail>
-                    )}
-                    {mapping.nav_ident && (
-                      <Detail textColor="subtle">Ident: {mapping.nav_ident}</Detail>
-                    )}
-                    {mapping.slack_member_id && (
-                      <Detail textColor="subtle">Slack: {mapping.slack_member_id}</Detail>
-                    )}
+                    {mapping.nav_email && <Detail textColor="subtle">{mapping.nav_email}</Detail>}
+                    {mapping.nav_ident && <Detail textColor="subtle">Ident: {mapping.nav_ident}</Detail>}
+                    {mapping.slack_member_id && <Detail textColor="subtle">Slack: {mapping.slack_member_id}</Detail>}
                     {!mapping.nav_email && !mapping.nav_ident && !mapping.slack_member_id && (
                       <Detail textColor="subtle">Ingen tilleggsinformasjon</Detail>
                     )}

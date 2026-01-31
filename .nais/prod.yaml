@@ -58,6 +58,7 @@ spec:
         diskAutoresize: true
         databases:
           - name: audit
+            envVarPrefix: DB
 
   env:
     - name: NODE_ENV

@@ -51,8 +51,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       {/* Security Alerts */}
       {alerts && alerts.length > 0 && (
         <Alert variant="error">
-          <strong>{alerts.length} repository-varsler</strong> krever oppmerksomhet.{' '}
-          <Link to="/alerts">Se varsler</Link>
+          <strong>{alerts.length} repository-varsler</strong> krever oppmerksomhet. <Link to="/alerts">Se varsler</Link>
         </Alert>
       )}
 

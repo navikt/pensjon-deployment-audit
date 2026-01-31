@@ -583,7 +583,7 @@ export async function getDetailedPullRequestInfo(
           })
         }
         // If review has a body comment, add it to comments
-        if (review.body && review.body.trim()) {
+        if (review.body?.trim()) {
           reviewBodyComments.push({
             id: review.id,
             body: review.body,
@@ -698,7 +698,7 @@ export async function getDetailedPullRequestInfo(
 
     // Merge and sort by created_at
     const comments = [...issueComments, ...reviewComments, ...reviewBodyComments].sort(
-      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
     )
 
     return {

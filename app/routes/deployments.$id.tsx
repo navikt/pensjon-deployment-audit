@@ -162,7 +162,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 
       const success = await verifyDeploymentFourEyes(
         deployment.id,
-        deployment.commit_sha!,
+        deployment.commit_sha,
         `${deployment.detected_github_owner}/${deployment.detected_github_repo_name}`,
         deployment.environment_name,
         deployment.trigger_url,
@@ -1083,16 +1083,20 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
           {/* Manual approval section */}
           {manualApproval ? (
             <Alert variant="success">
-              <Heading size="small"><CheckmarkIcon aria-hidden /> Manuelt godkjent</Heading>
+              <Heading size="small">
+                <CheckmarkIcon aria-hidden /> Manuelt godkjent
+              </Heading>
               <BodyShort>
                 Godkjent av <strong>{manualApproval.approved_by}</strong> den{' '}
-                {new Date(manualApproval.approved_at!).toLocaleDateString('no-NO', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
+                {manualApproval.approved_at
+                  ? new Date(manualApproval.approved_at).toLocaleDateString('no-NO', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })
+                  : 'ukjent dato'}
               </BodyShort>
               {manualApproval.comment_text && (
                 <BodyShort style={{ marginTop: '0.5rem', fontStyle: 'italic' }}>

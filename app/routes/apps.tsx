@@ -209,12 +209,7 @@ export default function Apps({ loaderData, actionData }: Route.ComponentProps) {
 
             <VStack gap="space-12">
               {teamApps.map((app) => (
-                <Box
-                  key={app.id}
-                  padding="space-16"
-                  borderRadius="8"
-                  background="sunken"
-                >
+                <Box key={app.id} padding="space-16" borderRadius="8" background="sunken">
                   <VStack gap="space-12">
                     {/* First row: App name, environment (desktop), status tag */}
                     <HStack gap="space-8" align="center" justify="space-between" wrap>

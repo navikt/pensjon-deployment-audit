@@ -17,7 +17,6 @@ import {
   Detail,
   Heading,
   HGrid,
-  Hide,
   HStack,
   Label,
   Select,
@@ -201,7 +200,9 @@ export default function AppDetail() {
       {/* Statistics Section */}
       <Box padding="space-24" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
         <VStack gap="space-20">
-          <Heading size="medium"><BarChartIcon aria-hidden /> Statistikk</Heading>
+          <Heading size="medium">
+            <BarChartIcon aria-hidden /> Statistikk
+          </Heading>
           <HGrid gap="space-16" columns={{ xs: 2, md: 3, lg: 5 }}>
             <Box padding="space-12" borderRadius="8" background="sunken">
               <VStack gap="space-4">
@@ -265,7 +266,9 @@ export default function AppDetail() {
       {/* Quick Actions */}
       <Box padding="space-24" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
         <VStack gap="space-16">
-          <Heading size="medium"><LightningIcon aria-hidden /> Handlinger</Heading>
+          <Heading size="medium">
+            <LightningIcon aria-hidden /> Handlinger
+          </Heading>
           <HStack gap="space-8">
             <form method="post">
               <input type="hidden" name="action" value="sync" />
@@ -273,7 +276,13 @@ export default function AppDetail() {
                 Hent deployments fra Nais
               </Button>
             </form>
-            <Button as={Link} to={`/deployments/verify?app=${app.id}`} variant="secondary" size="small" icon={<CheckmarkIcon aria-hidden />}>
+            <Button
+              as={Link}
+              to={`/deployments/verify?app=${app.id}`}
+              variant="secondary"
+              size="small"
+              icon={<CheckmarkIcon aria-hidden />}
+            >
               Verifiser deployments mot GitHub
             </Button>
           </HStack>
@@ -284,7 +293,9 @@ export default function AppDetail() {
       {alerts.length > 0 && (
         <Box padding="space-24" borderRadius="8" background="raised" borderColor="warning-subtle" borderWidth="1">
           <VStack gap="space-16">
-            <Heading size="medium"><ExclamationmarkTriangleIcon aria-hidden /> Åpne varsler ({alerts.length})</Heading>
+            <Heading size="medium">
+              <ExclamationmarkTriangleIcon aria-hidden /> Åpne varsler ({alerts.length})
+            </Heading>
             <VStack gap="space-12">
               {alerts.map((alert) => (
                 <Box key={alert.id} padding="space-16" borderRadius="8" background="sunken">
@@ -334,7 +345,9 @@ export default function AppDetail() {
       {/* Repositories Section */}
       <Box padding="space-24" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
         <VStack gap="space-20">
-          <Heading size="medium"><PackageIcon aria-hidden /> Repositories</Heading>
+          <Heading size="medium">
+            <PackageIcon aria-hidden /> Repositories
+          </Heading>
 
           {/* Active Repository */}
           {activeRepo && (
@@ -373,7 +386,9 @@ export default function AppDetail() {
                         <HStack gap="space-8" align="center">
                           <ExclamationmarkTriangleIcon style={{ color: 'var(--ax-text-warning)' }} />
                           <Link to={`https://github.com/${repo.github_owner}/${repo.github_repo_name}`} target="_blank">
-                            <BodyShort weight="semibold">{repo.github_owner}/{repo.github_repo_name}</BodyShort>
+                            <BodyShort weight="semibold">
+                              {repo.github_owner}/{repo.github_repo_name}
+                            </BodyShort>
                           </Link>
                         </HStack>
                         <Detail textColor="subtle">{new Date(repo.created_at).toLocaleDateString('no-NO')}</Detail>
@@ -422,7 +437,9 @@ export default function AppDetail() {
                     <HStack gap="space-8" align="center" justify="space-between" wrap>
                       <HStack gap="space-8" align="center" wrap>
                         <Link to={`https://github.com/${repo.github_owner}/${repo.github_repo_name}`} target="_blank">
-                          <BodyShort>{repo.github_owner}/{repo.github_repo_name}</BodyShort>
+                          <BodyShort>
+                            {repo.github_owner}/{repo.github_repo_name}
+                          </BodyShort>
                         </Link>
                         {repo.redirects_to_owner && (
                           <Tag data-color="info" size="xsmall" variant="outline">
