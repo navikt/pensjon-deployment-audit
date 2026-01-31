@@ -4,6 +4,8 @@ import {
   CheckmarkCircleIcon,
   CheckmarkIcon,
   CircleIcon,
+  ClockIcon,
+  ExclamationmarkTriangleIcon,
   MinusCircleIcon,
   TrashIcon,
   XMarkIcon,
@@ -167,14 +169,14 @@ export async function action({ request, params }: Route.ActionArgs) {
       )
 
       if (success) {
-        return { success: '✅ Four-eyes status verifisert og oppdatert' }
+        return { success: 'Four-eyes status verifisert og oppdatert' }
       } else {
         return { error: 'Verifisering feilet - se logger for detaljer' }
       }
     } catch (error) {
       console.error('Verification error:', error)
       if (error instanceof Error && error.message.includes('rate limit')) {
-        return { error: '⚠️ GitHub rate limit nådd. Prøv igjen senere.' }
+        return { error: 'GitHub rate limit nådd. Prøv igjen senere.' }
       }
       return {
         error: `Kunne ikke verifisere: ${error instanceof Error ? error.message : 'Ukjent feil'}`,
@@ -665,7 +667,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                 )}
                 {deployment.github_pr_data.checks_passed === false && (
                   <Tag data-color="danger" variant="outline" size="small">
-                    ✗ Checks failed
+                    <XMarkIcon aria-hidden /> Checks failed
                   </Tag>
                 )}
               </HStack>
@@ -782,7 +784,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                         {isSuccess && <CheckmarkCircleIcon style={{ color: 'var(--ax-text-success)' }} />}
                         {isFailure && <XMarkOctagonIcon style={{ color: 'var(--ax-text-danger)' }} />}
                         {isSkipped && <MinusCircleIcon style={{ color: 'var(--ax-text-neutral-subtle)' }} />}
-                        {isInProgress && <span>⏳</span>}
+                        {isInProgress && <ClockIcon style={{ color: 'var(--ax-text-warning)' }} />}
 
                         {check.html_url ? (
                           <a href={check.html_url} target="_blank" rel="noopener noreferrer">
@@ -1022,7 +1024,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
         <div>
           <Alert variant="error">
             <Heading size="small" spacing>
-              ⚠️ Ureviewed commits funnet
+              <ExclamationmarkTriangleIcon aria-hidden /> Ureviewed commits funnet
             </Heading>
             <BodyShort spacing>
               Følgende commits var på main mellom PR base og merge, men mangler godkjenning:
@@ -1081,7 +1083,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
           {/* Manual approval section */}
           {manualApproval ? (
             <Alert variant="success">
-              <Heading size="small">✅ Manuelt godkjent</Heading>
+              <Heading size="small"><CheckmarkIcon aria-hidden /> Manuelt godkjent</Heading>
               <BodyShort>
                 Godkjent av <strong>{manualApproval.approved_by}</strong> den{' '}
                 {new Date(manualApproval.approved_at!).toLocaleDateString('no-NO', {

@@ -50,7 +50,7 @@ export async function action({ request }: Route.ActionArgs) {
       const result = await syncDeploymentsFromNais(teamSlug, environmentName, appName)
 
       return {
-        success: `Hentet ${result.newCount} nye deployments fra Nais. ${result.alertsCreated > 0 ? `⚠️ ${result.alertsCreated} nye varsler opprettet.` : ''} Kjør GitHub-verifisering for å sjekke four-eyes.`,
+        success: `Hentet ${result.newCount} nye deployments fra Nais. ${result.alertsCreated > 0 ? `${result.alertsCreated} nye varsler opprettet.` : ''} Kjør GitHub-verifisering for å sjekke four-eyes.`,
         error: null,
       }
     } catch (error) {
@@ -72,7 +72,7 @@ export async function action({ request }: Route.ActionArgs) {
       })
 
       return {
-        success: `Verifiserte ${result.verified} deployments med GitHub. ${result.failed > 0 ? `❌ ${result.failed} feilet.` : ''}`,
+        success: `Verifiserte ${result.verified} deployments med GitHub. ${result.failed > 0 ? `${result.failed} feilet.` : ''}`,
         error: null,
       }
     } catch (error) {

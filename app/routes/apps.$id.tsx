@@ -1,4 +1,14 @@
-import { CheckmarkCircleIcon, ExclamationmarkTriangleIcon, XMarkOctagonIcon } from '@navikt/aksel-icons'
+import {
+  ArrowsCirclepathIcon,
+  BarChartIcon,
+  CheckmarkCircleIcon,
+  CheckmarkIcon,
+  ExclamationmarkTriangleIcon,
+  LightningIcon,
+  PackageIcon,
+  XMarkIcon,
+  XMarkOctagonIcon,
+} from '@navikt/aksel-icons'
 import {
   Alert,
   BodyShort,
@@ -191,7 +201,7 @@ export default function AppDetail() {
       {/* Statistics Section */}
       <Box padding="space-24" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
         <VStack gap="space-20">
-          <Heading size="medium">📊 Statistikk</Heading>
+          <Heading size="medium"><BarChartIcon aria-hidden /> Statistikk</Heading>
           <HGrid gap="space-16" columns={{ xs: 2, md: 3, lg: 5 }}>
             <Box padding="space-12" borderRadius="8" background="sunken">
               <VStack gap="space-4">
@@ -255,16 +265,16 @@ export default function AppDetail() {
       {/* Quick Actions */}
       <Box padding="space-24" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
         <VStack gap="space-16">
-          <Heading size="medium">⚡ Handlinger</Heading>
+          <Heading size="medium"><LightningIcon aria-hidden /> Handlinger</Heading>
           <HStack gap="space-8">
             <form method="post">
               <input type="hidden" name="action" value="sync" />
-              <Button type="submit" size="small">
-                🔄 Hent deployments fra Nais
+              <Button type="submit" size="small" icon={<ArrowsCirclepathIcon aria-hidden />}>
+                Hent deployments fra Nais
               </Button>
             </form>
-            <Button as={Link} to={`/deployments/verify?app=${app.id}`} variant="secondary" size="small">
-              ✓ Verifiser deployments mot GitHub
+            <Button as={Link} to={`/deployments/verify?app=${app.id}`} variant="secondary" size="small" icon={<CheckmarkIcon aria-hidden />}>
+              Verifiser deployments mot GitHub
             </Button>
           </HStack>
         </VStack>
@@ -274,7 +284,7 @@ export default function AppDetail() {
       {alerts.length > 0 && (
         <Box padding="space-24" borderRadius="8" background="raised" borderColor="warning-subtle" borderWidth="1">
           <VStack gap="space-16">
-            <Heading size="medium">⚠️ Åpne varsler ({alerts.length})</Heading>
+            <Heading size="medium"><ExclamationmarkTriangleIcon aria-hidden /> Åpne varsler ({alerts.length})</Heading>
             <VStack gap="space-12">
               {alerts.map((alert) => (
                 <Box key={alert.id} padding="space-16" borderRadius="8" background="sunken">
@@ -324,7 +334,7 @@ export default function AppDetail() {
       {/* Repositories Section */}
       <Box padding="space-24" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
         <VStack gap="space-20">
-          <Heading size="medium">📦 Repositories</Heading>
+          <Heading size="medium"><PackageIcon aria-hidden /> Repositories</Heading>
 
           {/* Active Repository */}
           {activeRepo && (
@@ -373,8 +383,8 @@ export default function AppDetail() {
                           <input type="hidden" name="action" value="approve_repo" />
                           <input type="hidden" name="repo_id" value={repo.id} />
                           <input type="hidden" name="set_active" value="true" />
-                          <Button type="submit" size="xsmall" variant="primary">
-                            ✓ Godkjenn som aktiv
+                          <Button type="submit" size="xsmall" variant="primary" icon={<CheckmarkIcon aria-hidden />}>
+                            Godkjenn som aktiv
                           </Button>
                         </form>
                         <Show above="sm">
@@ -390,8 +400,8 @@ export default function AppDetail() {
                         <form method="post" style={{ display: 'inline' }}>
                           <input type="hidden" name="action" value="reject_repo" />
                           <input type="hidden" name="repo_id" value={repo.id} />
-                          <Button type="submit" size="xsmall" variant="danger">
-                            ✗ Avvis
+                          <Button type="submit" size="xsmall" variant="danger" icon={<XMarkIcon aria-hidden />}>
+                            Avvis
                           </Button>
                         </form>
                       </HStack>

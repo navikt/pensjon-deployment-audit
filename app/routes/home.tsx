@@ -51,7 +51,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       {/* Security Alerts */}
       {alerts && alerts.length > 0 && (
         <Alert variant="error">
-          🚨 <strong>{alerts.length} repository-varsler</strong> krever oppmerksomhet.{' '}
+          <strong>{alerts.length} repository-varsler</strong> krever oppmerksomhet.{' '}
           <Link to="/alerts">Se varsler</Link>
         </Alert>
       )}
@@ -59,7 +59,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       {/* Pending Verifications */}
       {pendingCount > 0 && (
         <Alert variant="info">
-          ℹ️ <strong>{pendingCount} deployments</strong> venter på GitHub-verifisering.{' '}
+          <strong>{pendingCount} deployments</strong> venter på GitHub-verifisering.{' '}
           <Link to="/deployments/verify">Kjør verifisering</Link>
         </Alert>
       )}

@@ -1,4 +1,9 @@
 import {
+  CheckmarkIcon,
+  ExclamationmarkTriangleIcon,
+  XMarkIcon,
+} from '@navikt/aksel-icons'
+import {
   Alert,
   BodyShort,
   Box,
@@ -92,7 +97,7 @@ function getStatusTag(deployment: DeploymentWithApp) {
   if (deployment.has_four_eyes) {
     return (
       <Tag data-color="success" variant="outline" size="small">
-        ✓ Godkjent
+        <CheckmarkIcon aria-hidden /> Godkjent
       </Tag>
     )
   }
@@ -107,20 +112,20 @@ function getStatusTag(deployment: DeploymentWithApp) {
     case 'unverified_commits':
       return (
         <Tag data-color="warning" variant="outline" size="small">
-          ✗ Ikke godkjent
+          <XMarkIcon aria-hidden /> Ikke godkjent
         </Tag>
       )
     case 'approved_pr_with_unreviewed':
       return (
         <Tag data-color="warning" variant="outline" size="small">
-          ⚠ Ureviewed
+          <ExclamationmarkTriangleIcon aria-hidden /> Ureviewed
         </Tag>
       )
     case 'error':
     case 'missing':
       return (
         <Tag data-color="danger" variant="outline" size="small">
-          ✗ Feil
+          <XMarkIcon aria-hidden /> Feil
         </Tag>
       )
     default:

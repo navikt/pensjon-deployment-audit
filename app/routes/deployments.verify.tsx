@@ -50,7 +50,7 @@ export async function action({ request }: Route.ActionArgs) {
     })
 
     return {
-      success: `✅ Verifisert ${result.verified} deployments. ${result.failed > 0 ? `❌ ${result.failed} feilet.` : ''} ${result.skipped > 0 ? `⏭️ ${result.skipped} hoppet over.` : ''}`,
+      success: `Verifisert ${result.verified} deployments. ${result.failed > 0 ? `${result.failed} feilet.` : ''} ${result.skipped > 0 ? `${result.skipped} hoppet over.` : ''}`,
       error: null,
       result,
     }
@@ -60,7 +60,7 @@ export async function action({ request }: Route.ActionArgs) {
     if (error instanceof Error && error.message.includes('rate limit')) {
       return {
         success: null,
-        error: '⚠️ GitHub rate limit nådd! Vent 1 time før du prøver igjen.',
+        error: 'GitHub rate limit nådd! Vent 1 time før du prøver igjen.',
         result: null,
       }
     }
