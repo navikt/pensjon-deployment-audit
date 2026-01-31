@@ -64,6 +64,9 @@ spec:
     - name: NODE_ENV
       value: production
 
+  envFrom:
+    - secret: nais-deployment-audit
+
   accessPolicy:
     outbound:
       external:

@@ -17,10 +17,18 @@ export function getNaisClient(): GraphQLClient {
     // Ensure we're pointing to the GraphQL endpoint, not the playground
     const url = baseUrl.endsWith('/graphql') ? baseUrl : `${baseUrl}/graphql`
 
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+
+    // Add API key as Bearer token if available (required in production)
+    const apiKey = process.env.NAIS_API_KEY
+    if (apiKey) {
+      headers['Authorization'] = `Bearer ${apiKey}`
+    }
+
     client = new GraphQLClient(url, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       requestMiddleware: (request) => {
         requestCount++
         console.log(`🌐 [Nais #${requestCount}] POST ${url}`)
