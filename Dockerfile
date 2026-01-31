@@ -6,8 +6,8 @@ WORKDIR /app
 # Copy package files
 COPY package.json package-lock.json ./
 
-# Install all dependencies (including dev for build)
-RUN npm ci
+# Install all dependencies (including dev for build), skip prepare script
+RUN npm ci --ignore-scripts
 
 # Copy source code
 COPY . .
@@ -24,7 +24,7 @@ FROM node:24-bookworm-slim AS prod-deps
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev --ignore-scripts
 
 # Final stage with distroless
 FROM gcr.io/distroless/nodejs24-debian12:nonroot
