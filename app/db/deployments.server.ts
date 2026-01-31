@@ -144,6 +144,9 @@ export interface CreateDeploymentParams {
   monitoredApplicationId: number
   naisDeploymentId: string
   createdAt: Date
+  teamSlug: string
+  environmentName: string
+  appName: string
   deployerUsername: string | null
   commitSha: string | null
   triggerUrl: string | null
@@ -332,9 +335,10 @@ export async function createDeployment(data: CreateDeploymentParams): Promise<De
 
   const result = await pool.query(
     `INSERT INTO deployments 
-      (monitored_app_id, nais_deployment_id, created_at, deployer_username, commit_sha, trigger_url,
+      (monitored_app_id, nais_deployment_id, created_at, team_slug, environment_name, app_name,
+       deployer_username, commit_sha, trigger_url,
        detected_github_owner, detected_github_repo_name, resources, has_four_eyes, four_eyes_status)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
     ON CONFLICT (nais_deployment_id) 
     DO UPDATE SET
       resources = EXCLUDED.resources,
@@ -344,6 +348,9 @@ export async function createDeployment(data: CreateDeploymentParams): Promise<De
       data.monitoredApplicationId,
       data.naisDeploymentId,
       data.createdAt,
+      data.teamSlug,
+      data.environmentName,
+      data.appName,
       data.deployerUsername,
       data.commitSha,
       data.triggerUrl,
