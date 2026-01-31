@@ -24,9 +24,13 @@ async function runMigrations() {
     const configPath = join(__dirname, '..', '.node-pg-migrate.json');
     const config = JSON.parse(readFileSync(configPath, 'utf-8'));
 
-    const databaseUrl = process.env[config['database-url-var']];
+    // Check for Nais database URL first, then fall back to config var
+    const naisDbUrl = process.env.NAIS_DATABASE_PENSJON_DEPLOYMENT_AUDIT_PENSJON_DEPLOYMENT_AUDIT_URL;
+    const configDbUrl = process.env[config['database-url-var']];
+    const databaseUrl = naisDbUrl || configDbUrl;
+
     if (!databaseUrl) {
-      throw new Error(`Environment variable ${config['database-url-var']} is not set`);
+      throw new Error(`Environment variable DATABASE_URL is not set`);
     }
 
     // Run migrations
