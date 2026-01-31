@@ -289,10 +289,6 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
     return mapping?.display_name || mapping?.nav_email || null
   }
 
-  // Extract app name from deployment (might not match exactly, but we have it in the data)
-  const appName = deployment.app_name || deployment.detected_github_repo_name
-  const naisConsoleUrl = `https://console.nav.cloud.nais.io/team/${deployment.team_slug}/${deployment.environment_name}/app/${appName}`
-
   return (
     <VStack gap="space-32">
       {/* Breadcrumb with navigation */}
