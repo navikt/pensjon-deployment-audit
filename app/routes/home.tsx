@@ -60,8 +60,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
       {/* Stats - clickable cards */}
       {stats && stats.total > 0 && (
-        <HGrid gap="space-16" columns={{ xs: 1, sm: 2, lg: 4 }}>
-          <Link to="/deployments" style={{ textDecoration: 'none' }}>
+        <HGrid gap="space-16" columns={{ xs: 1, sm: 2, lg: 4 }} align="stretch">
+          <Link to="/deployments" className={styles.statCardLink}>
             <Box
               padding="space-20"
               borderRadius="8"
@@ -77,7 +77,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
             </Box>
           </Link>
 
-          <Link to="/deployments?only_missing=false" style={{ textDecoration: 'none' }}>
+          <Link to="/deployments?only_missing=false" className={styles.statCardLink}>
             <Box
               padding="space-20"
               borderRadius="8"
@@ -97,7 +97,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
             </Box>
           </Link>
 
-          <Link to="/deployments?only_missing=true" style={{ textDecoration: 'none' }}>
+          <Link to="/deployments?only_missing=true" className={styles.statCardLink}>
             <Box
               padding="space-20"
               borderRadius="8"
@@ -117,7 +117,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
             </Box>
           </Link>
 
-          <Link to="/apps" style={{ textDecoration: 'none' }}>
+          <Link to="/apps" className={styles.statCardLink}>
             <Box
               padding="space-20"
               borderRadius="8"

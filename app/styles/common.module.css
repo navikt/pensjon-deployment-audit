@@ -417,9 +417,17 @@
     transform 0.1s ease,
     box-shadow 0.1s ease;
   cursor: pointer;
+  height: 100%;
 }
 
 .clickableCard:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Stat card link wrapper */
+.statCardLink {
+  text-decoration: none;
+  display: block;
+  height: 100%;
 }
