@@ -262,7 +262,12 @@ export default function AppDeployments() {
                       </Detail>
                     )}
                   </HStack>
-                  <Button as={Link} to={`/apps/${app.id}/deployments/${deployment.id}`} variant="tertiary" size="small">
+                  <Button
+                    as={Link}
+                    to={`/apps/${app.id}/deployments/${deployment.id}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`}
+                    variant="tertiary"
+                    size="small"
+                  >
                     Vis
                   </Button>
                 </HStack>

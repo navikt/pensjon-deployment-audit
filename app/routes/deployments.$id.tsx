@@ -29,7 +29,7 @@ import {
   VStack,
 } from '@navikt/ds-react'
 import { useRef, useState } from 'react'
-import { Form, Link } from 'react-router'
+import { Form, Link, useSearchParams } from 'react-router'
 import {
   createComment,
   deleteComment,
@@ -39,6 +39,7 @@ import {
   getManualApproval,
 } from '~/db/comments.server'
 import {
+  type DeploymentNavFilters,
   getDeploymentById,
   getNextDeployment,
   getPreviousDeploymentForNav,
@@ -48,6 +49,7 @@ import {
 import { getUserMappings } from '~/db/user-mappings.server'
 import { lookupLegacyByCommit, lookupLegacyByPR } from '~/lib/github.server'
 import { verifyDeploymentFourEyes } from '~/lib/sync.server'
+import { getDateRangeForPeriod, type TimePeriod } from '~/lib/time-periods'
 import type { Route } from './+types/deployments.$id'
 
 export async function loader({ params, request }: Route.LoaderArgs) {
@@ -62,19 +64,36 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   // Check if this is a direct request (not from the app-scoped re-export)
   const url = new URL(request.url)
   if (url.pathname === `/deployments/${deploymentId}`) {
-    return Response.redirect(
-      new URL(`/apps/${deployment.monitored_app_id}/deployments/${deploymentId}`, url.origin),
-      302,
-    )
+    const searchParams = url.searchParams.toString()
+    const redirectUrl = `/apps/${deployment.monitored_app_id}/deployments/${deploymentId}${searchParams ? `?${searchParams}` : ''}`
+    return Response.redirect(new URL(redirectUrl, url.origin), 302)
+  }
+
+  // Parse filter params for navigation
+  const status = url.searchParams.get('status') || undefined
+  const method = url.searchParams.get('method') as 'pr' | 'direct_push' | 'legacy' | undefined
+  const deployer = url.searchParams.get('deployer') || undefined
+  const sha = url.searchParams.get('sha') || undefined
+  const period = (url.searchParams.get('period') || 'last-week') as TimePeriod
+
+  const range = getDateRangeForPeriod(period)
+
+  const navFilters: DeploymentNavFilters = {
+    four_eyes_status: status,
+    method: method && ['pr', 'direct_push', 'legacy'].includes(method) ? method : undefined,
+    deployer_username: deployer,
+    commit_sha: sha,
+    start_date: range?.startDate,
+    end_date: range?.endDate,
   }
 
   const comments = await getCommentsByDeploymentId(deploymentId)
   const manualApproval = await getManualApproval(deploymentId)
   const legacyInfo = await getLegacyInfo(deploymentId)
 
-  // Get previous and next deployments for navigation
-  const previousDeployment = await getPreviousDeploymentForNav(deploymentId, deployment.monitored_app_id)
-  const nextDeployment = await getNextDeployment(deploymentId, deployment.monitored_app_id)
+  // Get previous and next deployments for navigation (respecting filters)
+  const previousDeployment = await getPreviousDeploymentForNav(deploymentId, deployment.monitored_app_id, navFilters)
+  const nextDeployment = await getNextDeployment(deploymentId, deployment.monitored_app_id, navFilters)
 
   // Collect all GitHub usernames we need to look up
   const usernames: string[] = []
@@ -577,6 +596,7 @@ function getFourEyesStatus(deployment: any): {
 export default function DeploymentDetail({ loaderData, actionData }: Route.ComponentProps) {
   const { deployment, comments, manualApproval, legacyInfo, previousDeployment, nextDeployment, userMappings } =
     loaderData
+  const [searchParams] = useSearchParams()
   const [commentText, setCommentText] = useState('')
   const [slackLink, setSlackLink] = useState('')
   const [approvedBy, setApprovedBy] = useState('')
@@ -624,7 +644,12 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
         </Detail>
         <HStack gap="space-8">
           {previousDeployment ? (
-            <Button as={Link} to={`/deployments/${previousDeployment.id}`} variant="tertiary" size="xsmall">
+            <Button
+              as={Link}
+              to={`/apps/${deployment.monitored_app_id}/deployments/${previousDeployment.id}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`}
+              variant="tertiary"
+              size="xsmall"
+            >
               ← Forrige
             </Button>
           ) : (
@@ -632,11 +657,21 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
               ← Forrige
             </Button>
           )}
-          <Button as={Link} to={`/apps/${deployment.monitored_app_id}/deployments`} variant="tertiary" size="xsmall">
+          <Button
+            as={Link}
+            to={`/apps/${deployment.monitored_app_id}/deployments${searchParams.toString() ? `?${searchParams.toString()}` : ''}`}
+            variant="tertiary"
+            size="xsmall"
+          >
             Alle
           </Button>
           {nextDeployment ? (
-            <Button as={Link} to={`/deployments/${nextDeployment.id}`} variant="tertiary" size="xsmall">
+            <Button
+              as={Link}
+              to={`/apps/${deployment.monitored_app_id}/deployments/${nextDeployment.id}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`}
+              variant="tertiary"
+              size="xsmall"
+            >
               Neste →
             </Button>
           ) : (

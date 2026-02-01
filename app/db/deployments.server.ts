@@ -600,22 +600,99 @@ export async function getPreviousDeployment(
 }
 
 /**
+ * Navigation filter options for prev/next deployment
+ */
+export interface DeploymentNavFilters {
+  four_eyes_status?: string
+  method?: 'pr' | 'direct_push' | 'legacy'
+  deployer_username?: string
+  commit_sha?: string
+  start_date?: Date
+  end_date?: Date
+}
+
+/**
+ * Build WHERE clause conditions for navigation filters
+ */
+function buildNavFilterConditions(
+  filters: DeploymentNavFilters,
+  startParamIndex: number,
+): { conditions: string[]; params: any[]; nextIndex: number } {
+  const conditions: string[] = []
+  const params: any[] = []
+  let idx = startParamIndex
+
+  if (filters.four_eyes_status) {
+    // Handle meta-statuses that map to multiple four_eyes_status values
+    if (filters.four_eyes_status === 'not_approved') {
+      conditions.push(
+        "nav_dep.four_eyes_status IN ('direct_push', 'unverified_commits', 'approved_pr_with_unreviewed')",
+      )
+    } else {
+      conditions.push(`nav_dep.four_eyes_status = $${idx}`)
+      params.push(filters.four_eyes_status)
+      idx++
+    }
+  }
+
+  if (filters.method === 'pr') {
+    conditions.push('nav_dep.github_pr_number IS NOT NULL')
+  } else if (filters.method === 'direct_push') {
+    conditions.push("nav_dep.github_pr_number IS NULL AND nav_dep.four_eyes_status != 'legacy'")
+  } else if (filters.method === 'legacy') {
+    conditions.push("nav_dep.four_eyes_status = 'legacy'")
+  }
+
+  if (filters.deployer_username) {
+    conditions.push(`nav_dep.deployer_username ILIKE $${idx}`)
+    params.push(`%${filters.deployer_username}%`)
+    idx++
+  }
+
+  if (filters.commit_sha) {
+    conditions.push(`nav_dep.commit_sha ILIKE $${idx}`)
+    params.push(`%${filters.commit_sha}%`)
+    idx++
+  }
+
+  if (filters.start_date) {
+    conditions.push(`nav_dep.created_at >= $${idx}`)
+    params.push(filters.start_date)
+    idx++
+  }
+
+  if (filters.end_date) {
+    conditions.push(`nav_dep.created_at <= $${idx}`)
+    params.push(filters.end_date)
+    idx++
+  }
+
+  return { conditions, params, nextIndex: idx }
+}
+
+/**
  * Get the next deployment (chronologically newer) for navigation
  * Next = deployment that happened AFTER this one (newer created_at)
  */
 export async function getNextDeployment(
   currentDeploymentId: number,
   monitoredAppId: number,
+  filters: DeploymentNavFilters = {},
 ): Promise<Deployment | null> {
+  const { conditions, params } = buildNavFilterConditions(filters, 3)
+
+  const whereClause = conditions.length > 0 ? `AND ${conditions.join(' AND ')}` : ''
+
   const result = await pool.query(
-    `SELECT next_dep.* FROM deployments next_dep
+    `SELECT nav_dep.* FROM deployments nav_dep
      CROSS JOIN deployments curr_dep
-     WHERE next_dep.monitored_app_id = $1
+     WHERE nav_dep.monitored_app_id = $1
        AND curr_dep.id = $2
-       AND next_dep.created_at > curr_dep.created_at
-     ORDER BY next_dep.created_at ASC
+       AND nav_dep.created_at > curr_dep.created_at
+       ${whereClause}
+     ORDER BY nav_dep.created_at ASC
      LIMIT 1`,
-    [monitoredAppId, currentDeploymentId],
+    [monitoredAppId, currentDeploymentId, ...params],
   )
 
   return result.rows[0] || null
@@ -628,16 +705,22 @@ export async function getNextDeployment(
 export async function getPreviousDeploymentForNav(
   currentDeploymentId: number,
   monitoredAppId: number,
+  filters: DeploymentNavFilters = {},
 ): Promise<Deployment | null> {
+  const { conditions, params } = buildNavFilterConditions(filters, 3)
+
+  const whereClause = conditions.length > 0 ? `AND ${conditions.join(' AND ')}` : ''
+
   const result = await pool.query(
-    `SELECT prev_dep.* FROM deployments prev_dep
+    `SELECT nav_dep.* FROM deployments nav_dep
      CROSS JOIN deployments curr_dep
-     WHERE prev_dep.monitored_app_id = $1
+     WHERE nav_dep.monitored_app_id = $1
        AND curr_dep.id = $2
-       AND prev_dep.created_at < curr_dep.created_at
-     ORDER BY prev_dep.created_at DESC
+       AND nav_dep.created_at < curr_dep.created_at
+       ${whereClause}
+     ORDER BY nav_dep.created_at DESC
      LIMIT 1`,
-    [monitoredAppId, currentDeploymentId],
+    [monitoredAppId, currentDeploymentId, ...params],
   )
 
   return result.rows[0] || null
