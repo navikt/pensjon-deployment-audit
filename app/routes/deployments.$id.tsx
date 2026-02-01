@@ -852,20 +852,23 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
 
         <VStack gap="space-4">
           <Detail>Commit SHA</Detail>
-          <BodyShort>
-            {deployment.commit_sha ? (
-              <a
-                href={`https://github.com/${deployment.detected_github_owner}/${deployment.detected_github_repo_name}/commit/${deployment.commit_sha}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ fontFamily: 'monospace', fontSize: '0.875rem' }}
-              >
-                {deployment.commit_sha.substring(0, 7)}
-              </a>
-            ) : (
-              <span style={{ color: 'var(--ax-text-neutral-subtle)' }}>(ukjent)</span>
-            )}
-          </BodyShort>
+          <HStack gap="space-8" align="center">
+            <BodyShort>
+              {deployment.commit_sha ? (
+                <a
+                  href={`https://github.com/${deployment.detected_github_owner}/${deployment.detected_github_repo_name}/commit/${deployment.commit_sha}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ fontFamily: 'monospace', fontSize: '0.875rem' }}
+                >
+                  {deployment.commit_sha.substring(0, 7)}
+                </a>
+              ) : (
+                <span style={{ color: 'var(--ax-text-neutral-subtle)' }}>(ukjent)</span>
+              )}
+            </BodyShort>
+            {deployment.commit_sha && <CopyButton copyText={deployment.commit_sha} size="small" title="Kopier SHA" />}
+          </HStack>
         </VStack>
 
         {deployment.branch_name && (
