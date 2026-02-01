@@ -8,6 +8,8 @@
     "start": "tsx scripts/migrate.ts && react-router-serve ./build/server/index.js",
     "typecheck": "react-router typegen && tsc",
     "check": "npm run lint && npm run typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "db:migrate": "node-pg-migrate up -m app/db/migrations",
     "db:migrate:down": "node-pg-migrate down -m app/db/migrations",
     "db:migrate:create": "node-pg-migrate create -m app/db/migrations",
