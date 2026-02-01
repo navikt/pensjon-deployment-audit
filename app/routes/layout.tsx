@@ -57,7 +57,7 @@ export default function Layout() {
 
         {/* Desktop: Inline navigation */}
         <Show above="md">
-          <nav className={styles.navContainer}>
+          <nav style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginRight: '1rem' }}>
             {navItems.map((item) => (
               <Link
                 key={item.path}
