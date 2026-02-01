@@ -1,4 +1,4 @@
-import { PencilIcon, PlusIcon, TrashIcon } from '@navikt/aksel-icons'
+import { DownloadIcon, PencilIcon, PlusIcon, TrashIcon, UploadIcon } from '@navikt/aksel-icons'
 import {
   Alert,
   BodyShort,
@@ -57,6 +57,39 @@ export async function action({ request }: ActionFunctionArgs) {
     return { success: true }
   }
 
+  if (intent === 'import') {
+    const file = formData.get('file') as File
+    if (!file || file.size === 0) {
+      return { error: 'Ingen fil valgt' }
+    }
+
+    try {
+      const text = await file.text()
+      const data = JSON.parse(text)
+
+      if (!data.mappings || !Array.isArray(data.mappings)) {
+        return { error: 'Ugyldig filformat - mangler mappings array' }
+      }
+
+      let imported = 0
+      for (const mapping of data.mappings) {
+        if (!mapping.github_username) continue
+        await upsertUserMapping({
+          githubUsername: mapping.github_username,
+          displayName: mapping.display_name || null,
+          navEmail: mapping.nav_email || null,
+          navIdent: mapping.nav_ident || null,
+          slackMemberId: mapping.slack_member_id || null,
+        })
+        imported++
+      }
+
+      return { success: true, message: `Importerte ${imported} brukermappinger` }
+    } catch (e) {
+      return { error: `Kunne ikke lese fil: ${e instanceof Error ? e.message : 'Ukjent feil'}` }
+    }
+  }
+
   return { error: 'Ukjent handling' }
 }
 
@@ -71,6 +104,7 @@ export default function AdminUsers() {
   const [prefillUsername, setPrefillUsername] = useState('')
   const modalRef = useRef<HTMLDialogElement>(null)
   const addModalRef = useRef<HTMLDialogElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Reset add form when action succeeds
   useEffect(() => {
@@ -98,16 +132,62 @@ export default function AdminUsers() {
   return (
     <Box padding={{ xs: 'space-16', md: 'space-24' }}>
       <VStack gap="space-24">
-        <HStack justify="space-between" align="center">
+        <HStack justify="space-between" align="center" wrap gap="space-8">
           <Heading size="large">Brukermappinger</Heading>
-          <Button variant="secondary" size="small" icon={<PlusIcon aria-hidden />} onClick={openAdd}>
-            Legg til
-          </Button>
+          <HStack gap="space-8">
+            <Button
+              as="a"
+              href="/admin/users/export"
+              download
+              variant="tertiary"
+              size="small"
+              icon={<DownloadIcon aria-hidden />}
+            >
+              <Show above="sm">Eksporter</Show>
+            </Button>
+            <Form method="post" encType="multipart/form-data" style={{ display: 'contents' }}>
+              <input type="hidden" name="intent" value="import" />
+              <input
+                ref={fileInputRef}
+                type="file"
+                name="file"
+                accept=".json"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  if (e.target.files?.length) {
+                    e.target.form?.requestSubmit()
+                  }
+                }}
+              />
+              <Button
+                type="button"
+                variant="tertiary"
+                size="small"
+                icon={<UploadIcon aria-hidden />}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Show above="sm">Importer</Show>
+              </Button>
+            </Form>
+            <Button variant="secondary" size="small" icon={<PlusIcon aria-hidden />} onClick={openAdd}>
+              <Show above="sm">Legg til</Show>
+            </Button>
+          </HStack>
         </HStack>
 
         <BodyShort textColor="subtle">
           Kobler GitHub-brukernavn til Nav-identitet og Slack for visning i deployment-oversikten.
         </BodyShort>
+
+        {/* Success message from import */}
+        {actionData?.message && (
+          <Alert variant="success" closeButton>
+            {actionData.message}
+          </Alert>
+        )}
+
+        {/* Error message */}
+        {actionData?.error && <Alert variant="error">{actionData.error}</Alert>}
 
         {/* Warning alert for unmapped users */}
         {unmappedUsers.length > 0 && (
