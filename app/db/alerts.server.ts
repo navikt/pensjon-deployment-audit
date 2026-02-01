@@ -173,6 +173,20 @@ export async function getAlertStats(): Promise<{
   }
 }
 
+export async function getAlertCountsByApp(): Promise<Map<number, number>> {
+  const result = await pool.query(`
+    SELECT monitored_app_id, COUNT(*) as count
+    FROM repository_alerts
+    WHERE resolved_at IS NULL
+    GROUP BY monitored_app_id
+  `)
+  const map = new Map<number, number>()
+  for (const row of result.rows) {
+    map.set(row.monitored_app_id, parseInt(row.count, 10))
+  }
+  return map
+}
+
 export async function getUnresolvedAlertsByApp(monitoredAppId: number): Promise<RepositoryAlertWithContext[]> {
   const result = await pool.query(
     `SELECT 

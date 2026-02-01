@@ -20,11 +20,14 @@ import {
   HGrid,
   HStack,
   Label,
+  Modal,
   Select,
   Show,
   Tag,
+  Textarea,
   VStack,
 } from '@navikt/ds-react'
+import { useState } from 'react'
 import {
   type ActionFunctionArgs,
   Form,
@@ -34,7 +37,7 @@ import {
   useLoaderData,
   useSearchParams,
 } from 'react-router'
-import { getUnresolvedAlertsByApp } from '~/db/alerts.server'
+import { getUnresolvedAlertsByApp, resolveRepositoryAlert } from '~/db/alerts.server'
 import {
   approveRepository,
   getRepositoriesByAppId,
@@ -120,6 +123,18 @@ export async function action({ request, params }: ActionFunctionArgs) {
       return { success: 'Aktivt repository oppdatert!' }
     }
 
+    if (action === 'resolve_alert') {
+      const alertId = parseInt(formData.get('alert_id') as string, 10)
+      const resolutionNote = formData.get('resolution_note') as string
+
+      if (!resolutionNote?.trim()) {
+        return { error: 'Vennligst skriv en merknad om hvordan varselet ble løst' }
+      }
+
+      await resolveRepositoryAlert(alertId, resolutionNote)
+      return { success: 'Varsel markert som løst!' }
+    }
+
     return { error: 'Ukjent handling' }
   } catch (error) {
     console.error('Action error:', error)
@@ -142,6 +157,13 @@ export default function AppDetail() {
   const actionData = useActionData<typeof action>()
   const [searchParams] = useSearchParams()
   const currentPeriod = searchParams.get('period') || 'last-week'
+  const [resolveModalOpen, setResolveModalOpen] = useState(false)
+  const [selectedAlert, setSelectedAlert] = useState<(typeof alerts)[0] | null>(null)
+
+  const openResolveModal = (alert: (typeof alerts)[0]) => {
+    setSelectedAlert(alert)
+    setResolveModalOpen(true)
+  }
 
   const naisConsoleUrl = `https://console.nav.cloud.nais.io/team/${app.team_slug}/${app.environment_name}/app/${app.app_name}`
 
@@ -359,7 +381,14 @@ export default function AppDetail() {
 
       {/* Alerts Section */}
       {alerts.length > 0 && (
-        <Box padding="space-24" borderRadius="8" background="raised" borderColor="warning-subtle" borderWidth="1">
+        <Box
+          id="varsler"
+          padding="space-24"
+          borderRadius="8"
+          background="raised"
+          borderColor="warning-subtle"
+          borderWidth="1"
+        >
           <VStack gap="space-16">
             <Heading size="medium">
               <ExclamationmarkTriangleIcon aria-hidden /> Åpne varsler ({alerts.length})
@@ -368,7 +397,7 @@ export default function AppDetail() {
               {alerts.map((alert) => (
                 <Box key={alert.id} padding="space-16" borderRadius="8" background="sunken">
                   <VStack gap="space-12">
-                    {/* First row: Type tag, date, action button */}
+                    {/* First row: Type tag, date, action buttons */}
                     <HStack gap="space-8" align="center" justify="space-between" wrap>
                       <HStack gap="space-12" align="center">
                         <Tag data-color="warning" size="xsmall" variant="outline">
@@ -378,9 +407,24 @@ export default function AppDetail() {
                         </Tag>
                         <Detail textColor="subtle">{new Date(alert.created_at).toLocaleDateString('no-NO')}</Detail>
                       </HStack>
-                      <Button as={Link} to={`/deployments/${alert.deployment_id}`} size="xsmall" variant="tertiary">
-                        Se deployment
-                      </Button>
+                      <HStack gap="space-8">
+                        <Button
+                          as={Link}
+                          to={`/apps/${app.id}/deployments/${alert.deployment_id}`}
+                          size="xsmall"
+                          variant="tertiary"
+                        >
+                          Se deployment
+                        </Button>
+                        <Button
+                          size="xsmall"
+                          variant="secondary"
+                          icon={<CheckmarkIcon aria-hidden />}
+                          onClick={() => openResolveModal(alert)}
+                        >
+                          Løs
+                        </Button>
+                      </HStack>
                     </HStack>
                     {/* Repository comparison */}
                     <VStack gap="space-4">
@@ -401,14 +445,53 @@ export default function AppDetail() {
                 </Box>
               ))}
             </VStack>
-            <div>
-              <Button as={Link} to="/alerts" variant="secondary" size="small">
-                Se alle varsler →
-              </Button>
-            </div>
           </VStack>
         </Box>
       )}
+
+      {/* Resolve Alert Modal */}
+      <Modal
+        open={resolveModalOpen}
+        onClose={() => setResolveModalOpen(false)}
+        header={{ heading: 'Løs repository-varsel' }}
+      >
+        <Modal.Body>
+          {selectedAlert && (
+            <VStack gap="space-16">
+              <BodyShort>Du er i ferd med å markere dette varselet som løst:</BodyShort>
+              <Alert variant="warning">
+                <strong>{app.app_name}</strong> ({app.environment_name})
+                <br />
+                Forventet: {selectedAlert.expected_github_owner}/{selectedAlert.expected_github_repo_name}
+                <br />
+                Detektert: {selectedAlert.detected_github_owner}/{selectedAlert.detected_github_repo_name}
+              </Alert>
+
+              <Form method="post" onSubmit={() => setResolveModalOpen(false)}>
+                <input type="hidden" name="action" value="resolve_alert" />
+                <input type="hidden" name="alert_id" value={selectedAlert.id} />
+
+                <Textarea
+                  name="resolution_note"
+                  label="Hvordan ble varselet løst?"
+                  description="Forklar hva som ble gjort for å løse varselet"
+                  required
+                  minLength={10}
+                />
+
+                <HStack gap="space-16" justify="end" marginBlock="space-16 space-0">
+                  <Button type="button" variant="secondary" onClick={() => setResolveModalOpen(false)}>
+                    Avbryt
+                  </Button>
+                  <Button type="submit" variant="primary">
+                    Marker som løst
+                  </Button>
+                </HStack>
+              </Form>
+            </VStack>
+          )}
+        </Modal.Body>
+      </Modal>
 
       {/* Repositories Section */}
       <Box padding="space-24" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">

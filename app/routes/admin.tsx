@@ -1,11 +1,26 @@
-import { ArchiveIcon, ArrowsCirclepathIcon, FileTextIcon, PersonGroupIcon } from '@navikt/aksel-icons'
+import {
+  ArchiveIcon,
+  ArrowsCirclepathIcon,
+  CheckmarkCircleIcon,
+  FileTextIcon,
+  PersonGroupIcon,
+} from '@navikt/aksel-icons'
 import { Alert, BodyShort, Box, Button, Heading, HGrid, VStack } from '@navikt/ds-react'
-import { Form, Link, useActionData } from 'react-router'
+import { Form, Link, useActionData, useLoaderData } from 'react-router'
 import { resolveAlertsForLegacyDeployments } from '~/db/alerts.server'
+import { getAllDeployments } from '~/db/deployments.server'
 import type { Route } from './+types/admin'
 
 export function meta(_args: Route.MetaArgs) {
   return [{ title: 'Admin - Pensjon Deployment Audit' }]
+}
+
+export async function loader() {
+  const allDeployments = await getAllDeployments()
+  const pendingCount = allDeployments.filter(
+    (d) => d.four_eyes_status === 'pending' || d.four_eyes_status === 'error',
+  ).length
+  return { pendingCount }
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -32,6 +47,7 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function AdminIndex() {
+  const { pendingCount } = useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
   return (
     <VStack gap="space-24">
@@ -51,6 +67,32 @@ export default function AdminIndex() {
       {actionData?.error && <Alert variant="error">{actionData.error}</Alert>}
 
       <HGrid gap="space-16" columns={{ xs: 1, md: 2, lg: 3 }}>
+        <Link to="/deployments/verify" style={{ textDecoration: 'none' }}>
+          <Box
+            padding="space-24"
+            borderRadius="8"
+            background="raised"
+            borderColor={pendingCount > 0 ? 'warning-subtle' : 'neutral-subtle'}
+            borderWidth="1"
+            data-color={pendingCount > 0 ? 'warning' : undefined}
+            className="admin-card"
+          >
+            <VStack gap="space-12">
+              <CheckmarkCircleIcon fontSize="2rem" aria-hidden />
+              <div>
+                <Heading size="small" spacing>
+                  GitHub-verifisering
+                </Heading>
+                <BodyShort textColor="subtle">
+                  {pendingCount > 0
+                    ? `${pendingCount} deployments venter på verifisering.`
+                    : 'Verifiser deployments mot GitHub.'}
+                </BodyShort>
+              </div>
+            </VStack>
+          </Box>
+        </Link>
+
         <Link to="/admin/audit-reports" style={{ textDecoration: 'none' }}>
           <Box
             padding="space-24"

@@ -1,7 +1,22 @@
-import { Alert, BodyShort, Box, Heading, HGrid, VStack } from '@navikt/ds-react'
-import { Link } from 'react-router'
-import { getUnresolvedAlerts } from '../db/alerts.server'
-import { getAllDeployments, getDeploymentStats } from '../db/deployments.server'
+import { BellIcon, CheckmarkCircleIcon, ExclamationmarkTriangleIcon, XMarkOctagonIcon } from '@navikt/aksel-icons'
+import {
+  Alert,
+  BodyShort,
+  Box,
+  Button,
+  Detail,
+  Heading,
+  HGrid,
+  Hide,
+  HStack,
+  Show,
+  Tag,
+  VStack,
+} from '@navikt/ds-react'
+import { Link, useSearchParams } from 'react-router'
+import { getRepositoriesByAppId } from '~/db/application-repositories.server'
+import { getAlertCountsByApp } from '../db/alerts.server'
+import { getAppDeploymentStats, getDeploymentStats } from '../db/deployments.server'
 import { getAllMonitoredApplications } from '../db/monitored-applications.server'
 import styles from '../styles/common.module.css'
 import type { Route } from './+types/home'
@@ -13,60 +28,143 @@ export function meta(_args: Route.MetaArgs) {
   ]
 }
 
-export async function loader() {
+type AppStatus = 'all' | 'missing' | 'pending' | 'ok'
+
+export async function loader({ request }: Route.LoaderArgs) {
+  const url = new URL(request.url)
+  const statusFilter = (url.searchParams.get('status') || 'all') as AppStatus
+
   try {
-    const [stats, apps, alerts, allDeployments] = await Promise.all([
+    const [stats, apps, alertCountsByApp] = await Promise.all([
       getDeploymentStats(),
       getAllMonitoredApplications(),
-      getUnresolvedAlerts(),
-      getAllDeployments(),
+      getAlertCountsByApp(),
     ])
 
-    // Count pending verifications
-    const pendingCount = allDeployments.filter(
-      (d) => d.four_eyes_status === 'pending' || d.four_eyes_status === 'error',
-    ).length
+    // Calculate total alert count
+    let alertsCount = 0
+    for (const count of alertCountsByApp.values()) {
+      alertsCount += count
+    }
 
-    return { stats, appsCount: apps.length, alertsCount: alerts.length, pendingCount }
+    // Fetch active repository and deployment stats for each app
+    const appsWithData = await Promise.all(
+      apps.map(async (app) => {
+        const repos = await getRepositoriesByAppId(app.id)
+        const activeRepo = repos.find((r) => r.status === 'active')
+        const appStats = await getAppDeploymentStats(app.id)
+        return {
+          ...app,
+          active_repo: activeRepo ? `${activeRepo.github_owner}/${activeRepo.github_repo_name}` : null,
+          stats: appStats,
+          alertCount: alertCountsByApp.get(app.id) || 0,
+        }
+      }),
+    )
+
+    // Filter apps based on status
+    const filteredApps = appsWithData.filter((app) => {
+      if (statusFilter === 'all') return true
+      if (statusFilter === 'missing') return app.stats.without_four_eyes > 0
+      if (statusFilter === 'pending') return app.stats.pending_verification > 0
+      if (statusFilter === 'ok')
+        return app.stats.without_four_eyes === 0 && app.stats.pending_verification === 0 && app.stats.total > 0
+      return true
+    })
+
+    return {
+      stats,
+      apps: filteredApps,
+      allAppsCount: appsWithData.length,
+      statusFilter,
+    }
   } catch (_error) {
-    return { stats: null, appsCount: 0, alertsCount: 0, pendingCount: 0 }
+    return {
+      stats: null,
+      apps: [],
+      allAppsCount: 0,
+      statusFilter: 'all' as AppStatus,
+    }
   }
 }
 
+function getStatusTag(appStats: { total: number; without_four_eyes: number; pending_verification: number }) {
+  if (appStats.without_four_eyes > 0) {
+    return (
+      <Tag data-color="danger" variant="outline" size="small">
+        <XMarkOctagonIcon aria-hidden /> {appStats.without_four_eyes} mangler
+      </Tag>
+    )
+  }
+  if (appStats.pending_verification > 0) {
+    return (
+      <Tag data-color="warning" variant="outline" size="small">
+        <ExclamationmarkTriangleIcon aria-hidden /> {appStats.pending_verification} venter
+      </Tag>
+    )
+  }
+  if (appStats.total === 0) {
+    return (
+      <Tag data-color="warning" variant="outline" size="small">
+        <ExclamationmarkTriangleIcon aria-hidden /> Ingen data
+      </Tag>
+    )
+  }
+  return (
+    <Tag data-color="success" variant="outline" size="small">
+      <CheckmarkCircleIcon aria-hidden /> OK
+    </Tag>
+  )
+}
+
 export default function Home({ loaderData }: Route.ComponentProps) {
-  const { stats, appsCount, alertsCount, pendingCount } = loaderData
+  const { stats, apps, allAppsCount, statusFilter } = loaderData
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  const updateFilter = (value: string) => {
+    const newParams = new URLSearchParams(searchParams)
+    if (value === 'all') {
+      newParams.delete('status')
+    } else {
+      newParams.set('status', value)
+    }
+    setSearchParams(newParams)
+  }
+
+  // Group apps by team
+  type AppWithStats = (typeof apps)[number]
+  const appsByTeam: Record<string, AppWithStats[]> = {}
+  for (const app of apps) {
+    if (!appsByTeam[app.team_slug]) {
+      appsByTeam[app.team_slug] = []
+    }
+    appsByTeam[app.team_slug].push(app)
+  }
+
+  const filterLabels: Record<AppStatus, string> = {
+    all: 'Alle applikasjoner',
+    missing: 'Mangler godkjenning',
+    pending: 'Venter verifisering',
+    ok: 'Alt OK',
+  }
 
   return (
     <VStack gap="space-32">
-      <BodyShort textColor="subtle">
-        Overvåk deployments og verifiser at alle har hatt godkjenning før deploy.
-      </BodyShort>
-
-      {/* Security Alerts */}
-      {alertsCount > 0 && (
-        <Alert variant="error">
-          <strong>{alertsCount} repository-varsler</strong> krever oppmerksomhet. <Link to="/alerts">Se varsler</Link>
-        </Alert>
-      )}
-
-      {/* Pending Verifications */}
-      {pendingCount > 0 && (
-        <Alert variant="info">
-          <strong>{pendingCount} deployments</strong> venter på GitHub-verifisering.{' '}
-          <Link to="/deployments/verify">Kjør verifisering</Link>
-        </Alert>
-      )}
-
-      {/* Stats - clickable cards */}
+      {/* Stats - clickable cards that filter the list */}
       {stats && stats.total > 0 && (
-        <HGrid gap="space-16" columns={{ xs: 1, sm: 2, lg: 5 }}>
-          <Link to="/deployments" className={styles.statCardLink}>
+        <HGrid gap="space-16" columns={{ xs: 2, sm: 4 }}>
+          <button
+            type="button"
+            onClick={() => updateFilter('all')}
+            className={styles.statCardButton}
+            aria-pressed={statusFilter === 'all'}
+          >
             <Box
               padding="space-20"
               borderRadius="8"
               background="raised"
-              borderColor="neutral-subtle"
-              borderWidth="1"
+              borderColor={statusFilter === 'all' ? 'accent' : 'neutral-subtle'}
+              borderWidth={statusFilter === 'all' ? '2' : '1'}
               className={styles.clickableCard}
             >
               <BodyShort size="small" textColor="subtle">
@@ -74,15 +172,20 @@ export default function Home({ loaderData }: Route.ComponentProps) {
               </BodyShort>
               <Heading size="large">{stats.total}</Heading>
             </Box>
-          </Link>
+          </button>
 
-          <Link to="/deployments?only_missing=false" className={styles.statCardLink}>
+          <button
+            type="button"
+            onClick={() => updateFilter('ok')}
+            className={styles.statCardButton}
+            aria-pressed={statusFilter === 'ok'}
+          >
             <Box
               padding="space-20"
               borderRadius="8"
               background="raised"
-              borderColor="success-subtle"
-              borderWidth="1"
+              borderColor={statusFilter === 'ok' ? 'accent' : 'success-subtle'}
+              borderWidth={statusFilter === 'ok' ? '2' : '1'}
               data-color="success"
               className={styles.clickableCard}
             >
@@ -94,15 +197,20 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                 {stats.percentage}%
               </BodyShort>
             </Box>
-          </Link>
+          </button>
 
-          <Link to="/deployments?status=not_approved&period=all" className={styles.statCardLink}>
+          <button
+            type="button"
+            onClick={() => updateFilter('missing')}
+            className={styles.statCardButton}
+            aria-pressed={statusFilter === 'missing'}
+          >
             <Box
               padding="space-20"
               borderRadius="8"
               background="raised"
-              borderColor="danger-subtle"
-              borderWidth="1"
+              borderColor={statusFilter === 'missing' ? 'accent' : 'danger-subtle'}
+              borderWidth={statusFilter === 'missing' ? '2' : '1'}
               data-color="danger"
               className={styles.clickableCard}
             >
@@ -114,9 +222,14 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                 {(100 - stats.percentage).toFixed(1)}%
               </BodyShort>
             </Box>
-          </Link>
+          </button>
 
-          <Link to="/apps" className={styles.statCardLink}>
+          <button
+            type="button"
+            onClick={() => updateFilter('all')}
+            className={styles.statCardButton}
+            aria-pressed={statusFilter === 'all'}
+          >
             <Box
               padding="space-20"
               borderRadius="8"
@@ -128,34 +241,89 @@ export default function Home({ loaderData }: Route.ComponentProps) {
               <BodyShort size="small" textColor="subtle">
                 Applikasjoner
               </BodyShort>
-              <Heading size="large">{appsCount}</Heading>
+              <Heading size="large">{allAppsCount}</Heading>
             </Box>
-          </Link>
-
-          <Link to="/alerts" className={styles.statCardLink}>
-            <Box
-              padding="space-20"
-              borderRadius="8"
-              background="raised"
-              borderColor={alertsCount > 0 ? 'warning-subtle' : 'neutral-subtle'}
-              borderWidth="1"
-              data-color={alertsCount > 0 ? 'warning' : undefined}
-              className={styles.clickableCard}
-            >
-              <BodyShort size="small" textColor="subtle">
-                Varsler
-              </BodyShort>
-              <Heading size="large">{alertsCount}</Heading>
-            </Box>
-          </Link>
+          </button>
         </HGrid>
       )}
 
-      {stats && stats.total === 0 && (
-        <Alert variant="info">
-          Ingen deployments funnet. <Link to="/apps">Legg til applikasjoner</Link> for å komme i gang.
-        </Alert>
+      {/* Add app button */}
+      <HStack justify="end">
+        <Button as={Link} to="/apps/discover" size="small" variant="secondary">
+          Legg til applikasjon
+        </Button>
+      </HStack>
+
+      {/* Empty states */}
+      {allAppsCount === 0 && <Alert variant="info">Ingen applikasjoner overvåkes ennå.</Alert>}
+
+      {apps.length === 0 && allAppsCount > 0 && statusFilter !== 'all' && (
+        <Alert variant="success">Ingen applikasjoner matcher filteret "{filterLabels[statusFilter]}".</Alert>
       )}
+
+      {/* App list grouped by team */}
+      {Object.entries(appsByTeam).map(([teamSlug, teamApps]) => (
+        <VStack key={teamSlug} gap="space-16">
+          <Heading size="small">
+            {teamSlug} ({teamApps.length})
+          </Heading>
+
+          <div>
+            {teamApps.map((app) => (
+              <Box key={app.id} padding="space-16" background="raised" className={styles.stackedListItem}>
+                <VStack gap="space-12">
+                  {/* First row: App name, environment (desktop), alert indicator, status tag */}
+                  <HStack gap="space-8" align="center" justify="space-between" wrap>
+                    <HStack gap="space-12" align="center" style={{ flex: 1 }}>
+                      <Link to={`/apps/${app.id}`}>
+                        <BodyShort weight="semibold">{app.app_name}</BodyShort>
+                      </Link>
+                      <Show above="md">
+                        <Detail textColor="subtle">{app.environment_name}</Detail>
+                      </Show>
+                    </HStack>
+                    <HStack gap="space-8" align="center">
+                      {app.alertCount > 0 && (
+                        <Link to={`/apps/${app.id}#varsler`} style={{ textDecoration: 'none' }}>
+                          <Tag data-color="danger" variant="moderate" size="xsmall">
+                            <BellIcon aria-hidden /> {app.alertCount}
+                          </Tag>
+                        </Link>
+                      )}
+                      {app.stats.without_four_eyes > 0 ? (
+                        <Link
+                          to={`/apps/${app.id}/deployments?status=not_approved&period=all`}
+                          style={{ textDecoration: 'none' }}
+                        >
+                          {getStatusTag(app.stats)}
+                        </Link>
+                      ) : (
+                        getStatusTag(app.stats)
+                      )}
+                    </HStack>
+                  </HStack>
+
+                  {/* Environment on mobile */}
+                  <Hide above="md">
+                    <Detail textColor="subtle">{app.environment_name}</Detail>
+                  </Hide>
+
+                  {/* Repository row */}
+                  <Detail textColor="subtle">
+                    {app.active_repo ? (
+                      <a href={`https://github.com/${app.active_repo}`} target="_blank" rel="noopener noreferrer">
+                        {app.active_repo}
+                      </a>
+                    ) : (
+                      '(ingen aktivt repo)'
+                    )}
+                  </Detail>
+                </VStack>
+              </Box>
+            ))}
+          </div>
+        </VStack>
+      ))}
     </VStack>
   )
 }

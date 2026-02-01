@@ -17,12 +17,7 @@ export default function Layout() {
     return location.pathname.startsWith(path)
   }
 
-  const navItems = [
-    { path: '/apps', label: 'Applikasjoner' },
-    { path: '/deployments', label: 'Deployments' },
-    { path: '/alerts', label: 'Varsler' },
-    { path: '/admin', label: 'Admin' },
-  ]
+  const navItems = [{ path: '/admin', label: 'Admin' }]
 
   return (
     <div className={styles.layoutContainer}>

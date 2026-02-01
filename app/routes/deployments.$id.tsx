@@ -50,12 +50,22 @@ import { lookupLegacyByCommit, lookupLegacyByPR } from '~/lib/github.server'
 import { verifyDeploymentFourEyes } from '~/lib/sync.server'
 import type { Route } from './+types/deployments.$id'
 
-export async function loader({ params }: Route.LoaderArgs) {
+export async function loader({ params, request }: Route.LoaderArgs) {
   const deploymentId = parseInt(params.id, 10)
   const deployment = await getDeploymentById(deploymentId)
 
   if (!deployment) {
     throw new Response('Deployment not found', { status: 404 })
+  }
+
+  // Redirect to app-scoped URL if accessed via /deployments/:id directly
+  // Check if this is a direct request (not from the app-scoped re-export)
+  const url = new URL(request.url)
+  if (url.pathname === `/deployments/${deploymentId}`) {
+    return Response.redirect(
+      new URL(`/apps/${deployment.monitored_app_id}/deployments/${deploymentId}`, url.origin),
+      302,
+    )
   }
 
   const comments = await getCommentsByDeploymentId(deploymentId)
