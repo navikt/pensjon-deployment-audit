@@ -218,7 +218,7 @@ export default function AdminUsers() {
         )}
 
         {/* Add Modal */}
-        <Modal ref={addModalRef} header={{ heading: 'Legg til brukermapping' }}>
+        <Modal ref={addModalRef} header={{ heading: 'Legg til brukermapping' }} width="medium">
           <Modal.Body>
             <Form method="post" id="add-form" key={addFormKey}>
               <input type="hidden" name="intent" value="upsert" />
@@ -242,7 +242,12 @@ export default function AdminUsers() {
         </Modal>
 
         {/* Edit Modal */}
-        <Modal ref={modalRef} header={{ heading: 'Rediger brukermapping' }} onClose={() => setEditMapping(null)}>
+        <Modal
+          ref={modalRef}
+          header={{ heading: 'Rediger brukermapping' }}
+          width="medium"
+          onClose={() => setEditMapping(null)}
+        >
           <Modal.Body>
             {editMapping && (
               <Form method="post" id="edit-form">

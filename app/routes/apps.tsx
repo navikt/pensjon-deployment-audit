@@ -4,6 +4,7 @@ import { Link } from 'react-router'
 import { getRepositoriesByAppId } from '~/db/application-repositories.server'
 import { getAppDeploymentStats } from '~/db/deployments.server'
 import { getAllMonitoredApplications } from '~/db/monitored-applications.server'
+import styles from '../styles/common.module.css'
 import type { Route } from './+types/apps'
 
 export function meta(_args: Route.MetaArgs) {
@@ -90,63 +91,54 @@ export default function Apps({ loaderData }: Route.ComponentProps) {
       )}
 
       {Object.entries(appsByTeam).map(([teamSlug, teamApps]) => (
-        <Box
-          key={teamSlug}
-          padding="space-20"
-          borderRadius="8"
-          background="raised"
-          borderColor="neutral-subtle"
-          borderWidth="1"
-        >
-          <VStack gap="space-16">
-            <Heading size="medium">
-              {teamSlug} ({teamApps.length} applikasjoner)
-            </Heading>
+        <VStack key={teamSlug} gap="space-16">
+          <Heading size="medium">
+            {teamSlug} ({teamApps.length} applikasjoner)
+          </Heading>
 
-            <VStack gap="space-12">
-              {teamApps.map((app) => (
-                <Box key={app.id} padding="space-16" borderRadius="8" background="sunken">
-                  <VStack gap="space-12">
-                    {/* First row: App name, environment (desktop), status tag */}
-                    <HStack gap="space-8" align="center" justify="space-between" wrap>
-                      <HStack gap="space-12" align="center" style={{ flex: 1 }}>
-                        <Link to={`/apps/${app.id}`}>
-                          <BodyShort weight="semibold">{app.app_name}</BodyShort>
-                        </Link>
-                        <Show above="md">
-                          <Detail textColor="subtle">{app.environment_name}</Detail>
-                        </Show>
-                      </HStack>
-                      {app.stats.without_four_eyes > 0 ? (
-                        <Link to={`/deployments?app=${app.id}&only_missing=true`} style={{ textDecoration: 'none' }}>
-                          {getStatusTag(app.stats)}
-                        </Link>
-                      ) : (
-                        getStatusTag(app.stats)
-                      )}
+          <div>
+            {teamApps.map((app) => (
+              <Box key={app.id} padding="space-16" background="raised" className={styles.stackedListItem}>
+                <VStack gap="space-12">
+                  {/* First row: App name, environment (desktop), status tag */}
+                  <HStack gap="space-8" align="center" justify="space-between" wrap>
+                    <HStack gap="space-12" align="center" style={{ flex: 1 }}>
+                      <Link to={`/apps/${app.id}`}>
+                        <BodyShort weight="semibold">{app.app_name}</BodyShort>
+                      </Link>
+                      <Show above="md">
+                        <Detail textColor="subtle">{app.environment_name}</Detail>
+                      </Show>
                     </HStack>
+                    {app.stats.without_four_eyes > 0 ? (
+                      <Link to={`/deployments?app=${app.id}&only_missing=true`} style={{ textDecoration: 'none' }}>
+                        {getStatusTag(app.stats)}
+                      </Link>
+                    ) : (
+                      getStatusTag(app.stats)
+                    )}
+                  </HStack>
 
-                    {/* Environment on mobile */}
-                    <Hide above="md">
-                      <Detail textColor="subtle">{app.environment_name}</Detail>
-                    </Hide>
+                  {/* Environment on mobile */}
+                  <Hide above="md">
+                    <Detail textColor="subtle">{app.environment_name}</Detail>
+                  </Hide>
 
-                    {/* Repository row */}
-                    <Detail textColor="subtle">
-                      {app.active_repo ? (
-                        <a href={`https://github.com/${app.active_repo}`} target="_blank" rel="noopener noreferrer">
-                          {app.active_repo}
-                        </a>
-                      ) : (
-                        '(ingen aktivt repo)'
-                      )}
-                    </Detail>
-                  </VStack>
-                </Box>
-              ))}
-            </VStack>
-          </VStack>
-        </Box>
+                  {/* Repository row */}
+                  <Detail textColor="subtle">
+                    {app.active_repo ? (
+                      <a href={`https://github.com/${app.active_repo}`} target="_blank" rel="noopener noreferrer">
+                        {app.active_repo}
+                      </a>
+                    ) : (
+                      '(ingen aktivt repo)'
+                    )}
+                  </Detail>
+                </VStack>
+              </Box>
+            ))}
+          </div>
+        </VStack>
       ))}
     </VStack>
   )
