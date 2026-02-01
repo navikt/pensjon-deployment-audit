@@ -632,12 +632,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
               ← Forrige
             </Button>
           )}
-          <Button
-            as={Link}
-            to={`/applications/${deployment.team_slug}/${deployment.environment_name}/${deployment.app_name}`}
-            variant="tertiary"
-            size="xsmall"
-          >
+          <Button as={Link} to={`/apps/${deployment.monitored_app_id}/deployments`} variant="tertiary" size="xsmall">
             Alle
           </Button>
           {nextDeployment ? (
