@@ -523,6 +523,66 @@ function AuditReportPdfDocument(props: AuditReportPdfProps) {
         />
       </Page>
 
+      {/* Security methodology page */}
+      <Page size="A4" style={styles.page}>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Sikkerhet og dataintegritet</Text>
+
+          <View style={styles.methodologyBox}>
+            <Text style={styles.methodologyTitle}>1. Kryptografisk verifisert deploy-kjede</Text>
+            <Text style={styles.methodologyText}>
+              Alle deployments til Nais-plattformen krever et OIDC-token utstedt av GitHub Actions. Dette tokenet er
+              kryptografisk signert med GitHub sin private nøkkel og inneholder claims som identifiserer actor
+              (bruker/workflow), commit SHA, repository og branch. Tokenet kan ikke forfalskes uten tilgang til GitHub
+              sin private signeringsnøkkel.
+            </Text>
+          </View>
+
+          <View style={styles.methodologyBox}>
+            <Text style={styles.methodologyTitle}>2. Validering i Nais-plattformen</Text>
+            <Text style={styles.methodologyText}>
+              Nais Console validerer hvert deploy-token mot GitHub sin offentlige nøkkel og verifiserer at tokenet
+              kommer fra et autorisert repository. Kun repositories som eksplisitt er konfigurert i Nais Console får
+              deploye til det aktuelle namespacet. Metadata fra tokenet, inkludert commit SHA og actor, lagres permanent
+              for hver deployment.
+            </Text>
+          </View>
+
+          <View style={styles.methodologyBox}>
+            <Text style={styles.methodologyTitle}>3. Uavhengig verifisering mot GitHub</Text>
+            <Text style={styles.methodologyText}>
+              For hver deployment henter denne applikasjonen commit-informasjon direkte fra GitHub API. Systemet
+              identifiserer tilhørende pull request og verifiserer at PR-en ble godkjent av en annen person enn
+              forfatteren. Det kontrolleres spesifikt at godkjenningen ble gitt etter siste commit i PR-en, slik at
+              endringer etter godkjenning fanges opp.
+            </Text>
+          </View>
+
+          <View style={styles.methodologyBox}>
+            <Text style={styles.methodologyTitle}>4. Komplett sporbarhet</Text>
+            <Text style={styles.methodologyText}>
+              Deployments som ikke har en gyldig PR-godkjenning (f.eks. direct push til main) krever manuell godkjenning
+              med dokumentasjon via Slack-lenke. Dette sikrer at fire-øyne-prinsippet etterleves for alle
+              produksjonsendringer, enten via forhåndsgodkjenning (PR) eller etterkontroll (manuell).
+            </Text>
+          </View>
+
+          <View style={styles.methodologyBox}>
+            <Text style={styles.methodologyTitle}>5. Uavhengig av branch protection</Text>
+            <Text style={styles.methodologyText}>
+              Siden dette systemet utfører uavhengig verifisering av alle deployments mot GitHub, er det ikke avhengig
+              av at branch protection-regler er konfigurert på repository-nivå. Systemet fanger opp alle tilfeller der
+              kode er deployet uten forutgående godkjenning, og krever manuell dokumentasjon for disse.
+            </Text>
+          </View>
+        </View>
+
+        <Text
+          style={styles.pageNumber}
+          render={({ pageNumber, totalPages }) => `Side ${pageNumber} av ${totalPages}`}
+        />
+      </Page>
+
       {/* Final page: Verification */}
       <Page size="A4" style={styles.page}>
         <View style={styles.section}>
