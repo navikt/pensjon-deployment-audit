@@ -812,3 +812,117 @@ export async function getDeploymentsByDeployer(deployerUsername: string, limit =
   )
   return result.rows
 }
+
+/**
+ * Search result types for global search
+ */
+export interface SearchResult {
+  type: 'deployment' | 'user'
+  id?: number
+  url: string
+  title: string
+  subtitle?: string
+}
+
+/**
+ * Search deployments by ID, commit SHA, or deployer username
+ */
+export async function searchDeployments(query: string, limit = 10): Promise<SearchResult[]> {
+  const results: SearchResult[] = []
+  const trimmedQuery = query.trim()
+
+  if (!trimmedQuery) return results
+
+  // Check if query is a Nais deployment ID (starts with DI_)
+  if (/^DI_/i.test(trimmedQuery)) {
+    const naisResult = await pool.query(
+      `SELECT d.id, d.nais_deployment_id, d.commit_sha, d.deployer_username, d.created_at,
+              ma.team_slug, ma.environment_name, ma.app_name
+       FROM deployments d
+       JOIN monitored_applications ma ON d.monitored_app_id = ma.id
+       WHERE d.nais_deployment_id ILIKE $1
+       ORDER BY d.created_at DESC
+       LIMIT $2`,
+      [`${trimmedQuery}%`, limit],
+    )
+    for (const row of naisResult.rows) {
+      results.push({
+        type: 'deployment',
+        id: row.id,
+        url: `/team/${row.team_slug}/env/${row.environment_name}/app/${row.app_name}/deployments/${row.id}`,
+        title: `Deployment #${row.id}`,
+        subtitle: `${row.app_name} • ${row.nais_deployment_id.substring(0, 20)}...`,
+      })
+    }
+    return results
+  }
+
+  // Check if query is a deployment ID (pure number)
+  if (/^\d+$/.test(trimmedQuery)) {
+    const deploymentId = parseInt(trimmedQuery, 10)
+    const result = await pool.query(
+      `SELECT d.id, d.commit_sha, d.deployer_username, d.created_at,
+              ma.team_slug, ma.environment_name, ma.app_name
+       FROM deployments d
+       JOIN monitored_applications ma ON d.monitored_app_id = ma.id
+       WHERE d.id = $1`,
+      [deploymentId],
+    )
+    if (result.rows.length > 0) {
+      const row = result.rows[0]
+      results.push({
+        type: 'deployment',
+        id: row.id,
+        url: `/team/${row.team_slug}/env/${row.environment_name}/app/${row.app_name}/deployments/${row.id}`,
+        title: `Deployment #${row.id}`,
+        subtitle: `${row.app_name} • ${row.commit_sha?.substring(0, 7) || 'ukjent SHA'}`,
+      })
+    }
+    return results
+  }
+
+  // Check if query looks like a SHA (hex characters, 7+ length)
+  if (/^[0-9a-f]{7,40}$/i.test(trimmedQuery)) {
+    const shaResult = await pool.query(
+      `SELECT d.id, d.commit_sha, d.deployer_username, d.created_at,
+              ma.team_slug, ma.environment_name, ma.app_name
+       FROM deployments d
+       JOIN monitored_applications ma ON d.monitored_app_id = ma.id
+       WHERE d.commit_sha ILIKE $1
+       ORDER BY d.created_at DESC
+       LIMIT $2`,
+      [`${trimmedQuery}%`, limit],
+    )
+    for (const row of shaResult.rows) {
+      results.push({
+        type: 'deployment',
+        id: row.id,
+        url: `/team/${row.team_slug}/env/${row.environment_name}/app/${row.app_name}/deployments/${row.id}`,
+        title: `${row.commit_sha?.substring(0, 7)}`,
+        subtitle: `${row.app_name} • ${row.deployer_username || 'ukjent'}`,
+      })
+    }
+    return results
+  }
+
+  // Otherwise, search by deployer username
+  const userResult = await pool.query(
+    `SELECT DISTINCT deployer_username, COUNT(*) as deployment_count
+     FROM deployments
+     WHERE deployer_username ILIKE $1
+     GROUP BY deployer_username
+     ORDER BY deployment_count DESC
+     LIMIT $2`,
+    [`%${trimmedQuery}%`, limit],
+  )
+  for (const row of userResult.rows) {
+    results.push({
+      type: 'user',
+      url: `/users/${row.deployer_username}`,
+      title: row.deployer_username,
+      subtitle: `${row.deployment_count} deployment(s)`,
+    })
+  }
+
+  return results
+}

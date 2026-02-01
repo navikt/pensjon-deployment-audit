@@ -4,11 +4,13 @@ export default [
   // Health check endpoints (outside layout)
   route('api/isalive', 'routes/api.isalive.ts'),
   route('api/isready', 'routes/api.isready.ts'),
+  route('api/search', 'routes/api.search.ts'),
 
   layout('routes/layout.tsx', [
     index('routes/home.tsx'),
     route('apps', 'routes/apps.tsx'),
     route('apps/discover', 'routes/apps.discover.tsx'),
+    route('search', 'routes/search.tsx'),
     // Semantic URL structure
     route('team/:team/env/:env/app/:app', 'routes/team.$team.env.$env.app.$app.tsx'),
     route('team/:team/env/:env/app/:app/deployments', 'routes/team.$team.env.$env.app.$app.deployments.tsx'),
