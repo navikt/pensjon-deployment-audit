@@ -9,7 +9,6 @@ import {
   FileTextIcon,
   PackageIcon,
   XMarkIcon,
-  XMarkOctagonIcon,
 } from '@navikt/aksel-icons'
 import {
   Alert,
@@ -46,6 +45,7 @@ import { checkAuditReadiness, getAuditReportsForApp } from '~/db/audit-reports.s
 import { getAppDeploymentStats } from '~/db/deployments.server'
 import { getMonitoredApplicationById } from '~/db/monitored-applications.server'
 import { getDateRangeForPeriod, TIME_PERIOD_OPTIONS, type TimePeriod } from '~/lib/time-periods'
+import styles from '~/styles/common.module.css'
 
 export async function loader({ params, request }: LoaderFunctionArgs) {
   const id = parseInt(params.id || '', 10)
@@ -143,26 +143,6 @@ export default function AppDetail() {
   const [searchParams] = useSearchParams()
   const currentPeriod = searchParams.get('period') || 'last-week'
 
-  // Status badge based on deployment stats and alerts
-  // Priority: 1. Missing four-eyes (error), 2. Pending verification (warning), 3. Alerts (warning), 4. OK (success)
-  let statusColor: 'success' | 'warning' | 'danger' = 'success'
-  let statusIcon = <CheckmarkCircleIcon />
-  let statusText = 'Alt OK'
-
-  if (deploymentStats.without_four_eyes > 0) {
-    statusColor = 'danger'
-    statusIcon = <XMarkOctagonIcon />
-    statusText = `${deploymentStats.without_four_eyes} deployment${deploymentStats.without_four_eyes > 1 ? 's' : ''} mangler godkjenning`
-  } else if (deploymentStats.pending_verification > 0) {
-    statusColor = 'warning'
-    statusIcon = <ExclamationmarkTriangleIcon />
-    statusText = `${deploymentStats.pending_verification} deployment${deploymentStats.pending_verification > 1 ? 's' : ''} venter verifisering`
-  } else if (alerts.length > 0) {
-    statusColor = 'warning'
-    statusIcon = <ExclamationmarkTriangleIcon />
-    statusText = `${alerts.length} åpne varsler`
-  }
-
   const naisConsoleUrl = `https://console.nav.cloud.nais.io/team/${app.team_slug}/${app.environment_name}/app/${app.app_name}`
 
   return (
@@ -171,15 +151,24 @@ export default function AppDetail() {
         <div>
           <Detail textColor="subtle">Applikasjon</Detail>
           <Heading size="large">{app.app_name}</Heading>
-          <BodyShort textColor="subtle">
-            Team: <code style={{ fontSize: '0.75rem' }}>{app.team_slug}</code> | Miljø:{' '}
-            <code style={{ fontSize: '0.75rem' }}>{app.environment_name}</code>
-          </BodyShort>
-        </div>
-        <div>
-          <Tag data-color={statusColor} variant="moderate" size="medium">
-            {statusIcon} {statusText}
-          </Tag>
+          <HStack gap="space-16" align="center">
+            <BodyShort textColor="subtle">
+              Team: <code style={{ fontSize: '0.75rem' }}>{app.team_slug}</code> | Miljø:{' '}
+              <code style={{ fontSize: '0.75rem' }}>{app.environment_name}</code>
+            </BodyShort>
+            <Button
+              as="a"
+              href={naisConsoleUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              variant="tertiary"
+              size="xsmall"
+              icon={<ExternalLinkIcon aria-hidden />}
+              iconPosition="right"
+            >
+              Nais Console
+            </Button>
+          </HStack>
         </div>
       </HStack>
 
@@ -204,36 +193,53 @@ export default function AppDetail() {
             </Form>
           </HStack>
           <HGrid gap="space-16" columns={{ xs: 2, md: 3, lg: 5 }}>
-            <Box padding="space-12" borderRadius="8" background="sunken">
-              <VStack gap="space-4">
-                <Detail textColor="subtle">Totalt deployments</Detail>
-                <Heading size="large">{deploymentStats.total}</Heading>
-              </VStack>
-            </Box>
-            <Box padding="space-12" borderRadius="8" background="sunken">
-              <VStack gap="space-4">
-                <Detail textColor="subtle">Godkjent</Detail>
-                <Heading size="large" style={{ color: 'var(--ax-text-success)' }}>
-                  {deploymentStats.with_four_eyes} ({deploymentStats.four_eyes_percentage}%)
-                </Heading>
-              </VStack>
-            </Box>
-            <Box padding="space-12" borderRadius="8" background="sunken">
-              <VStack gap="space-4">
-                <Detail textColor="subtle">Mangler godkjenning</Detail>
-                <Heading size="large" style={{ color: 'var(--ax-text-danger)' }}>
-                  {deploymentStats.without_four_eyes}
-                </Heading>
-              </VStack>
-            </Box>
-            <Box padding="space-12" borderRadius="8" background="sunken">
-              <VStack gap="space-4">
-                <Detail textColor="subtle">Venter verifisering</Detail>
-                <Heading size="large" style={{ color: 'var(--ax-text-warning)' }}>
-                  {deploymentStats.pending_verification}
-                </Heading>
-              </VStack>
-            </Box>
+            <Link to={`/apps/${app.id}/deployments?period=${currentPeriod}`} className={styles.statCardLink}>
+              <Box padding="space-12" borderRadius="8" background="sunken" className={styles.clickableCard}>
+                <VStack gap="space-4">
+                  <Detail textColor="subtle">Totalt deployments</Detail>
+                  <Heading size="large">{deploymentStats.total}</Heading>
+                </VStack>
+              </Box>
+            </Link>
+            <Link
+              to={`/apps/${app.id}/deployments?status=approved&period=${currentPeriod}`}
+              className={styles.statCardLink}
+            >
+              <Box padding="space-12" borderRadius="8" background="sunken" className={styles.clickableCard}>
+                <VStack gap="space-4">
+                  <Detail textColor="subtle">Godkjent</Detail>
+                  <Heading size="large" style={{ color: 'var(--ax-text-success)' }}>
+                    {deploymentStats.with_four_eyes} ({deploymentStats.four_eyes_percentage}%)
+                  </Heading>
+                </VStack>
+              </Box>
+            </Link>
+            <Link
+              to={`/apps/${app.id}/deployments?status=not_approved&period=${currentPeriod}`}
+              className={styles.statCardLink}
+            >
+              <Box padding="space-12" borderRadius="8" background="sunken" className={styles.clickableCard}>
+                <VStack gap="space-4">
+                  <Detail textColor="subtle">Mangler godkjenning</Detail>
+                  <Heading size="large" style={{ color: 'var(--ax-text-danger)' }}>
+                    {deploymentStats.without_four_eyes}
+                  </Heading>
+                </VStack>
+              </Box>
+            </Link>
+            <Link
+              to={`/apps/${app.id}/deployments?status=pending&period=${currentPeriod}`}
+              className={styles.statCardLink}
+            >
+              <Box padding="space-12" borderRadius="8" background="sunken" className={styles.clickableCard}>
+                <VStack gap="space-4">
+                  <Detail textColor="subtle">Venter verifisering</Detail>
+                  <Heading size="large" style={{ color: 'var(--ax-text-warning)' }}>
+                    {deploymentStats.pending_verification}
+                  </Heading>
+                </VStack>
+              </Box>
+            </Link>
             <Box padding="space-12" borderRadius="8" background="sunken">
               <VStack gap="space-4">
                 <Detail textColor="subtle">Siste deployment</Detail>
@@ -245,23 +251,6 @@ export default function AppDetail() {
               </VStack>
             </Box>
           </HGrid>
-          <HStack gap="space-8">
-            <Button as={Link} to={`/apps/${app.id}/deployments`} variant="tertiary" size="small">
-              Se alle deployments
-            </Button>
-            <Button
-              as="a"
-              href={naisConsoleUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              variant="tertiary"
-              size="small"
-              icon={<ExternalLinkIcon aria-hidden />}
-              iconPosition="right"
-            >
-              Åpne i Nais Console
-            </Button>
-          </HStack>
         </VStack>
       </Box>
 
@@ -550,12 +539,6 @@ export default function AppDetail() {
           )}
         </VStack>
       </Box>
-
-      <div>
-        <Button as={Link} to="/apps" variant="tertiary" size="small">
-          ← Tilbake til applikasjoner
-        </Button>
-      </div>
     </VStack>
   )
 }
