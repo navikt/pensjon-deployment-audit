@@ -1,5 +1,6 @@
 import type { LoaderFunctionArgs } from 'react-router'
 import { getAuditReportById } from '~/db/audit-reports.server'
+import { getAllUserMappings } from '~/db/user-mappings.server'
 import { generateAuditReportPdf } from '~/lib/audit-report-pdf'
 
 export async function loader({ params }: LoaderFunctionArgs) {
@@ -25,6 +26,12 @@ export async function loader({ params }: LoaderFunctionArgs) {
     })
   }
 
+  // Get user mappings for display names
+  const mappingsArray = await getAllUserMappings()
+  const userMappings = Object.fromEntries(
+    mappingsArray.map((m) => [m.github_username, { display_name: m.display_name, nav_ident: m.nav_ident }]),
+  )
+
   // Generate PDF on-the-fly
   const pdfBuffer = await generateAuditReportPdf({
     appName: report.app_name,
@@ -38,6 +45,7 @@ export async function loader({ params }: LoaderFunctionArgs) {
     contentHash: report.content_hash,
     reportId: report.report_id,
     generatedAt: new Date(report.generated_at),
+    userMappings,
   })
 
   return new Response(new Uint8Array(pdfBuffer), {

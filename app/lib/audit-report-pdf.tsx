@@ -207,6 +207,20 @@ interface AuditReportPdfProps {
   contentHash: string
   reportId: string
   generatedAt: Date
+  userMappings?: Record<string, { display_name: string | null; nav_ident: string | null }>
+}
+
+// Helper to format user name with GitHub username in parentheses
+function formatUserName(
+  githubUsername: string | null | undefined,
+  userMappings?: Record<string, { display_name: string | null; nav_ident: string | null }>,
+): string {
+  if (!githubUsername) return 'N/A'
+  const mapping = userMappings?.[githubUsername]
+  if (mapping?.display_name) {
+    return `${mapping.display_name} (${githubUsername})`
+  }
+  return githubUsername
 }
 
 function formatDate(date: Date | string): string {
@@ -237,6 +251,7 @@ function AuditReportPdfDocument(props: AuditReportPdfProps) {
     contentHash,
     reportId,
     generatedAt,
+    userMappings,
   } = props
 
   const totalDeployments = reportData.deployments.length
@@ -426,8 +441,10 @@ function AuditReportPdfDocument(props: AuditReportPdfProps) {
                     <Text style={[styles.tableCell, styles.col4]}>
                       {d.method === 'pr' ? 'PR' : d.method === 'legacy' ? 'Legacy' : 'Manuell'}
                     </Text>
-                    <Text style={[styles.tableCell, styles.col5]}>{d.deployer || 'N/A'}</Text>
-                    <Text style={[styles.tableCell, styles.col6]}>{d.approver || '-'}</Text>
+                    <Text style={[styles.tableCell, styles.col5]}>{formatUserName(d.deployer, userMappings)}</Text>
+                    <Text style={[styles.tableCell, styles.col6]}>
+                      {d.approver ? formatUserName(d.approver, userMappings) : '-'}
+                    </Text>
                     <Text style={[styles.tableCell, styles.col7]}>
                       {d.method === 'legacy' ? '-' : d.pr_number ? `PR #${d.pr_number}` : 'Slack'}
                     </Text>
@@ -461,7 +478,7 @@ function AuditReportPdfDocument(props: AuditReportPdfProps) {
                   Deployment #{approval.deployment_id} - {formatDate(approval.date)}
                 </Text>
                 <Text style={styles.manualDetail}>Commit: {approval.commit_sha}</Text>
-                <Text style={styles.manualDetail}>Deployer: {approval.deployer}</Text>
+                <Text style={styles.manualDetail}>Deployer: {formatUserName(approval.deployer, userMappings)}</Text>
                 <Text style={styles.manualDetail}>Årsak: {approval.reason}</Text>
                 <Text style={styles.manualDetail}>Godkjent av: {approval.approved_by}</Text>
                 <Text style={styles.manualDetail}>Godkjent: {formatDateTime(approval.approved_at)}</Text>
