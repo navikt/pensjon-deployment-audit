@@ -26,6 +26,7 @@ const dynamicBreadcrumbs: Array<{
   pattern: RegExp
   getLabel: (matches: ReturnType<typeof useMatches>, pathname: string) => string
   parent: string
+  getParentLabel?: (matches: ReturnType<typeof useMatches>) => string
 }> = [
   {
     pattern: /^\/apps\/(\d+)$/,
@@ -40,6 +41,12 @@ const dynamicBreadcrumbs: Array<{
     pattern: /^\/apps\/(\d+)\/deployments$/,
     getLabel: () => 'Deployments',
     parent: '/apps/:id',
+    getParentLabel: (matches) => {
+      // Find the match that has app data (the deployments route itself has app in loader)
+      const match = matches.find((m) => m.pathname.match(/^\/apps\/\d+\/deployments$/))
+      const data = match?.data as { app?: { app_name?: string } } | undefined
+      return data?.app?.app_name || 'Applikasjon'
+    },
   },
   {
     pattern: /^\/deployments\/(\d+)$/,
@@ -100,7 +107,10 @@ function buildBreadcrumbs(pathname: string, matches: ReturnType<typeof useMatche
         if (appMatch) {
           crumbs.push({ path: '/apps', label: 'Applikasjoner' })
           const appPath = `/apps/${appMatch[1]}`
-          const appLabel = dynamicBreadcrumbs[0].getLabel(matches, appPath)
+          // Use getParentLabel if available, otherwise fallback to first dynamic config
+          const appLabel = dynamic.getParentLabel
+            ? dynamic.getParentLabel(matches)
+            : dynamicBreadcrumbs[0].getLabel(matches, appPath)
           crumbs.push({ path: appPath, label: appLabel })
         }
       } else if (dynamic.parent && breadcrumbConfig[dynamic.parent]) {
