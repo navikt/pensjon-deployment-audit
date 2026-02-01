@@ -517,6 +517,14 @@ function AuditReportPdfDocument(props: AuditReportPdfProps) {
           </View>
         </View>
 
+        <Text
+          style={styles.pageNumber}
+          render={({ pageNumber, totalPages }) => `Side ${pageNumber} av ${totalPages}`}
+        />
+      </Page>
+
+      {/* Final page: Verification */}
+      <Page size="A4" style={styles.page}>
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Verifisering</Text>
           <View style={styles.methodologyBox}>
