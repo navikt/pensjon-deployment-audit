@@ -96,7 +96,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
             </Box>
           </Link>
 
-          <Link to="/deployments?status=not_approved" className={styles.statCardLink}>
+          <Link to="/deployments?status=not_approved&period=all" className={styles.statCardLink}>
             <Box
               padding="space-20"
               borderRadius="8"
