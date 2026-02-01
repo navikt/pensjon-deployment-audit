@@ -196,16 +196,7 @@ export default function UserPage() {
 
       {/* Recent deployments */}
       <VStack gap="space-16">
-        <HStack justify="space-between" align="center">
-          <Heading size="small">Siste deployments</Heading>
-          {deploymentCount > 5 && (
-            <Link to={`/deployments?deployer=${username}`}>
-              <Button variant="tertiary" size="small">
-                Se alle ({deploymentCount})
-              </Button>
-            </Link>
-          )}
-        </HStack>
+        <Heading size="small">Siste deployments ({deploymentCount})</Heading>
 
         {recentDeployments.length === 0 ? (
           <Box padding="space-24" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
@@ -220,7 +211,9 @@ export default function UserPage() {
                     <BodyShort weight="semibold" style={{ whiteSpace: 'nowrap' }}>
                       {formatDate(deployment.created_at)}
                     </BodyShort>
-                    <Link to={`/apps/${deployment.monitored_app_id}`}>
+                    <Link
+                      to={`/team/${deployment.team_slug}/env/${deployment.environment_name}/app/${deployment.app_name}`}
+                    >
                       <BodyShort>{deployment.app_name}</BodyShort>
                     </Link>
                   </HStack>
