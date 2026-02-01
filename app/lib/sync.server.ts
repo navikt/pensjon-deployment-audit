@@ -27,11 +27,57 @@ import {
   findPRForRebasedCommit,
   getCommitsBetween,
   getDetailedPullRequestInfo,
+  getPullRequestCommits,
   getPullRequestForCommit,
   type PullRequestWithMatchInfo,
   verifyPullRequestFourEyes,
 } from '~/lib/github.server'
 import { fetchApplicationDeployments, fetchNewDeployments } from '~/lib/nais.server'
+
+/**
+ * Verify four-eyes approval from already fetched PR data
+ * This avoids duplicate API calls when we already have the PR details
+ */
+function verifyFourEyesFromPrData(prData: {
+  creator?: { username: string }
+  reviewers?: Array<{ username: string; state: string; submitted_at: string }>
+  commits?: Array<{ sha: string; date: string }>
+}): { hasFourEyes: boolean; reason: string } {
+  const prCreator = prData.creator?.username || ''
+  const reviewers = prData.reviewers || []
+  const commits = prData.commits || []
+
+  if (commits.length === 0) {
+    return { hasFourEyes: false, reason: 'No commits found in PR' }
+  }
+
+  // Get the timestamp of the last commit
+  const lastCommitDate = new Date(commits[commits.length - 1].date)
+
+  // Find approved reviews that came after the last commit
+  const approvedReviewsAfterLastCommit = reviewers.filter((review) => {
+    if (review.state !== 'APPROVED' || !review.submitted_at) {
+      return false
+    }
+    const reviewDate = new Date(review.submitted_at)
+    return reviewDate > lastCommitDate
+  })
+
+  if (approvedReviewsAfterLastCommit.length > 0) {
+    return {
+      hasFourEyes: true,
+      reason: `Approved by ${approvedReviewsAfterLastCommit[0].username} after last commit`,
+    }
+  }
+
+  // No approved reviews after last commit
+  const approvedReviews = reviewers.filter((r) => r.state === 'APPROVED')
+  if (approvedReviews.length === 0) {
+    return { hasFourEyes: false, reason: 'No approved reviews found' }
+  }
+
+  return { hasFourEyes: false, reason: 'Approval was before last commit' }
+}
 
 /**
  * Step 1: Sync deployments from Nais API to database
@@ -399,6 +445,7 @@ export async function verifyDeploymentsFourEyes(filters?: DeploymentFilters & { 
         `${deployment.detected_github_owner}/${deployment.detected_github_repo_name}`,
         deployment.environment_name,
         deployment.trigger_url,
+        deployment.default_branch || 'main',
       )
 
       if (success) {
@@ -439,6 +486,7 @@ export async function verifyDeploymentFourEyes(
   repository: string,
   environmentName: string,
   _triggerUrl?: string | null,
+  baseBranch: string = 'main',
 ): Promise<boolean> {
   const repoParts = repository.split('/')
   if (repoParts.length !== 2) {
@@ -452,7 +500,8 @@ export async function verifyDeploymentFourEyes(
     console.log(`🔍 [Deployment ${deploymentId}] Verifying commits up to ${commitSha.substring(0, 7)} in ${repository}`)
 
     // Step 1: Get PR info for the deployed commit itself (for UI display)
-    const deployedCommitPr = await getPullRequestForCommit(owner, repo, commitSha)
+    // For the deployed commit, we don't filter by base branch since it might be a merge commit
+    const deployedCommitPr = await getPullRequestForCommit(owner, repo, commitSha, false, baseBranch)
     let deployedPrNumber: number | null = null
     let deployedPrUrl: string | null = null
     let deployedPrData: any = null
@@ -559,11 +608,61 @@ export async function verifyDeploymentFourEyes(
     const unverifiedCommits: UnverifiedCommit[] = []
     const prCache = new Map<number, { hasFourEyes: boolean; reason: string }>()
 
+    // Pre-verify the deployed commit's PR and get its commits for fast lookup
+    let deployedPrCommitShas: Set<string> = new Set()
+    if (deployedPrNumber && deployedPrData) {
+      // Use commits from deployedPrData instead of fetching again
+      if (deployedPrData.commits && deployedPrData.commits.length > 0) {
+        deployedPrCommitShas = new Set(deployedPrData.commits.map((c: { sha: string }) => c.sha))
+        console.log(`   📋 Deployed PR #${deployedPrNumber} has ${deployedPrCommitShas.size} commits`)
+      }
+
+      // Verify four-eyes using already fetched reviewers data
+      const deployedPrApproval = verifyFourEyesFromPrData(deployedPrData)
+      prCache.set(deployedPrNumber, deployedPrApproval)
+      console.log(
+        `   🔍 Deployed PR #${deployedPrNumber}: ${deployedPrApproval.hasFourEyes ? '✅ approved' : '❌ not approved'}`,
+      )
+    } else if (deployedPrNumber) {
+      // Fallback: fetch if we don't have deployedPrData
+      const deployedPrApproval = await verifyPullRequestFourEyes(owner, repo, deployedPrNumber)
+      prCache.set(deployedPrNumber, deployedPrApproval)
+      console.log(
+        `   🔍 Deployed PR #${deployedPrNumber}: ${deployedPrApproval.hasFourEyes ? '✅ approved' : '❌ not approved'}`,
+      )
+
+      // Get commits for fast lookup
+      if (deployedPrApproval.hasFourEyes) {
+        const prCommits = await getPullRequestCommits(owner, repo, deployedPrNumber)
+        deployedPrCommitShas = new Set(prCommits.map((c) => c.sha))
+        console.log(`   📋 Deployed PR #${deployedPrNumber} has ${deployedPrCommitShas.size} commits`)
+      }
+    }
+
     for (const commit of commitsBetween) {
       // Skip merge commits (they're verified through their source PRs)
       if (commit.parents_count >= 2) {
         console.log(`   ⏭️  Skipping merge commit ${commit.sha.substring(0, 7)}`)
         continue
+      }
+
+      // Fast path: If commit is directly in the deployed PR and that PR is approved
+      if (deployedPrNumber && deployedPrCommitShas.has(commit.sha)) {
+        const deployedPrApproval = prCache.get(deployedPrNumber)!
+        if (deployedPrApproval.hasFourEyes) {
+          console.log(`   ✅ Commit ${commit.sha.substring(0, 7)}: in approved PR #${deployedPrNumber}`)
+          await updateCommitPrVerification(
+            owner,
+            repo,
+            commit.sha,
+            deployedPrNumber,
+            deployedPrData?.title || null,
+            deployedPrUrl,
+            true,
+            'in_approved_pr',
+          )
+          continue
+        }
       }
 
       // Check if we have cached verification in database
@@ -598,7 +697,13 @@ export async function verifyDeploymentFourEyes(
       // No cached result OR cached as no_pr - check GitHub API
       // Use verifyCommitIsInPR=true to detect commits that were pushed to main
       // and then "smuggled" into a PR when the PR merged main into its branch.
-      let prInfo: PullRequestWithMatchInfo | null = await getPullRequestForCommit(owner, repo, commit.sha, true)
+      let prInfo: PullRequestWithMatchInfo | null = await getPullRequestForCommit(
+        owner,
+        repo,
+        commit.sha,
+        true,
+        baseBranch,
+      )
 
       // If no PR found via standard lookup, try rebase matching
       if (!prInfo) {
@@ -615,10 +720,35 @@ export async function verifyDeploymentFourEyes(
           commit.date, // This is author_date in our commit data
           commit.message,
           prevDeploymentDate,
+          baseBranch,
         )
       }
 
       if (!prInfo) {
+        // No direct PR to main found. But if this commit is part of a merge that went to main
+        // (e.g., nested feature branch PRs), it's covered by the deployed PR's approval.
+        // Check if the deployed commit has an approved PR that covers this commit.
+        if (deployedPrNumber && prCache.has(deployedPrNumber)) {
+          const deployedPrApproval = prCache.get(deployedPrNumber)!
+          if (deployedPrApproval.hasFourEyes) {
+            console.log(
+              `   ✅ Commit ${commit.sha.substring(0, 7)}: No direct main-PR, but covered by approved PR #${deployedPrNumber}`,
+            )
+            // Cache as approved under the deployed PR
+            await updateCommitPrVerification(
+              owner,
+              repo,
+              commit.sha,
+              deployedPrNumber,
+              deployedPrData?.title || null,
+              deployedPrUrl,
+              true,
+              'covered_by_merge_pr',
+            )
+            continue
+          }
+        }
+
         console.log(`   ❌ Commit ${commit.sha.substring(0, 7)}: No PR found (direct push to main)`)
 
         // Cache the result

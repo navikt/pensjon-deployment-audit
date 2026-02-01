@@ -2,6 +2,7 @@ import {
   BarChartIcon,
   CheckmarkCircleIcon,
   CheckmarkIcon,
+  CogIcon,
   DownloadIcon,
   ExclamationmarkTriangleIcon,
   ExternalLinkIcon,
@@ -25,6 +26,7 @@ import {
   Show,
   Tag,
   Textarea,
+  TextField,
   VStack,
 } from '@navikt/ds-react'
 import { useState } from 'react'
@@ -46,7 +48,7 @@ import {
 } from '~/db/application-repositories.server'
 import { checkAuditReadiness, getAuditReportsForApp } from '~/db/audit-reports.server'
 import { getAppDeploymentStats } from '~/db/deployments.server'
-import { getMonitoredApplicationByIdentity } from '~/db/monitored-applications.server'
+import { getMonitoredApplicationByIdentity, updateMonitoredApplication } from '~/db/monitored-applications.server'
 import { getDateRangeForPeriod, TIME_PERIOD_OPTIONS, type TimePeriod } from '~/lib/time-periods'
 import styles from '~/styles/common.module.css'
 
@@ -130,6 +132,18 @@ export async function action({ request }: ActionFunctionArgs) {
       return { success: 'Varsel markert som løst!' }
     }
 
+    if (action === 'update_default_branch') {
+      const appId = parseInt(formData.get('app_id') as string, 10)
+      const defaultBranch = formData.get('default_branch') as string
+
+      if (!defaultBranch?.trim()) {
+        return { error: 'Default branch kan ikke være tom' }
+      }
+
+      await updateMonitoredApplication(appId, { default_branch: defaultBranch.trim() })
+      return { success: `Default branch oppdatert til "${defaultBranch.trim()}"` }
+    }
+
     return { error: 'Ukjent handling' }
   } catch (error) {
     console.error('Action error:', error)
@@ -170,10 +184,11 @@ export default function AppDetail() {
       <HStack justify="space-between" align="start" wrap>
         <div>
           <Heading size="large">{app.app_name}</Heading>
-          <HStack gap="space-16" align="center">
+          <HStack gap="space-16" align="center" wrap>
             <BodyShort textColor="subtle">
               Team: <code style={{ fontSize: '0.75rem' }}>{app.team_slug}</code> | Miljø:{' '}
-              <code style={{ fontSize: '0.75rem' }}>{app.environment_name}</code>
+              <code style={{ fontSize: '0.75rem' }}>{app.environment_name}</code> | Branch:{' '}
+              <code style={{ fontSize: '0.75rem' }}>{app.default_branch}</code>
             </BodyShort>
             <Button
               as="a"
@@ -611,6 +626,33 @@ export default function AppDetail() {
           {repositories.length === 0 && (
             <BodyShort textColor="subtle">Ingen repositories registrert for denne applikasjonen</BodyShort>
           )}
+        </VStack>
+      </Box>
+
+      {/* Settings Section */}
+      <Box padding="space-24" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
+        <VStack gap="space-20">
+          <Heading size="medium">
+            <CogIcon aria-hidden /> Innstillinger
+          </Heading>
+
+          <Form method="post">
+            <input type="hidden" name="action" value="update_default_branch" />
+            <input type="hidden" name="app_id" value={app.id} />
+            <HStack gap="space-16" align="end" wrap>
+              <TextField
+                label="Default branch"
+                description="Branchen som PR-er må gå til for å bli godkjent (f.eks. main, master)"
+                name="default_branch"
+                defaultValue={app.default_branch}
+                size="small"
+                style={{ minWidth: '200px' }}
+              />
+              <Button type="submit" size="small" variant="secondary">
+                Lagre
+              </Button>
+            </HStack>
+          </Form>
         </VStack>
       </Box>
     </VStack>

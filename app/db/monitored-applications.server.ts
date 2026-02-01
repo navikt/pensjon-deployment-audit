@@ -6,6 +6,7 @@ export interface MonitoredApplication {
   environment_name: string
   app_name: string
   is_active: boolean
+  default_branch: string
   created_at: Date
   updated_at: Date
 }
@@ -67,6 +68,7 @@ export async function updateMonitoredApplication(
   id: number,
   data: {
     is_active?: boolean
+    default_branch?: string
   },
 ): Promise<MonitoredApplication> {
   const updates: string[] = []
@@ -76,6 +78,11 @@ export async function updateMonitoredApplication(
   if (data.is_active !== undefined) {
     updates.push(`is_active = $${paramCount++}`)
     values.push(data.is_active)
+  }
+
+  if (data.default_branch !== undefined) {
+    updates.push(`default_branch = $${paramCount++}`)
+    values.push(data.default_branch)
   }
 
   if (updates.length === 0) {

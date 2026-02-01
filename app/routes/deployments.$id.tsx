@@ -300,7 +300,14 @@ export async function action({ request, params }: Route.ActionArgs) {
       if (updatedDeployment && commitSha) {
         console.log(`🔄 Running full GitHub verification for legacy deployment ${deploymentId}`)
         const repository = `${updatedDeployment.detected_github_owner}/${updatedDeployment.detected_github_repo_name}`
-        await verifyDeploymentFourEyes(deploymentId, commitSha, repository, updatedDeployment.environment_name)
+        await verifyDeploymentFourEyes(
+          deploymentId,
+          commitSha,
+          repository,
+          updatedDeployment.environment_name,
+          undefined,
+          updatedDeployment.default_branch || 'main',
+        )
 
         // Reload deployment to get the updated PR data from verification
         updatedDeployment = await getDeploymentById(deploymentId)
@@ -483,6 +490,7 @@ export async function action({ request, params }: Route.ActionArgs) {
         `${deployment.detected_github_owner}/${deployment.detected_github_repo_name}`,
         deployment.environment_name,
         deployment.trigger_url,
+        deployment.default_branch || 'main',
       )
 
       if (success) {

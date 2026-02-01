@@ -138,6 +138,7 @@ export interface DeploymentWithApp extends Deployment {
   team_slug: string
   environment_name: string
   app_name: string
+  default_branch: string
 }
 
 export interface CreateDeploymentParams {
@@ -273,7 +274,8 @@ export async function getDeploymentsPaginated(filters?: DeploymentFilters): Prom
       d.*,
       ma.team_slug,
       ma.environment_name,
-      ma.app_name
+      ma.app_name,
+      ma.default_branch
     FROM deployments d
     JOIN monitored_applications ma ON d.monitored_app_id = ma.id
     ${whereSql}
@@ -299,7 +301,8 @@ export async function getDeploymentById(id: number): Promise<DeploymentWithApp |
       d.*,
       ma.team_slug,
       ma.environment_name,
-      ma.app_name
+      ma.app_name,
+      ma.default_branch
     FROM deployments d
     JOIN monitored_applications ma ON d.monitored_app_id = ma.id
     WHERE d.id = $1`,

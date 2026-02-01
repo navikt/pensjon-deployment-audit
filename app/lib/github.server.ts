@@ -159,11 +159,14 @@ export async function getPullRequestForCommit(
   repo: string,
   sha: string,
   verifyCommitIsInPR: boolean = false,
+  baseBranch?: string,
 ): Promise<PullRequest | null> {
   const client = getGitHubClient()
 
   try {
-    console.log(`🔎 Searching for PRs associated with commit ${sha} in ${owner}/${repo}`)
+    console.log(
+      `🔎 Searching for PRs associated with commit ${sha} in ${owner}/${repo}${baseBranch ? ` (base: ${baseBranch})` : ''}`,
+    )
 
     const response = await client.repos.listPullRequestsAssociatedWithCommit({
       owner,
@@ -178,19 +181,31 @@ export async function getPullRequestForCommit(
       return null
     }
 
+    // Filter to only PRs targeting the base branch if specified
+    const filteredPRs = baseBranch ? response.data.filter((pr) => pr.base.ref === baseBranch) : response.data
+
+    if (baseBranch && filteredPRs.length !== response.data.length) {
+      console.log(`   🔍 Filtered to ${filteredPRs.length} PR(s) targeting ${baseBranch}`)
+    }
+
     // Log all PRs found
-    response.data.forEach((pr, index) => {
+    filteredPRs.forEach((pr, index) => {
       console.log(
-        `   PR ${index + 1}: #${pr.number} - ${pr.title} (${pr.state}, merged: ${pr.merged_at ? 'yes' : 'no'})`,
+        `   PR ${index + 1}: #${pr.number} - ${pr.title} (${pr.state}, merged: ${pr.merged_at ? 'yes' : 'no'}, base: ${pr.base.ref})`,
       )
     })
+
+    if (filteredPRs.length === 0) {
+      console.log(`❌ No PRs found for commit ${sha} targeting ${baseBranch}`)
+      return null
+    }
 
     // When verifyCommitIsInPR is true, we need to check that the commit is actually
     // part of the PR's original commits, not just reachable via merge from main.
     // This is important to detect commits pushed directly to main that get
     // "smuggled" into a PR when the PR merges main into its branch.
     if (verifyCommitIsInPR) {
-      for (const pr of response.data) {
+      for (const pr of filteredPRs) {
         // Only check merged PRs
         if (!pr.merged_at) continue
 
@@ -320,7 +335,7 @@ export async function getPullRequestForCommit(
     }
 
     // Return the first (most relevant) PR (default behavior for backward compatibility)
-    const pr = response.data[0]
+    const pr = filteredPRs[0]
     console.log(`✅ Using PR #${pr.number} for verification`)
 
     return {
@@ -374,6 +389,7 @@ export async function findPRForRebasedCommit(
   commitAuthorDate: string,
   commitMessage: string,
   sinceDate?: Date,
+  baseBranch: string = 'main',
 ): Promise<PullRequestWithMatchInfo | null> {
   const client = getGitHubClient()
 
@@ -383,15 +399,16 @@ export async function findPRForRebasedCommit(
   const normalizedMessageFirstLine = commitMessage.split('\n')[0].trim()
 
   console.log(
-    `🔄 Attempting rebase match for commit ${commitSha.substring(0, 7)} (author: ${normalizedAuthor}, date: ${normalizedAuthorDate.substring(0, 19)})`,
+    `🔄 Attempting rebase match for commit ${commitSha.substring(0, 7)} (author: ${normalizedAuthor}, date: ${normalizedAuthorDate.substring(0, 19)}, base: ${baseBranch})`,
   )
 
   try {
-    // Get recently merged PRs
+    // Get recently merged PRs targeting the base branch
     const mergedPRs = await client.pulls.list({
       owner,
       repo,
       state: 'closed',
+      base: baseBranch,
       sort: 'updated',
       direction: 'desc',
       per_page: 50,
