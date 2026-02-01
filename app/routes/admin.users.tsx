@@ -16,12 +16,18 @@ import {
 import { useEffect, useRef, useState } from 'react'
 import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router'
 import { Form, Link, useActionData, useLoaderData, useNavigation } from 'react-router'
-import { deleteUserMapping, getAllUserMappings, type UserMapping, upsertUserMapping } from '~/db/user-mappings.server'
+import {
+  deleteUserMapping,
+  getAllUserMappings,
+  getUnmappedUsers,
+  type UserMapping,
+  upsertUserMapping,
+} from '~/db/user-mappings.server'
 import styles from '~/styles/common.module.css'
 
 export async function loader(_args: LoaderFunctionArgs) {
-  const mappings = await getAllUserMappings()
-  return { mappings }
+  const [mappings, unmappedUsers] = await Promise.all([getAllUserMappings(), getUnmappedUsers()])
+  return { mappings, unmappedUsers }
 }
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -55,13 +61,14 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function AdminUsers() {
-  const { mappings } = useLoaderData<typeof loader>()
+  const { mappings, unmappedUsers } = useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
   const isSubmitting = navigation.state === 'submitting'
 
   const [editMapping, setEditMapping] = useState<UserMapping | null>(null)
   const [addFormKey, setAddFormKey] = useState(0)
+  const [prefillUsername, setPrefillUsername] = useState('')
   const modalRef = useRef<HTMLDialogElement>(null)
   const addModalRef = useRef<HTMLDialogElement>(null)
 
@@ -78,6 +85,13 @@ export default function AdminUsers() {
   }
 
   const openAdd = () => {
+    setPrefillUsername('')
+    addModalRef.current?.showModal()
+  }
+
+  const openAddWithUsername = (username: string) => {
+    setPrefillUsername(username)
+    setAddFormKey((k) => k + 1)
     addModalRef.current?.showModal()
   }
 
@@ -94,6 +108,30 @@ export default function AdminUsers() {
         <BodyShort textColor="subtle">
           Kobler GitHub-brukernavn til Nav-identitet og Slack for visning i deployment-oversikten.
         </BodyShort>
+
+        {/* Unmapped users section */}
+        {unmappedUsers.length > 0 && (
+          <Box background="warning-moderate" padding="space-16" borderRadius="8">
+            <VStack gap="space-12">
+              <Heading size="small">Brukere uten mapping ({unmappedUsers.length})</Heading>
+              <BodyShort size="small">
+                Følgende GitHub-brukere har deployments men mangler mapping til Nav-identitet:
+              </BodyShort>
+              <HStack gap="space-8" wrap>
+                {unmappedUsers.map((user) => (
+                  <Button
+                    key={user.github_username}
+                    variant="secondary-neutral"
+                    size="xsmall"
+                    onClick={() => openAddWithUsername(user.github_username)}
+                  >
+                    {user.github_username} ({user.deployment_count})
+                  </Button>
+                ))}
+              </HStack>
+            </VStack>
+          </Box>
+        )}
 
         {mappings.length === 0 ? (
           <Alert variant="info">
@@ -167,7 +205,7 @@ export default function AdminUsers() {
             <Form method="post" id="add-form" key={addFormKey}>
               <input type="hidden" name="intent" value="upsert" />
               <VStack gap="space-16">
-                <TextField label="GitHub brukernavn" name="github_username" required />
+                <TextField label="GitHub brukernavn" name="github_username" required defaultValue={prefillUsername} />
                 <TextField label="Navn" name="display_name" />
                 <TextField label="Nav e-post" name="nav_email" type="email" />
                 <TextField label="Nav-ident" name="nav_ident" />

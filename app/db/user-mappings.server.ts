@@ -117,6 +117,26 @@ export async function getAllUserMappings(): Promise<UserMapping[]> {
 }
 
 /**
+ * Get GitHub usernames from deployments that don't have user mappings
+ */
+export async function getUnmappedUsers(): Promise<{ github_username: string; deployment_count: number }[]> {
+  const result = await pool.query(`
+    SELECT d.deployer_username as github_username, COUNT(*) as deployment_count
+    FROM deployments d
+    LEFT JOIN user_mappings um ON d.deployer_username = um.github_username
+    WHERE d.deployer_username IS NOT NULL
+      AND d.deployer_username != ''
+      AND um.github_username IS NULL
+    GROUP BY d.deployer_username
+    ORDER BY deployment_count DESC, github_username
+  `)
+  return result.rows.map((r) => ({
+    github_username: r.github_username,
+    deployment_count: parseInt(r.deployment_count, 10),
+  }))
+}
+
+/**
  * Clear the in-memory cache
  */
 export function clearUserMappingCache(): void {
