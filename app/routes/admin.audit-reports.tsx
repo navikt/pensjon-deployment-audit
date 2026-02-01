@@ -1,4 +1,4 @@
-import { CheckmarkCircleIcon, DownloadIcon, ExclamationmarkTriangleIcon } from '@navikt/aksel-icons'
+import { CheckmarkCircleIcon, DownloadIcon, ExclamationmarkTriangleIcon, EyeIcon } from '@navikt/aksel-icons'
 import {
   Link as AkselLink,
   Alert,
@@ -360,12 +360,22 @@ export default function AdminAuditReports() {
                           <HStack gap="space-8">
                             <Button
                               as="a"
+                              href={`/admin/audit-reports/${report.id}/view`}
+                              target="_blank"
+                              size="small"
+                              variant="tertiary"
+                              icon={<EyeIcon aria-hidden />}
+                            >
+                              Vis
+                            </Button>
+                            <Button
+                              as="a"
                               href={`/admin/audit-reports/${report.id}/pdf`}
                               size="small"
                               variant="tertiary"
                               icon={<DownloadIcon aria-hidden />}
                             >
-                              PDF
+                              Last ned
                             </Button>
                           </HStack>
                         </Table.DataCell>
@@ -394,15 +404,27 @@ export default function AdminAuditReports() {
                         </HStack>
                         <Detail>Generert: {formatDateTime(report.generated_at)}</Detail>
                         <code style={{ fontSize: '0.65rem', wordBreak: 'break-all' }}>{report.report_id}</code>
-                        <Button
-                          as="a"
-                          href={`/admin/audit-reports/${report.id}/pdf`}
-                          size="small"
-                          variant="secondary"
-                          icon={<DownloadIcon aria-hidden />}
-                        >
-                          Last ned PDF
-                        </Button>
+                        <HStack gap="space-8">
+                          <Button
+                            as="a"
+                            href={`/admin/audit-reports/${report.id}/view`}
+                            target="_blank"
+                            size="small"
+                            variant="secondary"
+                            icon={<EyeIcon aria-hidden />}
+                          >
+                            Vis
+                          </Button>
+                          <Button
+                            as="a"
+                            href={`/admin/audit-reports/${report.id}/pdf`}
+                            size="small"
+                            variant="secondary"
+                            icon={<DownloadIcon aria-hidden />}
+                          >
+                            Last ned
+                          </Button>
+                        </HStack>
                       </VStack>
                     </Box>
                   ))}

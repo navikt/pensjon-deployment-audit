@@ -5,6 +5,7 @@ import {
   DownloadIcon,
   ExclamationmarkTriangleIcon,
   ExternalLinkIcon,
+  EyeIcon,
   FileTextIcon,
   PackageIcon,
   XMarkIcon,
@@ -336,15 +337,27 @@ export default function AppDetail() {
                         </Detail>
                         <Detail textColor="subtle">Dokument-ID: {report.report_id}</Detail>
                       </VStack>
-                      <Button
-                        as="a"
-                        href={`/admin/audit-reports/${report.id}/pdf`}
-                        size="small"
-                        variant="secondary"
-                        icon={<DownloadIcon aria-hidden />}
-                      >
-                        Last ned PDF
-                      </Button>
+                      <HStack gap="space-8">
+                        <Button
+                          as="a"
+                          href={`/admin/audit-reports/${report.id}/view`}
+                          target="_blank"
+                          size="small"
+                          variant="tertiary"
+                          icon={<EyeIcon aria-hidden />}
+                        >
+                          Vis
+                        </Button>
+                        <Button
+                          as="a"
+                          href={`/admin/audit-reports/${report.id}/pdf`}
+                          size="small"
+                          variant="tertiary"
+                          icon={<DownloadIcon aria-hidden />}
+                        >
+                          Last ned
+                        </Button>
+                      </HStack>
                     </HStack>
                   </Box>
                 ))}
