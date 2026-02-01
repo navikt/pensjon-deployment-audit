@@ -565,6 +565,11 @@ function AuditReportPdfDocument(props: AuditReportPdfProps) {
                 </Text>
                 <Text style={styles.manualDetail}>Deployer: {formatUserName(approval.deployer, userMappings)}</Text>
                 <Text style={styles.manualDetail}>Årsak: {approval.reason}</Text>
+                {approval.registered_by && (
+                  <Text style={styles.manualDetail}>
+                    Registrert av: {formatUserName(approval.registered_by, userMappings)}
+                  </Text>
+                )}
                 <Text style={styles.manualDetail}>Godkjent av: {approval.approved_by}</Text>
                 <Text style={styles.manualDetail}>Godkjent: {formatDateTime(approval.approved_at)}</Text>
                 <Text style={styles.manualDetail}>

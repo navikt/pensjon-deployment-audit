@@ -59,6 +59,7 @@ export interface ManualApprovalEntry {
   commit_sha: string
   deployer: string
   reason: string
+  registered_by: string
   approved_by: string
   approved_at: string
   slack_link: string
@@ -174,6 +175,10 @@ export async function getAuditReportData(
     approved_by: string
     approved_at: Date
   }>
+  legacy_infos: Array<{
+    deployment_id: number
+    registered_by: string
+  }>
   user_mappings: Map<string, { display_name: string | null; nav_ident: string | null }>
 }> {
   const startDate = new Date(year, 0, 1)
@@ -219,6 +224,11 @@ export async function getAuditReportData(
     approved_at: Date
   }> = []
 
+  let legacy_infos: Array<{
+    deployment_id: number
+    registered_by: string
+  }> = []
+
   if (deploymentIds.length > 0) {
     const approvalsResult = await pool.query(
       `SELECT deployment_id, comment_text, slack_link, approved_by, approved_at
@@ -228,6 +238,15 @@ export async function getAuditReportData(
       [deploymentIds],
     )
     manual_approvals = approvalsResult.rows
+
+    // Get legacy_info comments to find who registered legacy deployments
+    const legacyInfoResult = await pool.query(
+      `SELECT deployment_id, registered_by
+       FROM deployment_comments
+       WHERE deployment_id = ANY($1) AND comment_type = 'legacy_info'`,
+      [deploymentIds],
+    )
+    legacy_infos = legacyInfoResult.rows
   }
 
   // Get user mappings for all deployers and reviewers
@@ -242,6 +261,9 @@ export async function getAuditReportData(
   }
   for (const a of manual_approvals) {
     if (a.approved_by) usernames.add(a.approved_by)
+  }
+  for (const l of legacy_infos) {
+    if (l.registered_by) usernames.add(l.registered_by)
   }
 
   const user_mappings = new Map<string, { display_name: string | null; nav_ident: string | null }>()
@@ -258,15 +280,16 @@ export async function getAuditReportData(
     }
   }
 
-  return { app, repository, deployments, manual_approvals, user_mappings }
+  return { app, repository, deployments, manual_approvals, legacy_infos, user_mappings }
 }
 
 /**
  * Build the structured report data from raw data
  */
 export function buildReportData(rawData: Awaited<ReturnType<typeof getAuditReportData>>): AuditReportData {
-  const { deployments, manual_approvals, user_mappings } = rawData
+  const { deployments, manual_approvals, legacy_infos, user_mappings } = rawData
   const manualApprovalMap = new Map(manual_approvals.map((a) => [a.deployment_id, a]))
+  const legacyInfoMap = new Map(legacy_infos.map((l) => [l.deployment_id, l]))
 
   // Build deployments list
   const deploymentEntries: AuditDeploymentEntry[] = deployments.map((d) => {
@@ -311,6 +334,19 @@ export function buildReportData(rawData: Awaited<ReturnType<typeof getAuditRepor
   // Build manual approvals list
   const manualApprovalEntries: ManualApprovalEntry[] = manual_approvals.map((a) => {
     const deployment = deployments.find((d) => d.id === a.deployment_id)
+    const legacyInfo = legacyInfoMap.get(a.deployment_id)
+
+    // Determine reason based on original status (before manually_approved)
+    // Check if there's legacy_info - that means it was a legacy deployment
+    let reason = 'Ekstra commits etter godkjenning'
+    if (legacyInfo) {
+      reason = 'Legacy deployment (GitHub-verifisert)'
+    } else if (deployment?.four_eyes_status === 'direct_push') {
+      reason = 'Direct push til main'
+    } else if ((deployment?.github_pr_data as unknown as { _legacy_verified?: boolean })?._legacy_verified) {
+      reason = 'Legacy deployment (GitHub-verifisert)'
+    }
+
     return {
       deployment_id: a.deployment_id,
       nais_deployment_id: deployment?.nais_deployment_id || '',
@@ -318,8 +354,8 @@ export function buildReportData(rawData: Awaited<ReturnType<typeof getAuditRepor
       date: deployment?.created_at.toISOString() || '',
       commit_sha: deployment?.commit_sha || '',
       deployer: deployment?.deployer_username || '',
-      reason:
-        deployment?.four_eyes_status === 'direct_push' ? 'Direct push til main' : 'Ekstra commits etter godkjenning',
+      reason,
+      registered_by: legacyInfo?.registered_by || '',
       approved_by: a.approved_by,
       approved_at: a.approved_at.toISOString(),
       slack_link: a.slack_link,
