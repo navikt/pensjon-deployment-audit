@@ -442,14 +442,7 @@ function getFourEyesStatus(deployment: any): {
   variant: 'success' | 'warning' | 'error' | 'info'
   description: string
 } {
-  if (deployment.has_four_eyes) {
-    return {
-      text: 'Godkjent',
-      variant: 'success',
-      description: 'Dette deploymentet har blitt godkjent via en approved PR.',
-    }
-  }
-
+  // Check specific statuses first, before generic has_four_eyes check
   switch (deployment.four_eyes_status) {
     case 'approved':
     case 'approved_pr':
@@ -485,10 +478,14 @@ function getFourEyesStatus(deployment: any): {
           'PR var godkjent, men det ble merget inn commits fra main som ikke har godkjenning. Se detaljer under.',
       }
     case 'legacy':
+    case 'legacy_pending':
       return {
-        text: 'Legacy (>1 år)',
-        variant: 'success',
-        description: 'Dette deploymentet er eldre enn 1 år og mangler informasjon om commit. Deploymentet er ignorert.',
+        text: deployment.four_eyes_status === 'legacy_pending' ? 'Legacy (venter)' : 'Legacy (>1 år)',
+        variant: deployment.four_eyes_status === 'legacy_pending' ? 'warning' : 'success',
+        description:
+          deployment.four_eyes_status === 'legacy_pending'
+            ? 'GitHub-data hentet. Venter på godkjenning fra en annen person.'
+            : 'Dette deploymentet er eldre enn 1 år og mangler informasjon om commit. Deploymentet er ignorert.',
       }
     case 'manually_approved':
       return {
@@ -520,12 +517,21 @@ function getFourEyesStatus(deployment: any): {
         variant: 'info',
         description: 'Deploymentet er ikke verifisert ennå.',
       }
-    default:
-      return {
-        text: 'Ukjent status',
-        variant: 'info',
-        description: `Godkjenningsstatus kunne ikke fastslås (${deployment.four_eyes_status}).`,
-      }
+  }
+
+  // Fallback for has_four_eyes without specific status
+  if (deployment.has_four_eyes) {
+    return {
+      text: 'Godkjent',
+      variant: 'success',
+      description: 'Dette deploymentet har blitt godkjent.',
+    }
+  }
+
+  return {
+    text: 'Ukjent status',
+    variant: 'info',
+    description: `Godkjenningsstatus kunne ikke fastslås (${deployment.four_eyes_status}).`,
   }
 }
 
