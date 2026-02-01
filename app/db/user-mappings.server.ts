@@ -67,6 +67,24 @@ export async function getUserMappings(githubUsernames: string[]): Promise<Map<st
 }
 
 /**
+ * Normalize a string value - trim whitespace, return null if empty
+ */
+function normalize(value: string | null | undefined): string | null {
+  if (!value) return null
+  const trimmed = value.trim()
+  return trimmed || null
+}
+
+/**
+ * Normalize an email - trim, lowercase, return null if empty
+ */
+function normalizeEmail(value: string | null | undefined): string | null {
+  if (!value) return null
+  const trimmed = value.trim().toLowerCase()
+  return trimmed || null
+}
+
+/**
  * Create or update a user mapping
  */
 export async function upsertUserMapping(params: {
@@ -76,6 +94,11 @@ export async function upsertUserMapping(params: {
   navIdent?: string | null
   slackMemberId?: string | null
 }): Promise<UserMapping> {
+  const githubUsername = normalize(params.githubUsername)
+  if (!githubUsername) {
+    throw new Error('GitHub username is required')
+  }
+
   const result = await pool.query(
     `INSERT INTO user_mappings (github_username, display_name, nav_email, nav_ident, slack_member_id, updated_at)
      VALUES ($1, $2, $3, $4, $5, NOW())
@@ -87,16 +110,16 @@ export async function upsertUserMapping(params: {
        updated_at = NOW()
      RETURNING *`,
     [
-      params.githubUsername,
-      params.displayName ?? null,
-      params.navEmail ?? null,
-      params.navIdent ?? null,
-      params.slackMemberId ?? null,
+      githubUsername,
+      normalize(params.displayName),
+      normalizeEmail(params.navEmail),
+      normalize(params.navIdent),
+      normalize(params.slackMemberId),
     ],
   )
 
   const mapping = result.rows[0]
-  userMappingCache.set(params.githubUsername, mapping)
+  userMappingCache.set(githubUsername, mapping)
   return mapping
 }
 
