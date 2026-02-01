@@ -67,7 +67,7 @@ const dynamicBreadcrumbs: Array<{
 ]
 
 interface Crumb {
-  path: string
+  path: string | null // null = not clickable
   label: string
 }
 
@@ -105,8 +105,10 @@ function buildBreadcrumbs(pathname: string, matches: ReturnType<typeof useMatche
         if (semanticMatch) {
           const [, team, env, app] = semanticMatch
           const appPath = `/team/${team}/env/${env}/app/${app}`
-          const appLabel = dynamic.getParentLabel ? dynamic.getParentLabel(matches, pathname) : app
-          crumbs.push({ path: appPath, label: appLabel })
+          // Add team and env as non-clickable context
+          crumbs.push({ path: null, label: team })
+          crumbs.push({ path: null, label: env })
+          crumbs.push({ path: appPath, label: app })
           crumbs.push({ path: `${appPath}/deployments`, label: 'Deployments' })
         }
       } else if (dynamic.parent === '/team/:team/env/:env/app/:app') {
@@ -114,8 +116,18 @@ function buildBreadcrumbs(pathname: string, matches: ReturnType<typeof useMatche
         if (semanticMatch) {
           const [, team, env, app] = semanticMatch
           const appPath = `/team/${team}/env/${env}/app/${app}`
-          const appLabel = dynamic.getParentLabel ? dynamic.getParentLabel(matches, pathname) : app
-          crumbs.push({ path: appPath, label: appLabel })
+          // Add team and env as non-clickable context
+          crumbs.push({ path: null, label: team })
+          crumbs.push({ path: null, label: env })
+          crumbs.push({ path: appPath, label: app })
+        }
+      } else if (dynamic.parent === '/' && pathname.startsWith('/team/')) {
+        // App detail page: add team and env as non-clickable context
+        const semanticMatch = pathname.match(/^\/team\/([^/]+)\/env\/([^/]+)\/app\/([^/]+)/)
+        if (semanticMatch) {
+          const [, team, env] = semanticMatch
+          crumbs.push({ path: null, label: team })
+          crumbs.push({ path: null, label: env })
         }
       } else if (dynamic.parent && dynamic.parent !== '/' && breadcrumbConfig[dynamic.parent]) {
         // Add static parent (but not home, that's already added)
@@ -160,18 +172,21 @@ export function Breadcrumbs() {
           {crumbs.map((crumb, index) => {
             const isLast = index === crumbs.length - 1
             const isHome = crumb.path === '/'
+            const isClickable = crumb.path !== null
 
             return (
-              <HStack key={crumb.path} gap="space-4" align="center">
+              <HStack key={`${crumb.label}-${index}`} gap="space-4" align="center">
                 {index > 0 && <ChevronRightIcon aria-hidden fontSize="1rem" />}
                 {isLast ? (
                   <Detail aria-current="page">{isHome ? <HouseIcon aria-label="Hjem" /> : crumb.label}</Detail>
-                ) : (
+                ) : isClickable && crumb.path ? (
                   <Link to={crumb.path} style={{ textDecoration: 'none' }}>
                     <Detail className="breadcrumb-link">
                       {isHome ? <HouseIcon aria-label="Hjem" fontSize="1rem" /> : crumb.label}
                     </Detail>
                   </Link>
+                ) : (
+                  <Detail textColor="subtle">{crumb.label}</Detail>
                 )}
               </HStack>
             )
