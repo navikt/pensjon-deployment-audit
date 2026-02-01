@@ -4,9 +4,7 @@
 import { getMonitoredApplicationById } from '~/db/monitored-applications.server'
 import type { Route } from './+types/apps.$id.deployments.$deploymentId'
 
-export { action } from './deployments.$id'
-
-import { default as DeploymentDetail, loader as deploymentLoader } from './deployments.$id'
+import { default as DeploymentDetail, action as deploymentAction, loader as deploymentLoader } from './deployments.$id'
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   const appId = parseInt(params.id, 10)
@@ -31,6 +29,14 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     app,
     appContext: true,
   }
+}
+
+// Wrap the action to pass deploymentId as id
+export async function action({ params, request }: Route.ActionArgs) {
+  return deploymentAction({
+    params: { id: params.deploymentId },
+    request,
+  } as Parameters<typeof deploymentAction>[0])
 }
 
 export default DeploymentDetail
