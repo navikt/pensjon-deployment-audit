@@ -128,7 +128,7 @@ export async function getUnmappedUsers(): Promise<{ github_username: string; dep
       AND d.deployer_username != ''
       AND um.github_username IS NULL
     GROUP BY d.deployer_username
-    ORDER BY deployment_count DESC, github_username
+    ORDER BY github_username
   `)
   return result.rows.map((r) => ({
     github_username: r.github_username,
