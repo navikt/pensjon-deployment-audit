@@ -1,5 +1,5 @@
 import { MenuHamburgerIcon, MoonIcon, SunIcon } from '@navikt/aksel-icons'
-import { ActionMenu, Button, Hide, InternalHeader, Show, Spacer } from '@navikt/ds-react'
+import { ActionMenu, Hide, InternalHeader, Show, Spacer } from '@navikt/ds-react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router'
 import { useTheme } from '~/hooks/useTheme'
 import styles from '../styles/common.module.css'
@@ -70,12 +70,13 @@ export default function Layout() {
           </nav>
         </Show>
 
-        <Button
-          variant="tertiary-neutral"
-          size="small"
-          icon={theme === 'light' ? <MoonIcon title="Bytt til mørkt tema" /> : <SunIcon title="Bytt til lyst tema" />}
-          onClick={toggleTheme}
-        />
+        <InternalHeader.Button onClick={toggleTheme}>
+          {theme === 'light' ? (
+            <MoonIcon title="Bytt til mørkt tema" style={{ fontSize: '1.5rem' }} />
+          ) : (
+            <SunIcon title="Bytt til lyst tema" style={{ fontSize: '1.5rem' }} />
+          )}
+        </InternalHeader.Button>
       </InternalHeader>
 
       <div className={styles.layoutMain}>
