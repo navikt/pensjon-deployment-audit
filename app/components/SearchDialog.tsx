@@ -37,8 +37,14 @@ export function SearchDialog() {
   const [loading, setLoading] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(0)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const resultsRef = useRef<SearchResult[]>([])
+  const selectedIndexRef = useRef(0)
   const navigate = useNavigate()
   const location = useLocation()
+
+  // Keep refs in sync with state
+  resultsRef.current = results
+  selectedIndexRef.current = selectedIndex
 
   // Close dialog on navigation
   // biome-ignore lint/correctness/useExhaustiveDependencies: We want this to run when pathname changes
@@ -59,6 +65,32 @@ export function SearchDialog() {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
+
+  // Arrow key navigation when dialog is open
+  useEffect(() => {
+    if (!open) return
+
+    const handleArrowKeys = (e: KeyboardEvent) => {
+      const currentResults = resultsRef.current
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setSelectedIndex((i) => Math.min(i + 1, currentResults.length - 1))
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setSelectedIndex((i) => Math.max(i - 1, 0))
+      } else if (e.key === 'Enter' && currentResults.length > 0) {
+        e.preventDefault()
+        const result = currentResults[selectedIndexRef.current]
+        if (result) {
+          navigate(result.url)
+          setOpen(false)
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleArrowKeys)
+    return () => window.removeEventListener('keydown', handleArrowKeys)
+  }, [open, navigate])
 
   // Debounced search
   useEffect(() => {
@@ -93,19 +125,6 @@ export function SearchDialog() {
     },
     [navigate],
   )
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      setSelectedIndex((i) => Math.min(i + 1, results.length - 1))
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      setSelectedIndex((i) => Math.max(i - 1, 0))
-    } else if (e.key === 'Enter' && results[selectedIndex]) {
-      e.preventDefault()
-      handleSelect(results[selectedIndex])
-    }
-  }
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => setOpen(nextOpen)}>
@@ -146,7 +165,6 @@ export function SearchDialog() {
             placeholder="Søk på navn, NAV-ident, e-post, SHA..."
             value={query}
             onChange={setQuery}
-            onKeyDown={handleKeyDown}
             autoComplete="off"
           />
         </Dialog.Header>
@@ -167,66 +185,74 @@ export function SearchDialog() {
           )}
 
           {!loading && results.length > 0 && (
-            <VStack as="ul" gap="space-0" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-              {results.map((result, index) => (
-                <Box
-                  as="li"
-                  key={`${result.type}-${result.id || result.title}`}
-                  padding="space-12"
-                  paddingInline="space-16"
-                  background={index === selectedIndex ? 'neutral-moderate' : undefined}
-                  style={{ cursor: 'pointer' }}
-                  onMouseEnter={() => setSelectedIndex(index)}
-                  onClick={() => handleSelect(result)}
-                >
-                  <Link
-                    to={result.url}
-                    style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}
-                    onClick={(e) => {
-                      e.preventDefault()
-                      handleSelect(result)
-                    }}
-                  >
-                    <HStack gap="space-12" align="center">
-                      <MagnifyingGlassIcon
-                        aria-hidden
-                        style={{ fontSize: '1rem', color: 'var(--ax-text-neutral-subtle)' }}
-                      />
-                      <VStack gap="space-2" style={{ flex: 1, minWidth: 0 }}>
-                        <HStack gap="space-8" align="center">
-                          <BodyShort
-                            weight="semibold"
-                            style={{
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {result.title}
-                          </BodyShort>
-                          <Tag size="xsmall" variant={result.type === 'deployment' ? 'info' : 'neutral'}>
-                            {result.type === 'deployment' ? 'Deployment' : 'Bruker'}
-                          </Tag>
+            <Box paddingInline="space-12" paddingBlock="space-8">
+              <VStack as="ul" gap="space-2" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                {results.map((result, index) => {
+                  const isSelected = index === selectedIndex
+                  return (
+                    <Box
+                      as="li"
+                      key={`${result.type}-${result.id || result.title}`}
+                      padding="space-12"
+                      paddingInline="space-16"
+                      borderRadius="4"
+                      style={{
+                        cursor: 'pointer',
+                        background: isSelected ? 'var(--ax-bg-accent-moderate-pressed)' : undefined,
+                      }}
+                      onMouseEnter={() => setSelectedIndex(index)}
+                      onClick={() => handleSelect(result)}
+                    >
+                      <Link
+                        to={result.url}
+                        style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          handleSelect(result)
+                        }}
+                      >
+                        <HStack gap="space-12" align="center">
+                          <MagnifyingGlassIcon
+                            aria-hidden
+                            style={{ fontSize: '1rem', color: 'var(--ax-text-neutral-subtle)' }}
+                          />
+                          <VStack gap="space-2" style={{ flex: 1, minWidth: 0 }}>
+                            <HStack gap="space-8" align="center">
+                              <BodyShort
+                                weight="semibold"
+                                style={{
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {result.title}
+                              </BodyShort>
+                              <Tag size="xsmall" variant={result.type === 'deployment' ? 'info' : 'neutral'}>
+                                {result.type === 'deployment' ? 'Deployment' : 'Bruker'}
+                              </Tag>
+                            </HStack>
+                            {result.subtitle && (
+                              <BodyShort
+                                size="small"
+                                style={{
+                                  color: 'var(--ax-text-neutral-subtle)',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {result.subtitle}
+                              </BodyShort>
+                            )}
+                          </VStack>
                         </HStack>
-                        {result.subtitle && (
-                          <BodyShort
-                            size="small"
-                            style={{
-                              color: 'var(--ax-text-neutral-subtle)',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {result.subtitle}
-                          </BodyShort>
-                        )}
-                      </VStack>
-                    </HStack>
-                  </Link>
-                </Box>
-              ))}
-            </VStack>
+                      </Link>
+                    </Box>
+                  )
+                })}
+              </VStack>
+            </Box>
           )}
 
           {!loading && !query && (
