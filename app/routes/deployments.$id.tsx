@@ -48,6 +48,7 @@ import {
 } from '~/db/deployments.server'
 import { getMonitoredApplicationById } from '~/db/monitored-applications.server'
 import { getUserMappings } from '~/db/user-mappings.server'
+import { getNavIdent } from '~/lib/auth.server'
 import { lookupLegacyByCommit, lookupLegacyByPR } from '~/lib/github.server'
 import { verifyDeploymentFourEyes } from '~/lib/sync.server'
 import { getDateRangeForPeriod, type TimePeriod } from '~/lib/time-periods'
@@ -150,12 +151,12 @@ export async function action({ request, params }: Route.ActionArgs) {
   }
 
   if (intent === 'manual_approval') {
-    const approvedBy = formData.get('approved_by') as string
+    const navIdent = getNavIdent(request)
     const reason = formData.get('reason') as string
     const slackLink = formData.get('slack_link') as string
 
-    if (!approvedBy || approvedBy.trim() === '') {
-      return { error: 'Godkjenner må oppgis' }
+    if (!navIdent) {
+      return { error: 'Kunne ikke identifisere bruker. Vennligst logg inn på nytt.' }
     }
 
     if (!slackLink || slackLink.trim() === '') {
@@ -169,7 +170,7 @@ export async function action({ request, params }: Route.ActionArgs) {
         comment_text: reason || 'Manuelt godkjent etter gjennomgang',
         slack_link: slackLink.trim(),
         comment_type: 'manual_approval',
-        approved_by: approvedBy.trim(),
+        approved_by: navIdent,
       })
 
       // Update deployment to mark as manually approved
@@ -190,11 +191,11 @@ export async function action({ request, params }: Route.ActionArgs) {
   if (intent === 'lookup_legacy_github') {
     const searchType = formData.get('search_type') as string
     const searchValue = formData.get('search_value') as string
-    const registeredBy = formData.get('registered_by') as string
     const slackLink = formData.get('slack_link') as string
+    const navIdent = getNavIdent(request)
 
-    if (!registeredBy || registeredBy.trim() === '') {
-      return { error: 'Ditt navn må oppgis' }
+    if (!navIdent) {
+      return { error: 'Kunne ikke identifisere bruker. Vennligst logg inn på nytt.' }
     }
 
     if (!slackLink || slackLink.trim() === '') {
@@ -232,7 +233,7 @@ export async function action({ request, params }: Route.ActionArgs) {
         legacyLookup: {
           ...result.data,
           slackLink: slackLink.trim(),
-          registeredBy: registeredBy.trim(),
+          registeredBy: navIdent,
         },
       }
     } catch (error) {
@@ -243,7 +244,6 @@ export async function action({ request, params }: Route.ActionArgs) {
 
   // Step 2: Confirm and save the looked up data
   if (intent === 'confirm_legacy_lookup') {
-    const registeredBy = formData.get('registered_by') as string
     const slackLink = formData.get('slack_link') as string
     const commitSha = formData.get('commit_sha') as string
     const commitMessage = formData.get('commit_message') as string
@@ -255,9 +255,10 @@ export async function action({ request, params }: Route.ActionArgs) {
     const prMergedAt = formData.get('pr_merged_at') as string
     const mergedBy = formData.get('merged_by') as string
     const reviewersJson = formData.get('reviewers') as string
+    const navIdent = getNavIdent(request)
 
-    if (!registeredBy) {
-      return { error: 'Registrert av mangler' }
+    if (!navIdent) {
+      return { error: 'Kunne ikke identifisere bruker. Vennligst logg inn på nytt.' }
     }
 
     try {
@@ -278,7 +279,7 @@ export async function action({ request, params }: Route.ActionArgs) {
         comment_text: infoText,
         slack_link: slackLink,
         comment_type: 'legacy_info',
-        registered_by: registeredBy,
+        registered_by: navIdent,
       })
 
       // Update deployment with GitHub data (mergedBy will be used as deployer)
@@ -333,14 +334,14 @@ export async function action({ request, params }: Route.ActionArgs) {
 
   // Legacy: Manual registration without GitHub lookup (keep for backwards compatibility)
   if (intent === 'register_legacy_info') {
-    const registeredBy = formData.get('registered_by') as string
     const slackLink = formData.get('slack_link') as string
     const deployer = formData.get('deployer') as string
     const commitSha = formData.get('commit_sha') as string
     const prNumber = formData.get('pr_number') as string
+    const navIdent = getNavIdent(request)
 
-    if (!registeredBy || registeredBy.trim() === '') {
-      return { error: 'Registrert av må oppgis' }
+    if (!navIdent) {
+      return { error: 'Kunne ikke identifisere bruker. Vennligst logg inn på nytt.' }
     }
 
     if (!slackLink || slackLink.trim() === '') {
@@ -360,7 +361,7 @@ export async function action({ request, params }: Route.ActionArgs) {
         comment_text: infoText,
         slack_link: slackLink.trim(),
         comment_type: 'legacy_info',
-        registered_by: registeredBy.trim(),
+        registered_by: navIdent,
       })
 
       // Update deployment with provided info
@@ -378,11 +379,11 @@ export async function action({ request, params }: Route.ActionArgs) {
   }
 
   if (intent === 'approve_legacy') {
-    const approvedBy = formData.get('approved_by') as string
+    const navIdent = getNavIdent(request)
     const legacyInfo = await getLegacyInfo(deploymentId)
 
-    if (!approvedBy || approvedBy.trim() === '') {
-      return { error: 'Godkjenner må oppgis' }
+    if (!navIdent) {
+      return { error: 'Kunne ikke identifisere bruker. Vennligst logg inn på nytt.' }
     }
 
     if (!legacyInfo) {
@@ -390,7 +391,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     }
 
     // Check that approver is different from registerer
-    if (legacyInfo.registered_by?.toLowerCase() === approvedBy.trim().toLowerCase()) {
+    if (legacyInfo.registered_by?.toLowerCase() === navIdent.toLowerCase()) {
       return { error: 'Godkjenner kan ikke være samme person som registrerte info' }
     }
 
@@ -403,7 +404,7 @@ export async function action({ request, params }: Route.ActionArgs) {
         comment_text: 'Legacy deployment godkjent etter gjennomgang',
         slack_link: legacyInfo.slack_link || undefined,
         comment_type: 'manual_approval',
-        approved_by: approvedBy.trim(),
+        approved_by: navIdent,
       })
 
       // Preserve existing GitHub data when approving
@@ -423,11 +424,11 @@ export async function action({ request, params }: Route.ActionArgs) {
   }
 
   if (intent === 'reject_legacy') {
-    const rejectedBy = formData.get('rejected_by') as string
+    const navIdent = getNavIdent(request)
     const reason = formData.get('reason') as string
 
-    if (!rejectedBy || rejectedBy.trim() === '') {
-      return { error: 'Ditt navn må oppgis' }
+    if (!navIdent) {
+      return { error: 'Kunne ikke identifisere bruker. Vennligst logg inn på nytt.' }
     }
 
     try {
@@ -437,7 +438,7 @@ export async function action({ request, params }: Route.ActionArgs) {
       // Add a rejection comment
       await createComment({
         deployment_id: deploymentId,
-        comment_text: `Legacy-verifisering avvist${reason ? `: ${reason}` : ''}`,
+        comment_text: `Legacy-verifisering avvist av ${navIdent}${reason ? `: ${reason}` : ''}`,
         comment_type: 'comment',
       })
 
@@ -616,7 +617,6 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
   const [searchParams] = useSearchParams()
   const [commentText, setCommentText] = useState('')
   const [slackLink, setSlackLink] = useState('')
-  const [approvedBy, setApprovedBy] = useState('')
   const [approvalReason, setApprovalReason] = useState('')
   const [approvalSlackLink, setApprovalSlackLink] = useState('')
   const [showApprovalForm, setShowApprovalForm] = useState(false)
@@ -624,7 +624,6 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
   const [legacySearchType, setLegacySearchType] = useState<'sha' | 'pr'>('sha')
   const [legacySearchValue, setLegacySearchValue] = useState('')
   const [legacySlackLink, setLegacySlackLink] = useState('')
-  const [legacyRegisteredBy, setLegacyRegisteredBy] = useState('')
 
   // Statuses that require manual approval (when no manualApproval exists)
   const statusesRequiringApproval = [
@@ -1482,15 +1481,6 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                 <input type="hidden" name="intent" value="manual_approval" />
                 <VStack gap="space-16">
                   <TextField
-                    label="Godkjent av (ditt navn)"
-                    name="approved_by"
-                    value={approvedBy}
-                    onChange={(e) => setApprovedBy(e.target.value)}
-                    description="Navn på personen som godkjenner"
-                    size="small"
-                    required
-                  />
-                  <TextField
                     label="Slack-lenke"
                     name="slack_link"
                     value={approvalSlackLink}
@@ -1591,7 +1581,6 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                 <HStack gap="space-8">
                   <Form method="post">
                     <input type="hidden" name="intent" value="confirm_legacy_lookup" />
-                    <input type="hidden" name="registered_by" value={actionData.legacyLookup.registeredBy} />
                     <input type="hidden" name="slack_link" value={actionData.legacyLookup.slackLink} />
                     <input type="hidden" name="commit_sha" value={actionData.legacyLookup.commitSha || ''} />
                     <input type="hidden" name="commit_message" value={actionData.legacyLookup.commitMessage || ''} />
@@ -1629,15 +1618,6 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
               <Form method="post">
                 <input type="hidden" name="intent" value="lookup_legacy_github" />
                 <VStack gap="space-16">
-                  <TextField
-                    label="Ditt navn"
-                    name="registered_by"
-                    value={legacyRegisteredBy}
-                    onChange={(e) => setLegacyRegisteredBy(e.target.value)}
-                    description="Hvem som gjør oppslaget"
-                    size="small"
-                    required
-                  />
                   <TextField
                     label="Slack-lenke"
                     name="slack_link"
@@ -1734,24 +1714,14 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
             <HStack gap="space-16" wrap>
               <Form method="post">
                 <input type="hidden" name="intent" value="approve_legacy" />
-                <VStack gap="space-16">
-                  <TextField
-                    label="Godkjent av (ditt navn)"
-                    name="approved_by"
-                    description="Må være en annen person enn den som registrerte"
-                    size="small"
-                    required
-                  />
-                  <Button type="submit" variant="primary" size="small">
-                    Godkjenn
-                  </Button>
-                </VStack>
+                <Button type="submit" variant="primary" size="small">
+                  Godkjenn
+                </Button>
               </Form>
 
               <Form method="post">
                 <input type="hidden" name="intent" value="reject_legacy" />
                 <VStack gap="space-16">
-                  <TextField label="Avvist av (ditt navn)" name="rejected_by" size="small" required />
                   <TextField label="Begrunnelse (valgfritt)" name="reason" size="small" />
                   <Button type="submit" variant="danger" size="small">
                     Avvis
