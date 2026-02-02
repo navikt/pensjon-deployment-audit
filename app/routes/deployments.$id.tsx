@@ -48,7 +48,7 @@ import {
 } from '~/db/deployments.server'
 import { getMonitoredApplicationById } from '~/db/monitored-applications.server'
 import { getUserMappings } from '~/db/user-mappings.server'
-import { getNavIdent } from '~/lib/auth.server'
+import { getNavIdent, getUserIdentity } from '~/lib/auth.server'
 import { lookupLegacyByCommit, lookupLegacyByPR } from '~/lib/github.server'
 import { verifyDeploymentFourEyes } from '~/lib/sync.server'
 import { getDateRangeForPeriod, type TimePeriod } from '~/lib/time-periods'
@@ -109,9 +109,48 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   if (deployment.deployer_username) usernames.push(deployment.deployer_username)
   if (deployment.github_pr_data?.creator?.username) usernames.push(deployment.github_pr_data.creator.username)
   if (deployment.github_pr_data?.merger?.username) usernames.push(deployment.github_pr_data.merger.username)
+  // Include unverified commit authors
+  if (deployment.unverified_commits) {
+    for (const commit of deployment.unverified_commits) {
+      if (commit.author && !usernames.includes(commit.author)) {
+        usernames.push(commit.author)
+      }
+    }
+  }
 
   // Get all user mappings in one query
   const userMappings = await getUserMappings(usernames)
+
+  // Check if current user is involved in this deployment (for four-eyes validation)
+  const currentUser = getUserIdentity(request)
+  let isCurrentUserInvolved = false
+  let involvementReason: string | null = null
+
+  if (currentUser?.navIdent) {
+    const currentNavIdent = currentUser.navIdent.toUpperCase()
+
+    // Check if user is PR creator
+    const prCreatorUsername = deployment.github_pr_data?.creator?.username
+    if (prCreatorUsername) {
+      const prCreatorMapping = userMappings.get(prCreatorUsername)
+      if (prCreatorMapping?.nav_ident?.toUpperCase() === currentNavIdent) {
+        isCurrentUserInvolved = true
+        involvementReason = 'Du opprettet pull requesten for denne deploymenten'
+      }
+    }
+
+    // Check if user is author of any unverified commit
+    if (!isCurrentUserInvolved && deployment.unverified_commits) {
+      for (const commit of deployment.unverified_commits) {
+        const commitAuthorMapping = userMappings.get(commit.author)
+        if (commitAuthorMapping?.nav_ident?.toUpperCase() === currentNavIdent) {
+          isCurrentUserInvolved = true
+          involvementReason = 'Du er forfatter av en eller flere ikke-verifiserte commits i denne deploymenten'
+          break
+        }
+      }
+    }
+  }
 
   return {
     deployment,
@@ -122,6 +161,9 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     nextDeployment,
     userMappings: Object.fromEntries(userMappings),
     appUrl,
+    currentUserNavIdent: currentUser?.navIdent || null,
+    isCurrentUserInvolved,
+    involvementReason,
   }
 }
 
@@ -151,16 +193,63 @@ export async function action({ request, params }: Route.ActionArgs) {
   }
 
   if (intent === 'manual_approval') {
-    const navIdent = getNavIdent(request)
+    const identity = getUserIdentity(request)
     const reason = formData.get('reason') as string
     const slackLink = formData.get('slack_link') as string
 
-    if (!navIdent) {
+    if (!identity?.navIdent) {
       return { error: 'Kunne ikke identifisere bruker. Vennligst logg inn på nytt.' }
     }
 
     if (!slackLink || slackLink.trim() === '') {
       return { error: 'Slack-lenke er påkrevd for manuell godkjenning' }
+    }
+
+    // Validate four-eyes principle: user cannot approve their own work
+    const deployment = await getDeploymentById(deploymentId)
+    if (!deployment) {
+      return { error: 'Deployment ikke funnet' }
+    }
+
+    // Collect GitHub usernames to check
+    const usernamesToCheck: string[] = []
+    if (deployment.github_pr_data?.creator?.username) {
+      usernamesToCheck.push(deployment.github_pr_data.creator.username)
+    }
+    if (deployment.unverified_commits) {
+      for (const commit of deployment.unverified_commits) {
+        if (commit.author && !usernamesToCheck.includes(commit.author)) {
+          usernamesToCheck.push(commit.author)
+        }
+      }
+    }
+
+    const userMappings = await getUserMappings(usernamesToCheck)
+    const currentNavIdent = identity.navIdent.toUpperCase()
+
+    // Check if user is PR creator
+    const prCreatorUsername = deployment.github_pr_data?.creator?.username
+    if (prCreatorUsername) {
+      const prCreatorMapping = userMappings.get(prCreatorUsername)
+      if (prCreatorMapping?.nav_ident?.toUpperCase() === currentNavIdent) {
+        return {
+          error:
+            'Du kan ikke godkjenne din egen pull request. Fire-øyne-prinsippet krever at en annen person godkjenner.',
+        }
+      }
+    }
+
+    // Check if user is author of any unverified commit
+    if (deployment.unverified_commits) {
+      for (const commit of deployment.unverified_commits) {
+        const commitAuthorMapping = userMappings.get(commit.author)
+        if (commitAuthorMapping?.nav_ident?.toUpperCase() === currentNavIdent) {
+          return {
+            error:
+              'Du kan ikke godkjenne en deployment med dine egne commits. Fire-øyne-prinsippet krever at en annen person godkjenner.',
+          }
+        }
+      }
     }
 
     try {
@@ -170,7 +259,7 @@ export async function action({ request, params }: Route.ActionArgs) {
         comment_text: reason || 'Manuelt godkjent etter gjennomgang',
         slack_link: slackLink.trim(),
         comment_type: 'manual_approval',
-        approved_by: navIdent,
+        approved_by: identity.navIdent,
       })
 
       // Update deployment to mark as manually approved
@@ -612,8 +701,18 @@ function getFourEyesStatus(deployment: any): {
 }
 
 export default function DeploymentDetail({ loaderData, actionData }: Route.ComponentProps) {
-  const { deployment, comments, manualApproval, legacyInfo, previousDeployment, nextDeployment, userMappings, appUrl } =
-    loaderData
+  const {
+    deployment,
+    comments,
+    manualApproval,
+    legacyInfo,
+    previousDeployment,
+    nextDeployment,
+    userMappings,
+    appUrl,
+    isCurrentUserInvolved,
+    involvementReason,
+  } = loaderData
   const [searchParams] = useSearchParams()
   const [commentText, setCommentText] = useState('')
   const [slackLink, setSlackLink] = useState('')
@@ -1472,7 +1571,17 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
               fire-øyne-prinsippet. Legg ved Slack-lenke som dokumenterer at koden er blitt reviewet.
             </BodyShort>
 
-            {!showApprovalForm ? (
+            {isCurrentUserInvolved ? (
+              <Alert variant="warning">
+                <Heading size="xsmall" spacing>
+                  Du kan ikke godkjenne dette deploymentet
+                </Heading>
+                <BodyShort>{involvementReason}</BodyShort>
+                <BodyShort style={{ marginTop: 'var(--ax-space-8)' }}>
+                  Fire-øyne-prinsippet krever at en annen person godkjenner.
+                </BodyShort>
+              </Alert>
+            ) : !showApprovalForm ? (
               <Button variant="primary" onClick={() => setShowApprovalForm(true)}>
                 Godkjenn manuelt
               </Button>
