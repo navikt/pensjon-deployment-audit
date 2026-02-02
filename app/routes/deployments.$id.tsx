@@ -895,48 +895,60 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
         </Alert>
       )}
       {/* Unverified commits section */}
-      {deployment.unverified_commits && deployment.unverified_commits.length > 0 && (
-        <Alert variant="error">
-          <Heading size="small" spacing>
-            Ikke-verifiserte commits ({deployment.unverified_commits.length})
-          </Heading>
-          <BodyShort spacing>
-            Følgende commits mellom forrige og dette deploymentet har ikke godkjent PR.
-            {previousDeployment?.commit_sha && deployment.commit_sha && (
-              <>
-                {' '}
-                <a
-                  href={`https://github.com/${deployment.detected_github_owner}/${deployment.detected_github_repo_name}/compare/${previousDeployment.commit_sha}...${deployment.commit_sha}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Se endringer på GitHub
-                </a>
-              </>
-            )}
-          </BodyShort>
-          <ul style={{ margin: 0, paddingLeft: '1.5rem' }}>
-            {deployment.unverified_commits.map((commit: any) => (
-              <li key={commit.sha} style={{ marginBottom: '0.5rem' }}>
-                <a
-                  href={commit.html_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ fontFamily: 'monospace', fontSize: '0.875rem' }}
-                >
-                  {commit.sha.substring(0, 7)}
-                </a>{' '}
-                - {commit.message}
-                <br />
-                <Detail>
-                  av {commit.author} •{' '}
-                  {commit.pr_number ? `PR #${commit.pr_number} ikke godkjent` : 'Ingen PR (direkte push)'}
-                </Detail>
-              </li>
-            ))}
-          </ul>
-        </Alert>
-      )}
+      {(() => {
+        // Filter out commits that are already shown in the PR commits accordion or are the merge commit
+        const prCommitShas = new Set(deployment.github_pr_data?.commits?.map((c: any) => c.sha) || [])
+        const mergeCommitSha = deployment.github_pr_data?.merge_commit_sha
+        const filteredUnverifiedCommits =
+          deployment.unverified_commits?.filter(
+            (commit: any) => !prCommitShas.has(commit.sha) && commit.sha !== mergeCommitSha,
+          ) || []
+
+        return (
+          filteredUnverifiedCommits.length > 0 && (
+            <Alert variant="error">
+              <Heading size="small" spacing>
+                Ikke-verifiserte commits ({filteredUnverifiedCommits.length})
+              </Heading>
+              <BodyShort spacing>
+                Følgende commits mellom forrige og dette deploymentet har ikke godkjent PR.
+                {previousDeployment?.commit_sha && deployment.commit_sha && (
+                  <>
+                    {' '}
+                    <a
+                      href={`https://github.com/${deployment.detected_github_owner}/${deployment.detected_github_repo_name}/compare/${previousDeployment.commit_sha}...${deployment.commit_sha}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Se endringer på GitHub
+                    </a>
+                  </>
+                )}
+              </BodyShort>
+              <ul style={{ margin: 0, paddingLeft: '1.5rem' }}>
+                {filteredUnverifiedCommits.map((commit: any) => (
+                  <li key={commit.sha} style={{ marginBottom: '0.5rem' }}>
+                    <a
+                      href={commit.html_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ fontFamily: 'monospace', fontSize: '0.875rem' }}
+                    >
+                      {commit.sha.substring(0, 7)}
+                    </a>{' '}
+                    - {commit.message}
+                    <br />
+                    <Detail>
+                      av {commit.author} •{' '}
+                      {commit.pr_number ? `PR #${commit.pr_number} ikke godkjent` : 'Ingen PR (direkte push)'}
+                    </Detail>
+                  </li>
+                ))}
+              </ul>
+            </Alert>
+          )
+        )
+      })()}
       {/* Deployment Details Section */}
       <Heading size="medium">Detaljer</Heading>
       <HGrid gap="space-16" columns={{ xs: 1, sm: 2, md: 3 }}>
