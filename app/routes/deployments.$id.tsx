@@ -540,7 +540,7 @@ function getFourEyesStatus(deployment: any): {
       }
     case 'unverified_commits':
       return {
-        text: 'Uverifiserte commits',
+        text: 'Ikke-verifiserte commits',
         variant: 'error',
         description:
           'Det finnes commits mellom forrige og dette deploymentet som ikke har godkjent PR. Se detaljer under.',
@@ -783,7 +783,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
       {deployment.unverified_commits && deployment.unverified_commits.length > 0 && (
         <Alert variant="error">
           <Heading size="small" spacing>
-            Uverifiserte commits ({deployment.unverified_commits.length})
+            Ikke-verifiserte commits ({deployment.unverified_commits.length})
           </Heading>
           <BodyShort spacing>
             Følgende commits mellom forrige og dette deploymentet har ikke godkjent PR.
