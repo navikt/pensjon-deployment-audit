@@ -881,8 +881,10 @@ export async function searchDeployments(query: string, limit = 10): Promise<Sear
     return results
   }
 
-  // Check if query looks like a SHA (hex characters, 7+ length)
-  if (/^[0-9a-f]{7,40}$/i.test(trimmedQuery)) {
+  // Check if query looks like a SHA (hex characters only, at least 4 chars for typeahead)
+  const looksLikeSha = /^[0-9a-f]{4,40}$/i.test(trimmedQuery)
+
+  if (looksLikeSha) {
     const shaResult = await pool.query(
       `SELECT d.id, d.commit_sha, d.deployer_username, d.created_at,
               ma.team_slug, ma.environment_name, ma.app_name
@@ -902,7 +904,10 @@ export async function searchDeployments(query: string, limit = 10): Promise<Sear
         subtitle: `${row.app_name} • ${row.deployer_username || 'ukjent'}`,
       })
     }
-    return results
+    // If we found SHA matches, return them (don't mix with user results)
+    if (results.length > 0) {
+      return results
+    }
   }
 
   // Otherwise, search by deployer username OR user mapping fields (nav_ident, nav_email, display_name, slack_member_id)
