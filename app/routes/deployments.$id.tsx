@@ -874,7 +874,24 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
           <Heading size="small" spacing>
             {status.text}
           </Heading>
-          <BodyShort>{status.description}</BodyShort>
+          <BodyShort>
+            {status.description}
+            {(deployment.four_eyes_status === 'unverified_commits' ||
+              deployment.four_eyes_status === 'approved_pr_with_unreviewed') &&
+              previousDeployment?.commit_sha &&
+              deployment.commit_sha && (
+                <>
+                  {' '}
+                  <a
+                    href={`https://github.com/${deployment.detected_github_owner}/${deployment.detected_github_repo_name}/compare/${previousDeployment.commit_sha}...${deployment.commit_sha}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Se endringer på GitHub
+                  </a>
+                </>
+              )}
+          </BodyShort>
         </Alert>
       )}
       {/* Unverified commits section */}
