@@ -881,8 +881,8 @@ export async function searchDeployments(query: string, limit = 10): Promise<Sear
     return results
   }
 
-  // Check if query looks like a SHA (hex characters only, at least 4 chars for typeahead)
-  const looksLikeSha = /^[0-9a-f]{4,40}$/i.test(trimmedQuery)
+  // Check if query looks like a SHA (hex characters only, at least 3 chars for typeahead)
+  const looksLikeSha = /^[0-9a-f]{3,40}$/i.test(trimmedQuery)
 
   if (looksLikeSha) {
     const shaResult = await pool.query(
