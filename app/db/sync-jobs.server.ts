@@ -92,51 +92,6 @@ export async function releaseSyncLock(
 }
 
 /**
- * Check if a job is currently running for an app
- */
-export async function isJobRunning(jobType: SyncJobType, appId: number): Promise<boolean> {
-  const result = await pool.query(
-    `SELECT 1 FROM sync_jobs 
-     WHERE job_type = $1 
-       AND monitored_app_id = $2 
-       AND status = 'running'
-       AND lock_expires_at > NOW()`,
-    [jobType, appId],
-  )
-  return (result.rowCount || 0) > 0
-}
-
-/**
- * Get recent sync jobs for an app
- */
-export async function getRecentSyncJobs(appId: number, limit: number = 10): Promise<SyncJob[]> {
-  const result = await pool.query(
-    `SELECT * FROM sync_jobs 
-     WHERE monitored_app_id = $1
-     ORDER BY created_at DESC
-     LIMIT $2`,
-    [appId, limit],
-  )
-  return result.rows
-}
-
-/**
- * Get the latest completed sync job for an app
- */
-export async function getLatestCompletedJob(jobType: SyncJobType, appId: number): Promise<SyncJob | null> {
-  const result = await pool.query(
-    `SELECT * FROM sync_jobs 
-     WHERE job_type = $1 
-       AND monitored_app_id = $2
-       AND status = 'completed'
-     ORDER BY completed_at DESC
-     LIMIT 1`,
-    [jobType, appId],
-  )
-  return result.rows[0] || null
-}
-
-/**
  * Clean up old sync jobs (keep last N per app)
  */
 export async function cleanupOldSyncJobs(keepPerApp: number = 50): Promise<number> {

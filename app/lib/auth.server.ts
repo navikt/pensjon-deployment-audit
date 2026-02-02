@@ -96,16 +96,3 @@ export function getUserIdentity(request: Request): UserIdentity | null {
 export function getNavIdent(request: Request): string | null {
   return getUserIdentity(request)?.navIdent || null
 }
-
-/**
- * Require authentication - throws Response if not authenticated.
- *
- * @throws Response with 401 status if not authenticated
- */
-export function requireAuth(request: Request): UserIdentity {
-  const identity = getUserIdentity(request)
-  if (!identity) {
-    throw new Response('Unauthorized', { status: 401 })
-  }
-  return identity
-}

@@ -130,19 +130,3 @@ export function getDateRangeForPeriod(period: TimePeriod): { startDate: Date; en
 
   return { startDate, endDate }
 }
-
-/**
- * Get label for a time period value
- */
-export function getTimePeriodLabel(period: TimePeriod): string {
-  const option = TIME_PERIOD_OPTIONS.find((o) => o.value === period)
-  return option?.label ?? period
-}
-
-/**
- * Check if a string is a valid TimePeriod
- */
-export function isValidTimePeriod(value: string | null | undefined): value is TimePeriod {
-  if (!value) return false
-  return TIME_PERIOD_OPTIONS.some((o) => o.value === value)
-}

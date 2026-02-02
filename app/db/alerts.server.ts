@@ -26,69 +26,6 @@ export interface RepositoryAlertWithContext extends RepositoryAlert {
   commit_sha: string
 }
 
-export async function getAllUnresolvedAlerts(): Promise<RepositoryAlertWithContext[]> {
-  const result = await pool.query(
-    `SELECT 
-      ra.*,
-      ma.team_slug,
-      ma.environment_name,
-      ma.app_name,
-      d.nais_deployment_id as deployment_nais_id,
-      d.created_at as deployment_created_at,
-      d.deployer_username,
-      d.commit_sha
-    FROM repository_alerts ra
-    JOIN monitored_applications ma ON ra.monitored_app_id = ma.id
-    JOIN deployments d ON ra.deployment_id = d.id
-    WHERE ra.resolved_at IS NULL
-    ORDER BY ra.created_at DESC`,
-  )
-  return result.rows
-}
-
-// Alias for convenience
-export const getUnresolvedAlertsWithContext = getAllUnresolvedAlerts
-export const getUnresolvedAlerts = getAllUnresolvedAlerts
-
-export async function getAlertsByMonitoredApp(monitoredAppId: number): Promise<RepositoryAlertWithContext[]> {
-  const result = await pool.query(
-    `SELECT 
-      ra.*,
-      ma.team_slug,
-      ma.environment_name,
-      ma.app_name,
-      d.created_at as deployment_created_at,
-      d.deployer_username,
-      d.commit_sha
-    FROM repository_alerts ra
-    JOIN monitored_applications ma ON ra.monitored_app_id = ma.id
-    JOIN deployments d ON ra.deployment_id = d.id
-    WHERE ra.monitored_app_id = $1
-    ORDER BY ra.created_at DESC`,
-    [monitoredAppId],
-  )
-  return result.rows
-}
-
-export async function getAlertById(id: number): Promise<RepositoryAlertWithContext | null> {
-  const result = await pool.query(
-    `SELECT 
-      ra.*,
-      ma.team_slug,
-      ma.environment_name,
-      ma.app_name,
-      d.created_at as deployment_created_at,
-      d.deployer_username,
-      d.commit_sha
-    FROM repository_alerts ra
-    JOIN monitored_applications ma ON ra.monitored_app_id = ma.id
-    JOIN deployments d ON ra.deployment_id = d.id
-    WHERE ra.id = $1`,
-    [id],
-  )
-  return result.rows[0] || null
-}
-
 export async function createRepositoryAlert(data: {
   monitoredApplicationId: number
   deploymentNaisId: string
@@ -133,13 +70,13 @@ export async function createRepositoryAlert(data: {
   return result.rows[0]
 }
 
-export async function resolveAlert(id: number, resolvedBy: string, resolutionNote: string): Promise<RepositoryAlert> {
+export async function resolveRepositoryAlert(id: number, resolutionNote: string): Promise<RepositoryAlert> {
   const result = await pool.query(
     `UPDATE repository_alerts 
-    SET resolved = true, resolved_at = CURRENT_TIMESTAMP, resolved_by = $2, resolution_note = $3
+    SET resolved = true, resolved_at = CURRENT_TIMESTAMP, resolved_by = 'web-user', resolution_note = $2
     WHERE id = $1
     RETURNING *`,
-    [id, resolvedBy, resolutionNote],
+    [id, resolutionNote],
   )
 
   if (result.rows.length === 0) {
@@ -147,30 +84,6 @@ export async function resolveAlert(id: number, resolvedBy: string, resolutionNot
   }
 
   return result.rows[0]
-}
-
-// Simpler version without requiring resolved_by
-export async function resolveRepositoryAlert(id: number, resolutionNote: string): Promise<RepositoryAlert> {
-  return resolveAlert(id, 'web-user', resolutionNote)
-}
-
-export async function getAlertStats(): Promise<{
-  total: number
-  unresolved: number
-  resolved: number
-}> {
-  const result = await pool.query(`
-    SELECT 
-      COUNT(*) as total,
-      COUNT(CASE WHEN resolved = false THEN 1 END) as unresolved,
-      COUNT(CASE WHEN resolved = true THEN 1 END) as resolved
-    FROM repository_alerts
-  `)
-  return {
-    total: parseInt(result.rows[0].total, 10),
-    unresolved: parseInt(result.rows[0].unresolved, 10),
-    resolved: parseInt(result.rows[0].resolved, 10),
-  }
 }
 
 export async function getAlertCountsByApp(): Promise<Map<number, number>> {

@@ -23,14 +23,6 @@ export async function getMonitoredApplicationById(id: number): Promise<Monitored
   return result.rows[0] || null
 }
 
-export async function getMonitoredApplicationsByTeam(teamSlug: string): Promise<MonitoredApplication[]> {
-  const result = await pool.query(
-    'SELECT * FROM monitored_applications WHERE team_slug = $1 AND is_active = true ORDER BY environment_name, app_name',
-    [teamSlug],
-  )
-  return result.rows
-}
-
 export async function getMonitoredApplicationByIdentity(
   teamSlug: string,
   environmentName: string,
@@ -93,23 +85,6 @@ export async function updateMonitoredApplication(
   const result = await pool.query(
     `UPDATE monitored_applications SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = $${paramCount} RETURNING *`,
     values,
-  )
-
-  if (result.rows.length === 0) {
-    throw new Error('Application not found')
-  }
-
-  return result.rows[0]
-}
-
-export async function deleteMonitoredApplication(id: number): Promise<void> {
-  await pool.query('DELETE FROM monitored_applications WHERE id = $1', [id])
-}
-
-export async function deactivateMonitoredApplication(id: number): Promise<MonitoredApplication> {
-  const result = await pool.query(
-    'UPDATE monitored_applications SET is_active = false, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *',
-    [id],
   )
 
   if (result.rows.length === 0) {

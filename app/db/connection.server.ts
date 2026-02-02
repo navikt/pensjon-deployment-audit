@@ -79,11 +79,6 @@ export async function query<T extends Record<string, any> = any>(
   return p.query<T>(text, params)
 }
 
-export async function getClient(): Promise<PoolClient> {
-  const p = getPool()
-  return p.connect()
-}
-
 export async function closePool(): Promise<void> {
   if (poolInstance) {
     await poolInstance.end()

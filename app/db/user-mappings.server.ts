@@ -160,13 +160,6 @@ export async function getUnmappedUsers(): Promise<{ github_username: string; dep
 }
 
 /**
- * Clear the in-memory cache
- */
-export function clearUserMappingCache(): void {
-  userMappingCache.clear()
-}
-
-/**
  * Get user mapping by NAV-ident
  */
 export async function getUserMappingByNavIdent(navIdent: string): Promise<UserMapping | null> {

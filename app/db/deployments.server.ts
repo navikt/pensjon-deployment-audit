@@ -316,19 +316,6 @@ export async function getDeploymentByNaisId(naisDeploymentId: string): Promise<D
   return result.rows[0] || null
 }
 
-export async function getDeploymentsByMonitoredApp(monitoredAppId: number, limit?: number): Promise<Deployment[]> {
-  let sql = 'SELECT * FROM deployments WHERE monitored_app_id = $1 ORDER BY created_at DESC'
-  const params: any[] = [monitoredAppId]
-
-  if (limit) {
-    sql += ' LIMIT $2'
-    params.push(limit)
-  }
-
-  const result = await pool.query(sql, params)
-  return result.rows
-}
-
 export async function createDeployment(data: CreateDeploymentParams): Promise<Deployment> {
   // Check if this is a legacy deployment:
   // - Before 2025-01-01 without commit SHA, OR

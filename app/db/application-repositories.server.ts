@@ -14,12 +14,6 @@ export interface ApplicationRepository {
   created_at: Date
 }
 
-export interface ApplicationRepositoryWithApp extends ApplicationRepository {
-  team_slug: string
-  environment_name: string
-  app_name: string
-}
-
 /**
  * Get all repositories for a monitored application
  */
@@ -35,20 +29,6 @@ export async function getRepositoriesByAppId(appId: number): Promise<Application
        END,
        created_at DESC`,
     [appId],
-  )
-  return result.rows
-}
-
-/**
- * Get all pending approval repositories
- */
-export async function getPendingApprovalRepositories(): Promise<ApplicationRepositoryWithApp[]> {
-  const result = await pool.query(
-    `SELECT ar.*, ma.team_slug, ma.environment_name, ma.app_name
-     FROM application_repositories ar
-     JOIN monitored_applications ma ON ar.monitored_app_id = ma.id
-     WHERE ar.status = 'pending_approval'
-     ORDER BY ar.created_at DESC`,
   )
   return result.rows
 }
@@ -225,60 +205,4 @@ export async function setRepositoryAsActive(repoId: number): Promise<Application
   )
 
   return result.rows[0]
-}
-
-/**
- * Set up redirect for a renamed repository
- */
-export async function setRepositoryRedirect(
-  repoId: number,
-  redirectsToOwner: string,
-  redirectsToRepo: string,
-): Promise<ApplicationRepository> {
-  const result = await pool.query(
-    `UPDATE application_repositories 
-     SET redirects_to_owner = $1, redirects_to_repo = $2
-     WHERE id = $3
-     RETURNING *`,
-    [redirectsToOwner, redirectsToRepo, repoId],
-  )
-
-  if (result.rows.length === 0) {
-    throw new Error(`Repository with id ${repoId} not found`)
-  }
-
-  return result.rows[0]
-}
-
-/**
- * Remove redirect from a repository
- */
-export async function removeRepositoryRedirect(repoId: number): Promise<ApplicationRepository> {
-  const result = await pool.query(
-    `UPDATE application_repositories 
-     SET redirects_to_owner = NULL, redirects_to_repo = NULL
-     WHERE id = $1
-     RETURNING *`,
-    [repoId],
-  )
-
-  if (result.rows.length === 0) {
-    throw new Error(`Repository with id ${repoId} not found`)
-  }
-
-  return result.rows[0]
-}
-
-/**
- * Delete a repository
- */
-export async function deleteRepository(repoId: number): Promise<void> {
-  // Don't allow deleting active repository
-  const repo = await pool.query('SELECT status FROM application_repositories WHERE id = $1', [repoId])
-
-  if (repo.rows.length > 0 && repo.rows[0].status === 'active') {
-    throw new Error('Cannot delete active repository. Set another repo as active first.')
-  }
-
-  await pool.query('DELETE FROM application_repositories WHERE id = $1', [repoId])
 }

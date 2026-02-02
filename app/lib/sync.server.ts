@@ -85,7 +85,7 @@ function verifyFourEyesFromPrData(prData: {
  * Step 1: Sync deployments from Nais API to database
  * This ONLY fetches from Nais and stores to DB - no GitHub calls
  */
-export async function syncDeploymentsFromNais(
+async function syncDeploymentsFromNais(
   teamSlug: string,
   environmentName: string,
   appName: string,
@@ -271,7 +271,7 @@ export async function syncDeploymentsFromNais(
  * Stops as soon as it finds a deployment already in the database
  * Much faster for periodic syncs
  */
-export async function syncNewDeploymentsFromNais(
+async function syncNewDeploymentsFromNais(
   teamSlug: string,
   environmentName: string,
   appName: string,
@@ -857,7 +857,7 @@ export async function verifyDeploymentFourEyes(
  * Combined sync: Fetch from Nais AND verify with GitHub
  * Use this for small batches where rate limits are not a concern
  */
-export async function syncAndVerifyDeployments(
+async function syncAndVerifyDeployments(
   teamSlug: string,
   environmentName: string,
   appName: string,
@@ -905,7 +905,7 @@ import { acquireSyncLock, cleanupOldSyncJobs, releaseSyncLock } from '~/db/sync-
  * Full sync from Nais with distributed locking (for manual sync or initial setup)
  * Only one pod will run sync for a given app at a time
  */
-export async function syncDeploymentsFromNaisWithLock(
+async function syncDeploymentsFromNaisWithLock(
   monitoredAppId: number,
   teamSlug: string,
   environmentName: string,
@@ -931,7 +931,7 @@ export async function syncDeploymentsFromNaisWithLock(
  * Incremental sync from Nais with distributed locking (for periodic sync)
  * Only fetches new deployments - much faster than full sync
  */
-export async function syncNewDeploymentsWithLock(
+async function syncNewDeploymentsWithLock(
   monitoredAppId: number,
   teamSlug: string,
   environmentName: string,
@@ -1081,7 +1081,7 @@ export function startPeriodicSync(): void {
 /**
  * Stop the periodic sync scheduler
  */
-export function stopPeriodicSync(): void {
+function stopPeriodicSync(): void {
   if (periodicSyncInterval) {
     clearInterval(periodicSyncInterval)
     periodicSyncInterval = null

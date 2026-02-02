@@ -11,20 +11,7 @@ export function clearPrCommitsCache(): void {
   prCommitsCache.clear()
 }
 
-export function clearAllGitHubCaches(): void {
-  prCommitsCache.clear()
-  // Also clear metadata cache (defined later, but we export a function to clear it)
-}
-
-export function getGitHubRequestCount(): number {
-  return requestCount
-}
-
-export function resetGitHubRequestCount(): void {
-  requestCount = 0
-}
-
-export function getGitHubClient(): Octokit {
+function getGitHubClient(): Octokit {
   if (!octokit) {
     const token = process.env.GITHUB_TOKEN
 
@@ -87,7 +74,7 @@ export interface PullRequest {
   state: string
 }
 
-export interface NavIdentity {
+interface NavIdentity {
   github_username: string
   nav_username: string | null
   nav_email: string | null
@@ -101,10 +88,7 @@ const samlIdentityCache = new Map<string, NavIdentity>()
  * Get Nav identity for a GitHub user via SAML SSO
  * Requires org:read or admin:org scope on the token
  */
-export async function getNavIdentityForGitHubUser(
-  githubUsername: string,
-  org: string = 'navikt',
-): Promise<NavIdentity> {
+async function getNavIdentityForGitHubUser(githubUsername: string, org: string = 'navikt'): Promise<NavIdentity> {
   // Check cache first
   const cached = samlIdentityCache.get(githubUsername)
   if (cached) {
@@ -156,23 +140,6 @@ export async function getNavIdentityForGitHubUser(
     samlIdentityCache.set(githubUsername, identity)
     return identity
   }
-}
-
-/**
- * Get Nav identities for multiple GitHub users (batch)
- */
-export async function getNavIdentitiesForGitHubUsers(
-  githubUsernames: string[],
-  org: string = 'navikt',
-): Promise<Map<string, NavIdentity>> {
-  const results = new Map<string, NavIdentity>()
-
-  for (const username of githubUsernames) {
-    const identity = await getNavIdentityForGitHubUser(username, org)
-    results.set(username, identity)
-  }
-
-  return results
 }
 
 export async function getPullRequestForCommit(
@@ -569,11 +536,7 @@ export interface PullRequestReview {
   submitted_at: string | null
 }
 
-export async function getPullRequestReviews(
-  owner: string,
-  repo: string,
-  pull_number: number,
-): Promise<PullRequestReview[]> {
+async function getPullRequestReviews(owner: string, repo: string, pull_number: number): Promise<PullRequestReview[]> {
   const client = getGitHubClient()
 
   const response = await client.pulls.listReviews({
@@ -1095,86 +1058,6 @@ export async function getDetailedPullRequestInfo(
 }
 
 /**
- * Get branch name from GitHub Actions workflow run URL
- * Example URL: https://github.com/navikt/pensjon-pen/actions/runs/21433252772
- */
-export async function getBranchFromWorkflowRun(triggerUrl: string): Promise<string | null> {
-  try {
-    // Parse workflow run ID from URL
-    const match = triggerUrl.match(/\/actions\/runs\/(\d+)/)
-    if (!match) {
-      console.warn(`Could not extract workflow run ID from URL: ${triggerUrl}`)
-      return null
-    }
-
-    const runId = parseInt(match[1], 10)
-
-    // Extract owner/repo from URL
-    const repoMatch = triggerUrl.match(/github\.com\/([^/]+)\/([^/]+)\//)
-    if (!repoMatch) {
-      console.warn(`Could not extract owner/repo from URL: ${triggerUrl}`)
-      return null
-    }
-
-    const [, owner, repo] = repoMatch
-    const client = getGitHubClient()
-
-    console.log(`🔍 Fetching workflow run ${runId} for ${owner}/${repo}`)
-
-    const response = await client.actions.getWorkflowRun({
-      owner,
-      repo,
-      run_id: runId,
-    })
-
-    console.log(`✅ Workflow run branch: ${response.data.head_branch}`)
-    return response.data.head_branch
-  } catch (error) {
-    console.error('Error fetching workflow run:', error)
-    return null
-  }
-}
-
-/**
- * Get commit details including parent commits for merge commits
- */
-export async function getCommitDetails(
-  owner: string,
-  repo: string,
-  sha: string,
-): Promise<{
-  parents: Array<{ sha: string }>
-  message: string
-} | null> {
-  try {
-    const client = getGitHubClient()
-
-    console.log(`🔍 Fetching commit details for ${sha} in ${owner}/${repo}`)
-
-    const response = await client.repos.getCommit({
-      owner,
-      repo,
-      ref: sha,
-    })
-
-    const parents = response.data.parents.map((p) => ({ sha: p.sha }))
-
-    console.log(`✅ Commit has ${parents.length} parent(s)`)
-    if (parents.length > 1) {
-      console.log(`   🔀 Merge commit with parents: ${parents.map((p) => p.sha.substring(0, 7)).join(', ')}`)
-    }
-
-    return {
-      parents,
-      message: response.data.commit.message,
-    }
-  } catch (error) {
-    console.error(`Error fetching commit details for ${sha}:`, error)
-    return null
-  }
-}
-
-/**
  * Compare two commits and get the commits between them
  * Returns commits that are in 'head' but not in 'base'
  */
@@ -1244,143 +1127,6 @@ export async function getCommitsBetween(
       console.error(`   Message: ${error.message}`)
     }
     return null
-  }
-}
-
-/**
- * DEPRECATED: Use between-deployment verification instead
- * Check if commits in a merge are all from approved PRs
- * Returns list of unreviewed commits (if any)
- * @param prBranchTip - Tip of PR branch before merge
- * @param mainBeforeMerge - Main branch tip before merge
- * @param prCommitShas - SHAs of commits in the PR being merged
- * @param currentPrNumber - PR number being merged (to avoid checking same PR twice)
- */
-export async function findUnreviewedCommitsInMerge(
-  owner: string,
-  repo: string,
-  prBranchTip: string,
-  mainBeforeMerge: string,
-  prCommitShas: string[],
-  currentPrNumber?: number,
-): Promise<
-  Array<{
-    sha: string
-    message: string
-    author: string
-    date: string
-    html_url: string
-    reason: string
-  }>
-> {
-  try {
-    console.log(`🔍 Checking for unreviewed commits between PR branch and main`)
-    console.log(`   PR branch tip: ${prBranchTip.substring(0, 7)}`)
-    console.log(`   Main before merge: ${mainBeforeMerge.substring(0, 7)}`)
-    if (currentPrNumber) {
-      console.log(`   Current PR being merged: #${currentPrNumber}`)
-    }
-
-    // Get commits on main that are not in PR branch
-    const commitsBetween = await getCommitsBetween(owner, repo, prBranchTip, mainBeforeMerge)
-
-    if (!commitsBetween) {
-      console.warn('   ⚠️  Could not fetch commits between PR branch and main')
-      return []
-    }
-
-    console.log(`   📊 Found ${commitsBetween.length} commit(s) on main not in PR branch (before merge)`)
-
-    // Filter out commits that are in the PR itself (edge case: cherry-picks, rebases)
-    const commitsNotInPR = commitsBetween.filter((commit) => !prCommitShas.includes(commit.sha))
-
-    console.log(`   🔎 ${commitsNotInPR.length} commit(s) to check for approval (after excluding PR commits)`)
-
-    const unreviewedCommits: Array<{
-      sha: string
-      message: string
-      author: string
-      date: string
-      html_url: string
-      reason: string
-    }> = []
-
-    // Cache for PR approvals to avoid checking same PR multiple times
-    const prApprovalCache = new Map<number, { hasFourEyes: boolean; reason: string }>()
-    const prCheckedCount = new Map<number, number>() // Track how many commits per PR
-
-    // Check each commit that's not in the PR
-    for (const commit of commitsNotInPR) {
-      // Check if this commit has an associated PR where it's an original commit
-      // Using verifyCommitIsInPR=true to detect commits pushed directly to main
-      const commitPR = await getPullRequestForCommit(owner, repo, commit.sha, true)
-
-      if (!commitPR) {
-        console.log(`   🔍 Commit ${commit.sha.substring(0, 7)}: ${commit.message.split('\n')[0].substring(0, 60)}`)
-        console.log(`      ❌ No PR found (or not an original PR commit) - marking as unreviewed`)
-        unreviewedCommits.push({
-          ...commit,
-          reason: 'Direct push to main (no PR)',
-        })
-        continue
-      }
-
-      // Skip checking same PR we're already verifying (avoids infinite loop on merge commits)
-      if (currentPrNumber && commitPR.number === currentPrNumber) {
-        console.log(`   🔍 Commit ${commit.sha.substring(0, 7)}: belongs to current PR #${commitPR.number} - skipping`)
-        continue
-      }
-
-      // Check cache first
-      let prApproval = prApprovalCache.get(commitPR.number)
-      const isFirstCheckOfThisPR = !prApproval
-
-      if (isFirstCheckOfThisPR) {
-        // First time seeing this PR - log and check it
-        console.log(`   🔍 Commit ${commit.sha.substring(0, 7)}: ${commit.message.split('\n')[0].substring(0, 60)}`)
-        console.log(`      📝 Found PR #${commitPR.number} - checking approval`)
-        prApproval = await verifyPullRequestFourEyes(owner, repo, commitPR.number)
-        prApprovalCache.set(commitPR.number, prApproval)
-        prCheckedCount.set(commitPR.number, 1)
-      } else {
-        // Already checked this PR - just count it
-        const count = prCheckedCount.get(commitPR.number) || 0
-        prCheckedCount.set(commitPR.number, count + 1)
-      }
-
-      // prApproval is guaranteed to be defined here
-      if (!prApproval?.hasFourEyes) {
-        if (isFirstCheckOfThisPR) {
-          console.log(`      ❌ PR #${commitPR.number} not approved - marking as unreviewed`)
-        }
-        unreviewedCommits.push({
-          ...commit,
-          reason: `PR #${commitPR.number} not approved: ${prApproval?.reason}`,
-        })
-      } else if (isFirstCheckOfThisPR) {
-        console.log(`      ✅ PR #${commitPR.number} is approved`)
-      }
-    }
-
-    // Log summary of cached checks
-    const cachedPRs = Array.from(prCheckedCount.entries()).filter(([_, count]) => count > 1)
-    if (cachedPRs.length > 0) {
-      console.log(`   💾 Used cached results for ${cachedPRs.length} PR(s):`)
-      for (const [prNumber, count] of cachedPRs) {
-        console.log(`      PR #${prNumber}: ${count} commits (checked once, cached ${count - 1} times)`)
-      }
-    }
-
-    if (unreviewedCommits.length > 0) {
-      console.log(`   ⚠️  Found ${unreviewedCommits.length} unreviewed commit(s)`)
-    } else {
-      console.log(`   ✅ All commits on main (not in PR branch) are from approved PRs`)
-    }
-
-    return unreviewedCommits
-  } catch (error) {
-    console.error('Error finding unreviewed commits:', error)
-    return []
   }
 }
 

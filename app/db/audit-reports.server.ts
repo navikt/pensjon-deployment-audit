@@ -419,7 +419,7 @@ export function buildReportData(rawData: Awaited<ReturnType<typeof getAuditRepor
 /**
  * Calculate SHA256 hash of report data for integrity verification
  */
-export function calculateReportHash(reportData: AuditReportData): string {
+function calculateReportHash(reportData: AuditReportData): string {
   const json = JSON.stringify(reportData)
   return createHash('sha256').update(json).digest('hex')
 }
@@ -427,7 +427,7 @@ export function calculateReportHash(reportData: AuditReportData): string {
 /**
  * Generate a unique report ID
  */
-export function generateReportId(year: number, appName: string, environment: string, hash: string): string {
+function generateReportId(year: number, appName: string, environment: string, hash: string): string {
   const shortHash = hash.substring(0, 8)
   return `AUDIT-${year}-${appName}-${environment}-${shortHash}`
 }
@@ -515,25 +515,6 @@ export async function getAuditReportById(id: number): Promise<AuditReport | null
 }
 
 /**
- * Get an audit report by report_id
- */
-export async function getAuditReportByReportId(reportId: string): Promise<AuditReport | null> {
-  const result = await pool.query<AuditReport>('SELECT * FROM audit_reports WHERE report_id = $1', [reportId])
-  return result.rows[0] || null
-}
-
-/**
- * Get audit report for a specific app and year
- */
-export async function getAuditReportForAppYear(monitoredAppId: number, year: number): Promise<AuditReport | null> {
-  const result = await pool.query<AuditReport>(
-    'SELECT * FROM audit_reports WHERE monitored_app_id = $1 AND year = $2',
-    [monitoredAppId, year],
-  )
-  return result.rows[0] || null
-}
-
-/**
  * Get all audit reports (summary)
  */
 export async function getAllAuditReports(): Promise<AuditReportSummary[]> {
@@ -566,34 +547,4 @@ export async function getAuditReportsForApp(monitoredAppId: number): Promise<Aud
  */
 export async function updateAuditReportPdf(reportId: number, pdfData: Buffer): Promise<void> {
   await pool.query('UPDATE audit_reports SET pdf_data = $1 WHERE id = $2', [pdfData, reportId])
-}
-
-/**
- * Delete an audit report
- */
-export async function deleteAuditReport(id: number): Promise<boolean> {
-  const result = await pool.query('DELETE FROM audit_reports WHERE id = $1', [id])
-  return (result.rowCount ?? 0) > 0
-}
-
-/**
- * Get available years for an app (years with production deployments)
- */
-export async function getAvailableYearsForApp(
-  monitoredAppId: number,
-): Promise<Array<{ year: number; deployment_count: number }>> {
-  const result = await pool.query<{ year: number; deployment_count: string }>(
-    `SELECT EXTRACT(YEAR FROM d.created_at)::integer as year, COUNT(*)::text as deployment_count
-     FROM deployments d
-     JOIN monitored_applications ma ON d.monitored_app_id = ma.id
-     WHERE d.monitored_app_id = $1
-       AND ma.environment_name IN ('prod-fss', 'prod-gcp')
-     GROUP BY year
-     ORDER BY year DESC`,
-    [monitoredAppId],
-  )
-  return result.rows.map((r) => ({
-    year: r.year,
-    deployment_count: parseInt(r.deployment_count, 10),
-  }))
 }
