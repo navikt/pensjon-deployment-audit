@@ -1,19 +1,51 @@
-import { CogIcon } from '@navikt/aksel-icons'
-import { BodyShort, Box, Button, Detail, Heading, HStack, Label, Select, TextField, VStack } from '@navikt/ds-react'
-import { type ActionFunctionArgs, Form, type LoaderFunctionArgs, useActionData, useLoaderData } from 'react-router'
+import { CheckmarkCircleIcon, CogIcon, ExclamationmarkTriangleIcon } from '@navikt/aksel-icons'
+import {
+  Link as AkselLink,
+  Alert,
+  BodyShort,
+  Box,
+  Button,
+  Detail,
+  Heading,
+  HStack,
+  Label,
+  Select,
+  TextField,
+  VStack,
+} from '@navikt/ds-react'
+import {
+  type ActionFunctionArgs,
+  Form,
+  Link,
+  type LoaderFunctionArgs,
+  useActionData,
+  useLoaderData,
+  useNavigation,
+  useSearchParams,
+} from 'react-router'
 import {
   getAppConfigAuditLog,
   getImplicitApprovalSettings,
   updateImplicitApprovalSettings,
 } from '~/db/app-settings.server'
+import {
+  buildReportData,
+  checkAuditReadiness,
+  getAuditReportData,
+  getAuditReportsForApp,
+  saveAuditReport,
+  updateAuditReportPdf,
+} from '~/db/audit-reports.server'
 import { getMonitoredApplicationByIdentity, updateMonitoredApplication } from '~/db/monitored-applications.server'
+import { getAllUserMappings } from '~/db/user-mappings.server'
+import { generateAuditReportPdf } from '~/lib/audit-report-pdf'
 import { getUserIdentity } from '~/lib/auth.server'
 
 export function meta({ data }: { data: Awaited<ReturnType<typeof loader>> | undefined }) {
   return [{ title: data?.app ? `Admin - ${data.app.app_name}` : 'Admin' }]
 }
 
-export async function loader({ params }: LoaderFunctionArgs) {
+export async function loader({ params, request }: LoaderFunctionArgs) {
   const { team, env, app: appName } = params
   if (!team || !env || !appName) {
     throw new Response('Missing route parameters', { status: 400 })
@@ -24,15 +56,29 @@ export async function loader({ params }: LoaderFunctionArgs) {
     throw new Response('Application not found', { status: 404 })
   }
 
-  const [implicitApprovalSettings, recentConfigChanges] = await Promise.all([
+  // Check if this is a production app (audit reports only make sense for prod)
+  const isProdApp = app.environment_name.startsWith('prod-')
+
+  // Get selected year from URL or default to last year
+  const url = new URL(request.url)
+  const currentYear = new Date().getFullYear()
+  const selectedYear = Number(url.searchParams.get('year')) || currentYear - 1
+
+  const [implicitApprovalSettings, recentConfigChanges, auditReports, readiness] = await Promise.all([
     getImplicitApprovalSettings(app.id),
     getAppConfigAuditLog(app.id, { limit: 10 }),
+    getAuditReportsForApp(app.id),
+    isProdApp ? checkAuditReadiness(app.id, selectedYear) : null,
   ])
 
   return {
     app,
     implicitApprovalSettings,
     recentConfigChanges,
+    auditReports,
+    isProdApp,
+    readiness,
+    selectedYear,
   }
 }
 
@@ -86,12 +132,110 @@ export async function action({ request }: ActionFunctionArgs) {
     return { success: 'Startår for revisjon oppdatert!' }
   }
 
+  if (action === 'check_readiness') {
+    const year = Number(formData.get('year'))
+    if (!appId || !year) {
+      return { error: 'Mangler app eller år' }
+    }
+    const readiness = await checkAuditReadiness(appId, year)
+    return { readiness }
+  }
+
+  if (action === 'generate_report') {
+    const year = Number(formData.get('year'))
+    if (!appId || !year) {
+      return { error: 'Mangler app eller år' }
+    }
+
+    // Block current year - year is not complete
+    const currentYear = new Date().getFullYear()
+    if (year >= currentYear) {
+      return { error: 'Kan ikke generere rapport for inneværende eller fremtidige år' }
+    }
+
+    // Check readiness first
+    const readiness = await checkAuditReadiness(appId, year)
+    if (!readiness.is_ready) {
+      return {
+        error: `Kan ikke generere rapport. ${readiness.pending_count} deployments mangler godkjenning.`,
+        readiness,
+      }
+    }
+
+    // Get all data
+    const rawData = await getAuditReportData(appId, year)
+    const reportData = buildReportData(rawData)
+
+    // Save report metadata first
+    const report = await saveAuditReport({
+      monitoredAppId: appId,
+      appName: rawData.app.app_name,
+      teamSlug: rawData.app.team_slug,
+      environmentName: rawData.app.environment_name,
+      repository: rawData.repository,
+      year,
+      reportData,
+      generatedBy: identity.navIdent,
+    })
+
+    // Get user mappings for PDF generation
+    const mappingsArray = await getAllUserMappings()
+    const userMappings = Object.fromEntries(
+      mappingsArray.map((m) => [m.github_username, { display_name: m.display_name, nav_ident: m.nav_ident }]),
+    )
+
+    // Generate PDF and store in database
+    const pdfBuffer = await generateAuditReportPdf({
+      appName: report.app_name,
+      repository: report.repository,
+      teamSlug: report.team_slug,
+      environmentName: report.environment_name,
+      year: report.year,
+      periodStart: new Date(report.period_start),
+      periodEnd: new Date(report.period_end),
+      reportData: report.report_data,
+      contentHash: report.content_hash,
+      reportId: report.report_id,
+      generatedAt: new Date(report.generated_at),
+      userMappings,
+    })
+
+    // Store PDF in database
+    await updateAuditReportPdf(report.id, Buffer.from(pdfBuffer))
+
+    return { generated: report }
+  }
+
   return null
 }
 
 export default function AppAdmin() {
-  const { app, implicitApprovalSettings, recentConfigChanges } = useLoaderData<typeof loader>()
+  const { app, implicitApprovalSettings, recentConfigChanges, auditReports, isProdApp, readiness, selectedYear } =
+    useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
+  const navigation = useNavigation()
+  const isSubmitting = navigation.state === 'submitting'
+  const [, setSearchParams] = useSearchParams()
+
+  const currentYear = new Date().getFullYear()
+  // Only allow previous years down to audit_start_year
+  const startYear = app.audit_start_year || currentYear - 5
+  const years = Array.from({ length: currentYear - startYear }, (_, i) => currentYear - 1 - i).filter(
+    (y) => y >= startYear,
+  )
+
+  const appUrl = `/team/${app.team_slug}/env/${app.environment_name}/app/${app.app_name}`
+
+  // Use loader readiness data (fall back to action data for error cases)
+  const readinessData = readiness || actionData?.readiness
+
+  // Handle year change by updating URL (triggers loader reload)
+  const handleYearChange = (year: string) => {
+    setSearchParams((prev) => {
+      prev.set('year', year)
+      return prev
+    })
+  }
 
   return (
     <VStack gap="space-32">
@@ -107,9 +251,151 @@ export default function AppAdmin() {
           <BodyShort>{actionData.success}</BodyShort>
         </Box>
       )}
+      {actionData?.generated && (
+        <Alert variant="success">
+          Leveranserapport generert! Dokument-ID: <strong>{actionData.generated.report_id}</strong>
+        </Alert>
+      )}
       {actionData?.error && (
         <Box padding="space-16" borderRadius="8" background="danger-softA">
           <BodyShort>{actionData.error}</BodyShort>
+        </Box>
+      )}
+
+      {/* Audit Report Generation - only for prod apps - MOVED TO TOP */}
+      {isProdApp && (
+        <Box padding="space-24" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
+          <VStack gap="space-16">
+            <div>
+              <Heading size="small">Leveranserapport</Heading>
+              <BodyShort textColor="subtle" size="small">
+                Generer leveranserapport for revisjon. Rapporten dokumenterer four-eyes-prinsippet for alle deployments
+                i valgt år.
+              </BodyShort>
+            </div>
+
+            <Form method="post">
+              <input type="hidden" name="app_id" value={app.id} />
+              <input type="hidden" name="year" value={selectedYear} />
+              <VStack gap="space-16">
+                <HStack gap="space-16" align="end" wrap>
+                  <Select
+                    label="År"
+                    value={String(selectedYear)}
+                    onChange={(e) => handleYearChange(e.target.value)}
+                    size="small"
+                    style={{ minWidth: '120px' }}
+                  >
+                    {years.map((year) => (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
+                    ))}
+                  </Select>
+
+                  <Button
+                    type="submit"
+                    name="action"
+                    value="generate_report"
+                    variant="primary"
+                    size="small"
+                    loading={isSubmitting && navigation.formData?.get('action') === 'generate_report'}
+                    disabled={!readinessData?.is_ready}
+                  >
+                    Generer rapport
+                  </Button>
+                </HStack>
+
+                {/* Readiness check result */}
+                {readinessData && (
+                  <Box
+                    padding="space-16"
+                    borderRadius="4"
+                    background={readinessData.is_ready ? 'success-soft' : 'warning-soft'}
+                  >
+                    <VStack gap="space-8">
+                      <HStack gap="space-8" align="center">
+                        {readinessData.is_ready ? (
+                          <>
+                            <CheckmarkCircleIcon aria-hidden fontSize="1.5rem" />
+                            <Heading size="xsmall">Klar for leveranserapport</Heading>
+                          </>
+                        ) : (
+                          <>
+                            <ExclamationmarkTriangleIcon aria-hidden fontSize="1.5rem" />
+                            <Heading size="xsmall">Ikke klar</Heading>
+                          </>
+                        )}
+                      </HStack>
+
+                      <HStack gap="space-24" wrap>
+                        <div>
+                          <Detail>Totalt deployments</Detail>
+                          <BodyShort weight="semibold">{readinessData.total_deployments}</BodyShort>
+                        </div>
+                        <div>
+                          <Detail>Godkjent</Detail>
+                          <BodyShort weight="semibold">{readinessData.approved_count}</BodyShort>
+                        </div>
+                        {readinessData.legacy_count > 0 && (
+                          <div>
+                            <Detail>Legacy</Detail>
+                            <BodyShort weight="semibold">{readinessData.legacy_count}</BodyShort>
+                          </div>
+                        )}
+                        <div>
+                          <Detail>Venter godkjenning</Detail>
+                          <BodyShort weight="semibold">{readinessData.pending_count}</BodyShort>
+                        </div>
+                      </HStack>
+
+                      {readinessData.pending_count > 0 && (
+                        <div>
+                          <Detail>Deployments som mangler godkjenning:</Detail>
+                          <VStack gap="space-4">
+                            {readinessData.pending_deployments.map((d) => (
+                              <HStack key={d.id} gap="space-8" align="center">
+                                <AkselLink as={Link} to={`${appUrl}/deployments/${d.id}`}>
+                                  {d.commit_sha?.substring(0, 7) || 'N/A'}
+                                </AkselLink>
+                                <BodyShort size="small">
+                                  {new Date(d.created_at).toLocaleDateString('no-NO')} • {d.deployer_username} •{' '}
+                                  {d.four_eyes_status}
+                                </BodyShort>
+                              </HStack>
+                            ))}
+                          </VStack>
+                        </div>
+                      )}
+                    </VStack>
+                  </Box>
+                )}
+              </VStack>
+            </Form>
+
+            {/* Existing reports for this app */}
+            {auditReports.length > 0 && (
+              <VStack gap="space-8">
+                <Label>Eksisterende rapporter</Label>
+                <VStack gap="space-4">
+                  {auditReports.map((report) => (
+                    <HStack key={report.id} gap="space-16" align="center">
+                      <BodyShort weight="semibold">{report.year}</BodyShort>
+                      <Detail textColor="subtle">{report.report_id}</Detail>
+                      <HStack gap="space-8">
+                        <AkselLink href={`/admin/audit-reports/${report.id}/view`} target="_blank">
+                          Vis
+                        </AkselLink>
+                        <AkselLink href={`/admin/audit-reports/${report.id}/pdf`} target="_blank">
+                          Last ned
+                        </AkselLink>
+                      </HStack>
+                    </HStack>
+                  ))}
+                </VStack>
+              </VStack>
+            )}
+          </VStack>
         </Box>
       )}
 

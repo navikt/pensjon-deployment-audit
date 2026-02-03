@@ -1,7 +1,6 @@
-import { CheckmarkCircleIcon, DownloadIcon, ExclamationmarkTriangleIcon, EyeIcon } from '@navikt/aksel-icons'
+import { DownloadIcon, EyeIcon } from '@navikt/aksel-icons'
 import {
   Link as AkselLink,
-  Alert,
   BodyShort,
   Box,
   Button,
@@ -9,131 +8,19 @@ import {
   Heading,
   Hide,
   HStack,
-  Select,
   Show,
   Table,
   Tag,
   VStack,
 } from '@navikt/ds-react'
-import { useState } from 'react'
-import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router'
-import { Form, Link, useActionData, useLoaderData, useNavigation } from 'react-router'
-import {
-  buildReportData,
-  checkAuditReadiness,
-  getAllAuditReports,
-  getAuditReportData,
-  saveAuditReport,
-  updateAuditReportPdf,
-} from '~/db/audit-reports.server'
-import { getAllMonitoredApplications } from '~/db/monitored-applications.server'
-import { getAllUserMappings } from '~/db/user-mappings.server'
-import { generateAuditReportPdf } from '~/lib/audit-report-pdf'
+import type { LoaderFunctionArgs } from 'react-router'
+import { Link, useLoaderData } from 'react-router'
+import { getAllAuditReports } from '~/db/audit-reports.server'
 import styles from '~/styles/common.module.css'
 
 export async function loader(_args: LoaderFunctionArgs) {
-  const [reports, apps] = await Promise.all([getAllAuditReports(), getAllMonitoredApplications()])
-
-  // Filter to only production apps
-  const prodApps = apps.filter((app) => app.environment_name.startsWith('prod-'))
-
-  return { reports, apps: prodApps }
-}
-
-export async function action({ request }: ActionFunctionArgs) {
-  const formData = await request.formData()
-  const intent = formData.get('intent')
-
-  if (intent === 'check-readiness') {
-    const appId = Number(formData.get('app_id'))
-    const year = Number(formData.get('year'))
-
-    if (!appId || !year) {
-      return { error: 'Mangler app eller år', readiness: null, generated: null }
-    }
-
-    const readiness = await checkAuditReadiness(appId, year)
-    return { readiness, error: null, generated: null }
-  }
-
-  if (intent === 'generate-report') {
-    const appId = Number(formData.get('app_id'))
-    const year = Number(formData.get('year'))
-
-    if (!appId || !year) {
-      return { error: 'Mangler app eller år', readiness: null, generated: null }
-    }
-
-    // Block current year - year is not complete
-    const currentYear = new Date().getFullYear()
-    if (year >= currentYear) {
-      return {
-        error: 'Kan ikke generere rapport for inneværende eller fremtidige år',
-        readiness: null,
-        generated: null,
-      }
-    }
-
-    // Check readiness first
-    const readiness = await checkAuditReadiness(appId, year)
-    if (!readiness.is_ready) {
-      return {
-        error: `Kan ikke generere rapport. ${readiness.pending_count} deployments mangler godkjenning.`,
-        readiness,
-        generated: null,
-      }
-    }
-
-    // Get all data
-    const rawData = await getAuditReportData(appId, year)
-    const reportData = buildReportData(rawData)
-
-    // Save report metadata first
-    const report = await saveAuditReport({
-      monitoredAppId: appId,
-      appName: rawData.app.app_name,
-      teamSlug: rawData.app.team_slug,
-      environmentName: rawData.app.environment_name,
-      repository: rawData.repository,
-      year,
-      reportData,
-      generatedBy: undefined, // Could add user info here
-    })
-
-    // Get user mappings for PDF generation
-    const mappingsArray = await getAllUserMappings()
-    const userMappings = Object.fromEntries(
-      mappingsArray.map((m) => [m.github_username, { display_name: m.display_name, nav_ident: m.nav_ident }]),
-    )
-
-    // Generate PDF and store in database
-    const pdfBuffer = await generateAuditReportPdf({
-      appName: report.app_name,
-      repository: report.repository,
-      teamSlug: report.team_slug,
-      environmentName: report.environment_name,
-      year: report.year,
-      periodStart: new Date(report.period_start),
-      periodEnd: new Date(report.period_end),
-      reportData: report.report_data,
-      contentHash: report.content_hash,
-      reportId: report.report_id,
-      generatedAt: new Date(report.generated_at),
-      userMappings,
-    })
-
-    // Store PDF in database
-    await updateAuditReportPdf(report.id, Buffer.from(pdfBuffer))
-
-    return { generated: report, error: null, readiness: null }
-  }
-
-  return { error: 'Ugyldig handling', readiness: null, generated: null }
-}
-
-function formatDate(date: Date | string): string {
-  const d = typeof date === 'string' ? new Date(date) : date
-  return d.toLocaleDateString('nb-NO', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  const reports = await getAllAuditReports()
+  return { reports }
 }
 
 function formatDateTime(date: Date | string): string {
@@ -148,17 +35,7 @@ function formatDateTime(date: Date | string): string {
 }
 
 export default function AdminAuditReports() {
-  const { reports, apps } = useLoaderData<typeof loader>()
-  const actionData = useActionData<typeof action>()
-  const navigation = useNavigation()
-  const isSubmitting = navigation.state === 'submitting'
-
-  const [selectedApp, setSelectedApp] = useState<string>('')
-  const [selectedYear, setSelectedYear] = useState<string>((new Date().getFullYear() - 1).toString())
-
-  const currentYear = new Date().getFullYear()
-  // Only allow previous years - current year is not complete
-  const years = Array.from({ length: 5 }, (_, i) => currentYear - 1 - i)
+  const { reports } = useLoaderData<typeof loader>()
 
   return (
     <VStack gap="space-24">
@@ -167,156 +44,11 @@ export default function AdminAuditReports() {
           Leveranserapport
         </Heading>
         <BodyShort textColor="subtle">
-          Generer leveranserapport for revisjon som dokumenterer four-eyes-prinsippet for alle deployments.
+          Oversikt over genererte leveranserapporter. For å generere ny rapport, gå til admin-siden for den aktuelle
+          applikasjonen.
         </BodyShort>
       </div>
 
-      {actionData?.error && <Alert variant="error">{actionData.error}</Alert>}
-
-      {actionData?.generated && (
-        <Alert variant="success">
-          Leveranserapport generert! Dokument-ID: <strong>{actionData.generated.report_id}</strong>
-        </Alert>
-      )}
-
-      {/* Generate new report section */}
-      <Box padding="space-24" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
-        <VStack gap="space-16">
-          <div>
-            <Heading size="medium" spacing>
-              Generer leveranserapport
-            </Heading>
-            <BodyShort textColor="subtle">
-              Velg applikasjon og år for å sjekke status og generere leveranserapport. Det kan bare finnes ett
-              leveranserapport per applikasjon per år. Hvis et bevis allerede finnes, vil det bli oppdatert med ny data
-              og ny dokument-ID.
-            </BodyShort>
-          </div>
-
-          <Form method="post">
-            <VStack gap="space-16">
-              <HStack gap="space-16" align="end" wrap>
-                <Select
-                  label="Applikasjon (prod)"
-                  value={selectedApp}
-                  onChange={(e) => setSelectedApp(e.target.value)}
-                  name="app_id"
-                  style={{ minWidth: '250px' }}
-                >
-                  <option value="">Velg applikasjon...</option>
-                  {apps.map((app) => (
-                    <option key={app.id} value={app.id}>
-                      {app.app_name} ({app.environment_name})
-                    </option>
-                  ))}
-                </Select>
-
-                <Select
-                  label="År"
-                  value={selectedYear}
-                  onChange={(e) => setSelectedYear(e.target.value)}
-                  name="year"
-                  style={{ minWidth: '120px' }}
-                >
-                  {years.map((year) => (
-                    <option key={year} value={year}>
-                      {year}
-                    </option>
-                  ))}
-                </Select>
-
-                <Button
-                  type="submit"
-                  name="intent"
-                  value="check-readiness"
-                  variant="secondary"
-                  loading={isSubmitting && navigation.formData?.get('intent') === 'check-readiness'}
-                  disabled={!selectedApp}
-                >
-                  Sjekk status
-                </Button>
-
-                <Button
-                  type="submit"
-                  name="intent"
-                  value="generate-report"
-                  variant="primary"
-                  loading={isSubmitting && navigation.formData?.get('intent') === 'generate-report'}
-                  disabled={!selectedApp}
-                >
-                  Generer/oppdater rapport
-                </Button>
-              </HStack>
-
-              {/* Readiness check result */}
-              {actionData?.readiness && (
-                <Box
-                  padding="space-16"
-                  borderRadius="4"
-                  background={actionData.readiness.is_ready ? 'success-soft' : 'warning-soft'}
-                >
-                  <VStack gap="space-8">
-                    <HStack gap="space-8" align="center">
-                      {actionData.readiness.is_ready ? (
-                        <>
-                          <CheckmarkCircleIcon aria-hidden fontSize="1.5rem" />
-                          <Heading size="small">Klar for leveranserapport</Heading>
-                        </>
-                      ) : (
-                        <>
-                          <ExclamationmarkTriangleIcon aria-hidden fontSize="1.5rem" />
-                          <Heading size="small">Ikke klar</Heading>
-                        </>
-                      )}
-                    </HStack>
-
-                    <HStack gap="space-24" wrap>
-                      <div>
-                        <Detail>Totalt deployments</Detail>
-                        <BodyShort weight="semibold">{actionData.readiness.total_deployments}</BodyShort>
-                      </div>
-                      <div>
-                        <Detail>Godkjent</Detail>
-                        <BodyShort weight="semibold">{actionData.readiness.approved_count}</BodyShort>
-                      </div>
-                      {actionData.readiness.legacy_count > 0 && (
-                        <div>
-                          <Detail>Legacy</Detail>
-                          <BodyShort weight="semibold">{actionData.readiness.legacy_count}</BodyShort>
-                        </div>
-                      )}
-                      <div>
-                        <Detail>Venter godkjenning</Detail>
-                        <BodyShort weight="semibold">{actionData.readiness.pending_count}</BodyShort>
-                      </div>
-                    </HStack>
-
-                    {actionData.readiness.pending_count > 0 && (
-                      <div>
-                        <Detail>Deployments som mangler godkjenning:</Detail>
-                        <VStack gap="space-4">
-                          {actionData.readiness.pending_deployments.map((d) => (
-                            <HStack key={d.id} gap="space-8" align="center">
-                              <AkselLink as={Link} to={`/deployments/${d.id}`}>
-                                {d.commit_sha?.substring(0, 7) || 'N/A'}
-                              </AkselLink>
-                              <BodyShort size="small">
-                                {formatDate(d.created_at)} • {d.deployer_username} • {d.four_eyes_status}
-                              </BodyShort>
-                            </HStack>
-                          ))}
-                        </VStack>
-                      </div>
-                    )}
-                  </VStack>
-                </Box>
-              )}
-            </VStack>
-          </Form>
-        </VStack>
-      </Box>
-
-      {/* Existing reports */}
       <Box padding="space-24" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
         <VStack gap="space-16">
           <div>
@@ -351,9 +83,12 @@ export default function AdminAuditReports() {
                         </Table.DataCell>
                         <Table.DataCell>
                           <VStack gap="space-2">
-                            <BodyShort size="small" weight="semibold">
+                            <AkselLink
+                              as={Link}
+                              to={`/team/${report.team_slug}/env/${report.environment_name}/app/${report.app_name}/admin`}
+                            >
                               {report.app_name}
-                            </BodyShort>
+                            </AkselLink>
                             <Detail>{report.environment_name}</Detail>
                           </VStack>
                         </Table.DataCell>
@@ -404,7 +139,12 @@ export default function AdminAuditReports() {
                       <VStack gap="space-8">
                         <HStack justify="space-between" align="start" wrap>
                           <div>
-                            <BodyShort weight="semibold">{report.app_name}</BodyShort>
+                            <AkselLink
+                              as={Link}
+                              to={`/team/${report.team_slug}/env/${report.environment_name}/app/${report.app_name}/admin`}
+                            >
+                              {report.app_name}
+                            </AkselLink>
                             <Detail>
                               {report.environment_name} • {report.year}
                             </Detail>
