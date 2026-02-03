@@ -67,6 +67,8 @@ spec:
       value: https://console.nav.cloud.nais.io/graphql
     - name: ENABLE_PERIODIC_SYNC
       value: "true"
+    - name: ALLOWED_ENVIRONMENTS
+      value: "prod-fss,prod-gcp"
 
   envFrom:
     - secret: nais-deployment-audit

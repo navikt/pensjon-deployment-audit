@@ -12,8 +12,17 @@ export function meta(_args: Route.MetaArgs) {
 
 export async function loader() {
   try {
+    // Get allowed environments from config (comma-separated)
+    const allowedEnvs = process.env.ALLOWED_ENVIRONMENTS?.split(',').map((e) => e.trim()) || []
+
     // Fetch all teams and applications on page load
-    const allApps = await fetchAllTeamsAndApplications()
+    let allApps = await fetchAllTeamsAndApplications()
+
+    // Filter by allowed environments if configured
+    if (allowedEnvs.length > 0) {
+      allApps = allApps.filter((app) => allowedEnvs.includes(app.environmentName))
+    }
+
     // Fetch already monitored apps
     const monitoredApps = await getAllMonitoredApplications()
     const monitoredKeys = new Set(
