@@ -34,7 +34,7 @@ spec:
       cpu: 50m
       memory: 256Mi
     limits:
-      memory: 1024Mi
+      memory: 2048Mi
 
   # Entra ID (Azure AD) authentication with login sidecar
   azure:
