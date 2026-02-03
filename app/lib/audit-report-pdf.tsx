@@ -425,38 +425,6 @@ function AuditReportPdfDocument(props: AuditReportPdfProps) {
           </View>
         )}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Godkjenningsmetoder</Text>
-          <View style={styles.methodologyBox}>
-            <Text style={styles.methodologyTitle}>A. Pull Request (automatisk verifisert)</Text>
-            <Text style={styles.methodologyText}>• PR må være godkjent (approved) av minst én annen person</Text>
-            <Text style={styles.methodologyText}>• Siste commit må være før godkjenning (ingen post-commits)</Text>
-            <Text style={styles.methodologyText}>• Siste commit kan ikke være fra reviewer</Text>
-          </View>
-          <View style={styles.methodologyBox}>
-            <Text style={styles.methodologyTitle}>B. Manuell godkjenning (etterkontroll)</Text>
-            <Text style={styles.methodologyText}>• Krever kommentar med begrunnelse</Text>
-            <Text style={styles.methodologyText}>• Krever lenke til Slack-samtale som dokumenterer review</Text>
-            <Text style={styles.methodologyText}>• Godkjenner og tidspunkt registreres</Text>
-          </View>
-          {legacyCount > 0 && (
-            <View style={[styles.methodologyBox, { backgroundColor: '#FFF4E0', borderLeft: '3px solid #D47500' }]}>
-              <Text style={styles.methodologyTitle}>C. Legacy deployments ({legacyCount} stk)</Text>
-              <Text style={styles.methodologyText}>
-                Legacy deployments er deployments fra før systemet for automatisk verifisering ble innført.
-              </Text>
-              <Text style={styles.methodologyText}>
-                Disse deployments mangler commit SHA eller annen nødvendig informasjon for å verifisere
-                four-eyes-prinsippet automatisk.
-              </Text>
-              <Text style={styles.methodologyText}>
-                For perioder med legacy deployments gjaldt andre rutiner for kodereview som ikke er sporbare i dette
-                systemet.
-              </Text>
-            </View>
-          )}
-        </View>
-
         <View style={styles.footer}>
           <Text style={styles.footerText}>
             Generert: {formatDateTime(generatedAt)} | Pensjon Deployment Audit System
@@ -632,6 +600,45 @@ function AuditReportPdfDocument(props: AuditReportPdfProps) {
           />
         </Page>
       )}
+
+      {/* Godkjenningsmetoder page */}
+      <Page size="A4" style={styles.page}>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Godkjenningsmetoder</Text>
+          <View style={styles.methodologyBox}>
+            <Text style={styles.methodologyTitle}>A. Pull Request (automatisk verifisert)</Text>
+            <Text style={styles.methodologyText}>• PR må være godkjent (approved) av minst én annen person</Text>
+            <Text style={styles.methodologyText}>• Siste commit må være før godkjenning (ingen post-commits)</Text>
+            <Text style={styles.methodologyText}>• Siste commit kan ikke være fra reviewer</Text>
+          </View>
+          <View style={styles.methodologyBox}>
+            <Text style={styles.methodologyTitle}>B. Manuell godkjenning (etterkontroll)</Text>
+            <Text style={styles.methodologyText}>• Krever kommentar med begrunnelse</Text>
+            <Text style={styles.methodologyText}>• Krever lenke til Slack-samtale som dokumenterer review</Text>
+            <Text style={styles.methodologyText}>• Godkjenner og tidspunkt registreres</Text>
+          </View>
+          {legacyCount > 0 && (
+            <View style={[styles.methodologyBox, { backgroundColor: '#FFF4E0', borderLeft: '3px solid #D47500' }]}>
+              <Text style={styles.methodologyTitle}>C. Legacy deployments ({legacyCount} stk)</Text>
+              <Text style={styles.methodologyText}>
+                Legacy deployments er deployments fra før systemet for automatisk verifisering ble innført.
+              </Text>
+              <Text style={styles.methodologyText}>
+                Disse deployments mangler commit SHA eller annen nødvendig informasjon for å verifisere
+                four-eyes-prinsippet automatisk.
+              </Text>
+              <Text style={styles.methodologyText}>
+                For perioder med legacy deployments gjaldt andre rutiner for kodereview som ikke er sporbare i dette
+                systemet.
+              </Text>
+            </View>
+          )}
+        </View>
+        <Text
+          style={styles.pageNumber}
+          render={({ pageNumber, totalPages }) => `Side ${pageNumber} av ${totalPages}`}
+        />
+      </Page>
 
       {/* Security methodology page */}
       <Page size="A4" style={styles.page}>
