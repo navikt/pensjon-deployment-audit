@@ -139,15 +139,13 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       }
     }
 
-    // Check if user is author of any unverified commit
-    if (!isCurrentUserInvolved && deployment.unverified_commits) {
-      for (const commit of deployment.unverified_commits) {
-        const commitAuthorMapping = userMappings.get(commit.author)
-        if (commitAuthorMapping?.nav_ident?.toUpperCase() === currentNavIdent) {
-          isCurrentUserInvolved = true
-          involvementReason = 'Du er forfatter av en eller flere ikke-verifiserte commits i denne deploymenten'
-          break
-        }
+    // Check if user is author of the last unverified commit (relaxed four-eyes check)
+    if (!isCurrentUserInvolved && deployment.unverified_commits && deployment.unverified_commits.length > 0) {
+      const lastCommit = deployment.unverified_commits[deployment.unverified_commits.length - 1]
+      const lastCommitAuthorMapping = userMappings.get(lastCommit.author)
+      if (lastCommitAuthorMapping?.nav_ident?.toUpperCase() === currentNavIdent) {
+        isCurrentUserInvolved = true
+        involvementReason = 'Du er forfatter av siste commit i denne deploymenten'
       }
     }
   }
@@ -239,15 +237,14 @@ export async function action({ request, params }: Route.ActionArgs) {
       }
     }
 
-    // Check if user is author of any unverified commit
-    if (deployment.unverified_commits) {
-      for (const commit of deployment.unverified_commits) {
-        const commitAuthorMapping = userMappings.get(commit.author)
-        if (commitAuthorMapping?.nav_ident?.toUpperCase() === currentNavIdent) {
-          return {
-            error:
-              'Du kan ikke godkjenne en deployment med dine egne commits. Fire-øyne-prinsippet krever at en annen person godkjenner.',
-          }
+    // Check if user is author of the last unverified commit (relaxed four-eyes check)
+    if (deployment.unverified_commits && deployment.unverified_commits.length > 0) {
+      const lastCommit = deployment.unverified_commits[deployment.unverified_commits.length - 1]
+      const lastCommitAuthorMapping = userMappings.get(lastCommit.author)
+      if (lastCommitAuthorMapping?.nav_ident?.toUpperCase() === currentNavIdent) {
+        return {
+          error:
+            'Du kan ikke godkjenne en deployment der du har siste commit. Fire-øyne-prinsippet krever at en annen person godkjenner.',
         }
       }
     }
