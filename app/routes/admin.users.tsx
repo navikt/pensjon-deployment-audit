@@ -23,14 +23,19 @@ import {
   type UserMapping,
   upsertUserMapping,
 } from '~/db/user-mappings.server'
+import { requireAdmin } from '~/lib/auth.server'
 import styles from '~/styles/common.module.css'
 
-export async function loader(_args: LoaderFunctionArgs) {
+export async function loader({ request }: LoaderFunctionArgs) {
+  requireAdmin(request)
+
   const [mappings, unmappedUsers] = await Promise.all([getAllUserMappings(), getUnmappedUsers()])
   return { mappings, unmappedUsers }
 }
 
 export async function action({ request }: ActionFunctionArgs) {
+  requireAdmin(request)
+
   const formData = await request.formData()
   const intent = formData.get('intent')
 

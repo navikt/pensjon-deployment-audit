@@ -3,6 +3,7 @@ import { Alert, BodyShort, Box, Button, Detail, Heading, HStack, Tag, TextField,
 import { Form, useNavigation } from 'react-router'
 import { upsertApplicationRepository } from '../db/application-repositories.server'
 import { createMonitoredApplication, getAllMonitoredApplications } from '../db/monitored-applications.server'
+import { requireAdmin } from '../lib/auth.server'
 import { fetchAllTeamsAndApplications, getApplicationInfo } from '../lib/nais.server'
 import type { Route } from './+types/apps.add'
 
@@ -10,7 +11,9 @@ export function meta(_args: Route.MetaArgs) {
   return [{ title: 'Legg til applikasjon - Pensjon Deployment Audit' }]
 }
 
-export async function loader() {
+export async function loader({ request }: Route.LoaderArgs) {
+  requireAdmin(request)
+
   try {
     // Get allowed environments from config (comma-separated)
     const allowedEnvs = process.env.ALLOWED_ENVIRONMENTS?.split(',').map((e) => e.trim()) || []
@@ -40,6 +43,8 @@ export async function loader() {
 }
 
 export async function action({ request }: Route.ActionArgs) {
+  requireAdmin(request)
+
   const formData = await request.formData()
   const intent = formData.get('intent')
 

@@ -1,7 +1,10 @@
 import type { LoaderFunctionArgs } from 'react-router'
 import { getAuditReportById } from '~/db/audit-reports.server'
+import { requireAdmin } from '~/lib/auth.server'
 
-export async function loader({ params }: LoaderFunctionArgs) {
+export async function loader({ request, params }: LoaderFunctionArgs) {
+  requireAdmin(request)
+
   const reportId = Number(params.id)
 
   if (!reportId) {

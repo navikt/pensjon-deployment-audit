@@ -35,6 +35,7 @@ import {
   type LoaderFunctionArgs,
   useActionData,
   useLoaderData,
+  useRouteLoaderData,
   useSearchParams,
 } from 'react-router'
 import { StatCard } from '~/components/StatCard'
@@ -51,6 +52,7 @@ import { getAppDeploymentStats } from '~/db/deployments.server'
 import { getMonitoredApplicationByIdentity, updateMonitoredApplication } from '~/db/monitored-applications.server'
 import { getUserIdentity } from '~/lib/auth.server'
 import { getDateRangeForPeriod, TIME_PERIOD_OPTIONS, type TimePeriod } from '~/lib/time-periods'
+import type { loader as layoutLoader } from './layout'
 
 export async function loader({ params, request }: LoaderFunctionArgs) {
   const { team, env, app: appName } = params
@@ -193,6 +195,8 @@ export default function AppDetail() {
     useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
   const [searchParams] = useSearchParams()
+  const layoutData = useRouteLoaderData<typeof layoutLoader>('routes/layout')
+  const isAdmin = layoutData?.user?.role === 'admin'
   const currentPeriod = searchParams.get('period') || 'last-week'
   const [resolveModalOpen, setResolveModalOpen] = useState(false)
   const [selectedAlert, setSelectedAlert] = useState<(typeof alerts)[0] | null>(null)
@@ -598,17 +602,19 @@ export default function AppDetail() {
         </VStack>
       </Box>
 
-      {/* Settings Section */}
-      <Box padding="space-24" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
-        <HStack justify="space-between" align="center">
-          <Heading size="medium">
-            <CogIcon aria-hidden /> Innstillinger
-          </Heading>
-          <Button as={Link} to={`${appUrl}/admin`} variant="secondary" size="small" icon={<CogIcon aria-hidden />}>
-            Administrer
-          </Button>
-        </HStack>
-      </Box>
+      {/* Settings Section - only for admins */}
+      {isAdmin && (
+        <Box padding="space-24" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
+          <HStack justify="space-between" align="center">
+            <Heading size="medium">
+              <CogIcon aria-hidden /> Innstillinger
+            </Heading>
+            <Button as={Link} to={`${appUrl}/admin`} variant="secondary" size="small" icon={<CogIcon aria-hidden />}>
+              Administrer
+            </Button>
+          </HStack>
+        </Box>
+      )}
     </VStack>
   )
 }

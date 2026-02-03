@@ -2,13 +2,16 @@ import { ArrowsCirclepathIcon, CheckmarkCircleIcon, FileTextIcon, PersonGroupIco
 import { BodyShort, Box, Heading, HGrid, VStack } from '@navikt/ds-react'
 import { Link, useLoaderData } from 'react-router'
 import { getAllDeployments } from '~/db/deployments.server'
+import { requireAdmin } from '~/lib/auth.server'
 import type { Route } from './+types/admin'
 
 export function meta(_args: Route.MetaArgs) {
   return [{ title: 'Admin - Pensjon Deployment Audit' }]
 }
 
-export async function loader() {
+export async function loader({ request }: Route.LoaderArgs) {
+  requireAdmin(request)
+
   const allDeployments = await getAllDeployments()
   const pendingCount = allDeployments.filter(
     (d) => d.four_eyes_status === 'pending' || d.four_eyes_status === 'error',

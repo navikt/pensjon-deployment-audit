@@ -39,13 +39,15 @@ import {
 import { getMonitoredApplicationByIdentity, updateMonitoredApplication } from '~/db/monitored-applications.server'
 import { getAllUserMappings } from '~/db/user-mappings.server'
 import { generateAuditReportPdf } from '~/lib/audit-report-pdf'
-import { getUserIdentity } from '~/lib/auth.server'
+import { requireAdmin } from '~/lib/auth.server'
 
 export function meta({ data }: { data: Awaited<ReturnType<typeof loader>> | undefined }) {
   return [{ title: data?.app ? `Admin - ${data.app.app_name}` : 'Admin' }]
 }
 
 export async function loader({ params, request }: LoaderFunctionArgs) {
+  requireAdmin(request)
+
   const { team, env, app: appName } = params
   if (!team || !env || !appName) {
     throw new Response('Missing route parameters', { status: 400 })
@@ -83,14 +85,11 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
 }
 
 export async function action({ request }: ActionFunctionArgs) {
+  const user = requireAdmin(request)
+
   const formData = await request.formData()
   const action = formData.get('action') as string
   const appId = parseInt(formData.get('app_id') as string, 10)
-
-  const identity = getUserIdentity(request)
-  if (!identity?.navIdent) {
-    return { error: 'Du må være logget inn for å endre innstillinger' }
-  }
 
   if (action === 'update_default_branch') {
     const defaultBranch = formData.get('default_branch') as string
@@ -110,8 +109,8 @@ export async function action({ request }: ActionFunctionArgs) {
     await updateImplicitApprovalSettings({
       monitoredAppId: appId,
       settings: { mode },
-      changedByNavIdent: identity.navIdent,
-      changedByName: identity.name || undefined,
+      changedByNavIdent: user.navIdent,
+      changedByName: user.name || undefined,
     })
     return { success: 'Implisitt godkjenning-innstillinger oppdatert!' }
   }
@@ -175,7 +174,7 @@ export async function action({ request }: ActionFunctionArgs) {
       repository: rawData.repository,
       year,
       reportData,
-      generatedBy: identity.navIdent,
+      generatedBy: user.navIdent,
     })
 
     // Get user mappings for PDF generation

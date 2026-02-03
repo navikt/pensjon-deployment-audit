@@ -1,12 +1,13 @@
 import { BellIcon, CheckmarkCircleIcon, ExclamationmarkTriangleIcon, XMarkOctagonIcon } from '@navikt/aksel-icons'
 import { Alert, BodyShort, Box, Button, Detail, Heading, Hide, HStack, Show, Tag, VStack } from '@navikt/ds-react'
-import { Link } from 'react-router'
+import { Link, useRouteLoaderData } from 'react-router'
 import { getRepositoriesByAppId } from '~/db/application-repositories.server'
 import { getAlertCountsByApp } from '../db/alerts.server'
 import { getAppDeploymentStats } from '../db/deployments.server'
 import { getAllMonitoredApplications } from '../db/monitored-applications.server'
 import styles from '../styles/common.module.css'
 import type { Route } from './+types/home'
+import type { loader as layoutLoader } from './layout'
 
 export function meta(_args: Route.MetaArgs) {
   return [
@@ -79,6 +80,8 @@ function getAppUrl(app: { team_slug: string; environment_name: string; app_name:
 
 export default function Home({ loaderData }: Route.ComponentProps) {
   const { apps } = loaderData
+  const layoutData = useRouteLoaderData<typeof layoutLoader>('routes/layout')
+  const isAdmin = layoutData?.user?.role === 'admin'
 
   // Group apps by team
   type AppWithStats = (typeof apps)[number]
@@ -92,12 +95,14 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
   return (
     <VStack gap="space-32">
-      {/* Add app button */}
-      <HStack justify="end">
-        <Button as={Link} to="/apps/add" size="small" variant="secondary">
-          Legg til applikasjon
-        </Button>
-      </HStack>
+      {/* Add app button - only for admins */}
+      {isAdmin && (
+        <HStack justify="end">
+          <Button as={Link} to="/apps/add" size="small" variant="secondary">
+            Legg til applikasjon
+          </Button>
+        </HStack>
+      )}
 
       {/* Empty state */}
       {apps.length === 0 && <Alert variant="info">Ingen applikasjoner overvåkes ennå.</Alert>}

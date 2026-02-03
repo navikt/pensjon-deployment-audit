@@ -23,6 +23,7 @@ import {
   type SyncJobStatus,
   type SyncJobType,
 } from '~/db/sync-jobs.server'
+import { requireAdmin } from '~/lib/auth.server'
 import styles from '~/styles/common.module.css'
 import type { Route } from './+types/admin.sync-jobs'
 
@@ -31,6 +32,8 @@ export function meta(_args: Route.MetaArgs) {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
+  requireAdmin(request)
+
   const url = new URL(request.url)
   const status = url.searchParams.get('status') as SyncJobStatus | null
   const jobType = url.searchParams.get('type') as SyncJobType | null
@@ -48,6 +51,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 export async function action({ request }: Route.ActionArgs) {
+  requireAdmin(request)
+
   const formData = await request.formData()
   const intent = formData.get('intent')
 

@@ -6,16 +6,12 @@ import { Breadcrumbs } from '~/components/Breadcrumbs'
 import { SearchDialog } from '~/components/SearchDialog'
 import { getUserMappingByNavIdent } from '~/db/user-mappings.server'
 import { useTheme } from '~/hooks/useTheme'
-import { getUserIdentity } from '~/lib/auth.server'
+import { requireUser } from '~/lib/auth.server'
 import styles from '../styles/common.module.css'
 import type { Route } from './+types/layout'
 
 export async function loader({ request }: Route.LoaderArgs) {
-  const identity = getUserIdentity(request)
-
-  if (!identity) {
-    return { user: null }
-  }
+  const identity = requireUser(request)
 
   // Try to get display name from user mappings
   const userMapping = await getUserMappingByNavIdent(identity.navIdent)
@@ -25,6 +21,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       navIdent: identity.navIdent,
       displayName: userMapping?.display_name || identity.name || identity.navIdent,
       email: userMapping?.nav_email || identity.email || null,
+      role: identity.role,
     },
   }
 }
@@ -43,7 +40,8 @@ export default function Layout({ loaderData }: Route.ComponentProps) {
     return location.pathname.startsWith(path)
   }
 
-  const navItems = [{ path: '/admin', label: 'Admin' }]
+  // Only show admin nav item for admin users
+  const navItems = user.role === 'admin' ? [{ path: '/admin', label: 'Admin' }] : []
 
   // Clear search on navigation
   const prevPathRef = useRef(location.pathname)

@@ -16,9 +16,12 @@ import {
 import type { LoaderFunctionArgs } from 'react-router'
 import { Link, useLoaderData } from 'react-router'
 import { getAllAuditReports } from '~/db/audit-reports.server'
+import { requireAdmin } from '~/lib/auth.server'
 import styles from '~/styles/common.module.css'
 
-export async function loader(_args: LoaderFunctionArgs) {
+export async function loader({ request }: LoaderFunctionArgs) {
+  requireAdmin(request)
+
   const reports = await getAllAuditReports()
   return { reports }
 }
