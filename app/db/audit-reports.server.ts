@@ -139,11 +139,20 @@ export async function checkAuditReadiness(monitoredAppId: number, year: number):
   )
 
   const deployments = result.rows
-  // Legacy deployments are accepted (pre-2025 without verification)
-  const approvedStatuses = ['approved_pr', 'manually_approved', 'implicitly_approved', 'legacy']
+  // Approved statuses - 'approved' is the main status for PR-verified deployments
+  const approvedStatuses = [
+    'approved',
+    'approved_pr',
+    'manually_approved',
+    'implicitly_approved',
+    'legacy',
+    'baseline',
+    'no_changes',
+  ]
 
   const approved = deployments.filter(
     (d) =>
+      d.four_eyes_status === 'approved' ||
       d.four_eyes_status === 'approved_pr' ||
       d.four_eyes_status === 'manually_approved' ||
       d.four_eyes_status === 'implicitly_approved',
