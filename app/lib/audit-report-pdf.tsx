@@ -416,170 +416,6 @@ function AuditReportPdfDocument(props: AuditReportPdfProps) {
         />
       </Page>
 
-      {/* Pages for deployments - one page per month */}
-      {sortedMonths.map((monthKey, monthIdx) => {
-        const monthDeployments = deploymentsByMonth.get(monthKey) || []
-        let runningTotal = 0
-        for (let i = 0; i < monthIdx; i++) {
-          runningTotal += deploymentsByMonth.get(sortedMonths[i])?.length || 0
-        }
-
-        return (
-          <Page key={monthKey} size="A4" style={styles.page}>
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>
-                Deployments - {formatMonthName(monthKey)} ({monthDeployments.length} stk)
-              </Text>
-              <View style={styles.table}>
-                {/* Header row 1 - fixed to repeat on each page */}
-                <View style={styles.tableHeader} fixed>
-                  <Text style={[styles.tableHeaderCell, styles.r1col1]}>#</Text>
-                  <Text style={[styles.tableHeaderCell, styles.r1col2]}>Dato</Text>
-                  <Text style={[styles.tableHeaderCell, styles.r1col3]}>Tittel</Text>
-                </View>
-                {/* Header row 2 - fixed to repeat on each page */}
-                <View
-                  style={[
-                    styles.tableHeader,
-                    { borderTopLeftRadius: 0, borderTopRightRadius: 0, backgroundColor: '#F0EDEB' },
-                  ]}
-                  fixed
-                >
-                  <Text style={[styles.tableHeaderCell, styles.r2col1]} />
-                  <Text style={[styles.tableHeaderCell, styles.r2col2]}>Commit</Text>
-                  <Text style={[styles.tableHeaderCell, styles.r2col3]}>Metode</Text>
-                  <Text style={[styles.tableHeaderCell, styles.r2col4]}>Referanse</Text>
-                  <Text style={[styles.tableHeaderCell, styles.r2col5]}>Deployer</Text>
-                  <Text style={[styles.tableHeaderCell, styles.r2col6]}>Godkjenner</Text>
-                  <Text style={[styles.tableHeaderCell, styles.r2col7]}>Nais ID</Text>
-                </View>
-                {monthDeployments.map((d, idx) => (
-                  <View key={d.id} style={[styles.deploymentCard, idx % 2 === 1 ? styles.deploymentCardAlt : {}]}>
-                    {/* Row 1: #, Dato, Tittel */}
-                    <View style={styles.deploymentRow1}>
-                      <Text style={[styles.tableCell, styles.r1col1]}>{runningTotal + idx + 1}</Text>
-                      <Text style={[styles.tableCell, styles.r1col2]}>{formatDate(d.date)}</Text>
-                      <Text style={[styles.tableCell, styles.r1col3, { fontWeight: 600 }]}>{d.title || '-'}</Text>
-                    </View>
-                    {/* Row 2: Commit, Metode, Referanse, Deployer, Godkjenner, Nais ID */}
-                    <View style={styles.deploymentRow2}>
-                      <Text style={[styles.r2col1]} />
-                      <Text style={[styles.tableCell, styles.r2col2]}>
-                        {d.commit_sha && !d.commit_sha.startsWith('refs/') ? (
-                          <Link src={`https://github.com/${repository}/commit/${d.commit_sha}`} style={styles.link}>
-                            {d.commit_sha.substring(0, 7)}
-                          </Link>
-                        ) : (
-                          '-'
-                        )}
-                      </Text>
-                      <Text style={[styles.tableCell, styles.r2col3]}>
-                        {d.method === 'pr' ? 'PR' : d.method === 'legacy' ? 'Legacy' : 'Manuell'}
-                      </Text>
-                      <Text style={[styles.tableCell, styles.r2col4]}>
-                        {d.method === 'legacy' ? (
-                          '-'
-                        ) : d.pr_number && d.pr_url ? (
-                          <Link src={d.pr_url} style={styles.link}>
-                            PR #{d.pr_number}
-                          </Link>
-                        ) : d.pr_number ? (
-                          <Link src={`https://github.com/${repository}/pull/${d.pr_number}`} style={styles.link}>
-                            PR #{d.pr_number}
-                          </Link>
-                        ) : d.slack_link ? (
-                          <Link src={d.slack_link} style={styles.link}>
-                            Slack
-                          </Link>
-                        ) : (
-                          'Slack'
-                        )}
-                      </Text>
-                      <Text style={[styles.tableCell, styles.r2col5, { color: '#595959' }]}>
-                        {d.deployer_display_name || d.deployer}
-                      </Text>
-                      <Text style={[styles.tableCell, styles.r2col6, { color: '#595959' }]}>
-                        {d.approver ? d.approver_display_name || d.approver : '-'}
-                      </Text>
-                      <Text style={[styles.tableCell, styles.r2col7, { fontSize: 6, color: '#888888' }]}>
-                        {d.nais_deployment_id || ''}
-                      </Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            </View>
-            <View style={styles.footer}>
-              <Text style={styles.footerText}>
-                {appName} | {formatMonthName(monthKey)} | Totalt: {totalDeployments} deployments
-              </Text>
-            </View>
-            <Text
-              style={styles.pageNumber}
-              render={({ pageNumber, totalPages }) => `Side ${pageNumber} av ${totalPages}`}
-            />
-          </Page>
-        )
-      })}
-
-      {/* Page 3: Manual approvals (if any) */}
-      {reportData.manual_approvals.length > 0 && (
-        <Page size="A4" style={styles.page}>
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              Manuelt godkjente deployments ({reportData.manual_approvals.length})
-            </Text>
-            {reportData.manual_approvals.map((approval: ManualApprovalEntry) => (
-              <View key={approval.deployment_id} style={styles.manualBox} wrap={false}>
-                <Text style={styles.manualTitle}>
-                  Deployment #{approval.deployment_id} - {formatDate(approval.date)}
-                </Text>
-                {approval.title && <Text style={[styles.manualDetail, { fontWeight: 600 }]}>{approval.title}</Text>}
-                <Text style={[styles.manualDetail, { fontSize: 7, color: '#666666' }]}>
-                  Nais ID: {approval.nais_deployment_id || 'N/A'}
-                </Text>
-                <Text style={styles.manualDetail}>
-                  Commit:{' '}
-                  {approval.commit_sha ? (
-                    <Link src={`https://github.com/${repository}/commit/${approval.commit_sha}`} style={styles.link}>
-                      {approval.commit_sha.substring(0, 7)}
-                    </Link>
-                  ) : (
-                    'N/A'
-                  )}
-                </Text>
-                <Text style={styles.manualDetail}>Deployer: {approval.deployer_display_name || approval.deployer}</Text>
-                <Text style={styles.manualDetail}>Årsak: {approval.reason}</Text>
-                {approval.registered_by && (
-                  <Text style={styles.manualDetail}>
-                    Registrert av: {approval.registered_by_display_name || approval.registered_by}
-                  </Text>
-                )}
-                <Text style={styles.manualDetail}>
-                  Godkjent av: {approval.approved_by_display_name || approval.approved_by}
-                </Text>
-                <Text style={styles.manualDetail}>Godkjent: {formatDateTime(approval.approved_at)}</Text>
-                <Text style={styles.manualDetail}>
-                  Slack:{' '}
-                  {approval.slack_link ? (
-                    <Link src={approval.slack_link} style={styles.link}>
-                      {approval.slack_link}
-                    </Link>
-                  ) : (
-                    '-'
-                  )}
-                </Text>
-                <Text style={styles.manualDetail}>Kommentar: {approval.comment}</Text>
-              </View>
-            ))}
-          </View>
-          <Text
-            style={styles.pageNumber}
-            render={({ pageNumber, totalPages }) => `Side ${pageNumber} av ${totalPages}`}
-          />
-        </Page>
-      )}
-
       {/* Godkjenningsmetoder page */}
       <Page size="A4" style={styles.page}>
         <View style={styles.section}>
@@ -708,6 +544,170 @@ function AuditReportPdfDocument(props: AuditReportPdfProps) {
           render={({ pageNumber, totalPages }) => `Side ${pageNumber} av ${totalPages}`}
         />
       </Page>
+
+      {/* Appendix: Pages for deployments - one page per month */}
+      {sortedMonths.map((monthKey, monthIdx) => {
+        const monthDeployments = deploymentsByMonth.get(monthKey) || []
+        let runningTotal = 0
+        for (let i = 0; i < monthIdx; i++) {
+          runningTotal += deploymentsByMonth.get(sortedMonths[i])?.length || 0
+        }
+
+        return (
+          <Page key={monthKey} size="A4" style={styles.page}>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>
+                Deployments - {formatMonthName(monthKey)} ({monthDeployments.length} stk)
+              </Text>
+              <View style={styles.table}>
+                {/* Header row 1 - fixed to repeat on each page */}
+                <View style={styles.tableHeader} fixed>
+                  <Text style={[styles.tableHeaderCell, styles.r1col1]}>#</Text>
+                  <Text style={[styles.tableHeaderCell, styles.r1col2]}>Dato</Text>
+                  <Text style={[styles.tableHeaderCell, styles.r1col3]}>Tittel</Text>
+                </View>
+                {/* Header row 2 - fixed to repeat on each page */}
+                <View
+                  style={[
+                    styles.tableHeader,
+                    { borderTopLeftRadius: 0, borderTopRightRadius: 0, backgroundColor: '#F0EDEB' },
+                  ]}
+                  fixed
+                >
+                  <Text style={[styles.tableHeaderCell, styles.r2col1]} />
+                  <Text style={[styles.tableHeaderCell, styles.r2col2]}>Commit</Text>
+                  <Text style={[styles.tableHeaderCell, styles.r2col3]}>Metode</Text>
+                  <Text style={[styles.tableHeaderCell, styles.r2col4]}>Referanse</Text>
+                  <Text style={[styles.tableHeaderCell, styles.r2col5]}>Deployer</Text>
+                  <Text style={[styles.tableHeaderCell, styles.r2col6]}>Godkjenner</Text>
+                  <Text style={[styles.tableHeaderCell, styles.r2col7]}>Nais ID</Text>
+                </View>
+                {monthDeployments.map((d, idx) => (
+                  <View key={d.id} style={[styles.deploymentCard, idx % 2 === 1 ? styles.deploymentCardAlt : {}]}>
+                    {/* Row 1: #, Dato, Tittel */}
+                    <View style={styles.deploymentRow1}>
+                      <Text style={[styles.tableCell, styles.r1col1]}>{runningTotal + idx + 1}</Text>
+                      <Text style={[styles.tableCell, styles.r1col2]}>{formatDate(d.date)}</Text>
+                      <Text style={[styles.tableCell, styles.r1col3, { fontWeight: 600 }]}>{d.title || '-'}</Text>
+                    </View>
+                    {/* Row 2: Commit, Metode, Referanse, Deployer, Godkjenner, Nais ID */}
+                    <View style={styles.deploymentRow2}>
+                      <Text style={[styles.r2col1]} />
+                      <Text style={[styles.tableCell, styles.r2col2]}>
+                        {d.commit_sha && !d.commit_sha.startsWith('refs/') ? (
+                          <Link src={`https://github.com/${repository}/commit/${d.commit_sha}`} style={styles.link}>
+                            {d.commit_sha.substring(0, 7)}
+                          </Link>
+                        ) : (
+                          '-'
+                        )}
+                      </Text>
+                      <Text style={[styles.tableCell, styles.r2col3]}>
+                        {d.method === 'pr' ? 'PR' : d.method === 'legacy' ? 'Legacy' : 'Manuell'}
+                      </Text>
+                      <Text style={[styles.tableCell, styles.r2col4]}>
+                        {d.method === 'legacy' ? (
+                          '-'
+                        ) : d.pr_number && d.pr_url ? (
+                          <Link src={d.pr_url} style={styles.link}>
+                            PR #{d.pr_number}
+                          </Link>
+                        ) : d.pr_number ? (
+                          <Link src={`https://github.com/${repository}/pull/${d.pr_number}`} style={styles.link}>
+                            PR #{d.pr_number}
+                          </Link>
+                        ) : d.slack_link ? (
+                          <Link src={d.slack_link} style={styles.link}>
+                            Slack
+                          </Link>
+                        ) : (
+                          'Slack'
+                        )}
+                      </Text>
+                      <Text style={[styles.tableCell, styles.r2col5, { color: '#595959' }]}>
+                        {d.deployer_display_name || d.deployer}
+                      </Text>
+                      <Text style={[styles.tableCell, styles.r2col6, { color: '#595959' }]}>
+                        {d.approver ? d.approver_display_name || d.approver : '-'}
+                      </Text>
+                      <Text style={[styles.tableCell, styles.r2col7, { fontSize: 6, color: '#888888' }]}>
+                        {d.nais_deployment_id || ''}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </View>
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>
+                {appName} | {formatMonthName(monthKey)} | Totalt: {totalDeployments} deployments
+              </Text>
+            </View>
+            <Text
+              style={styles.pageNumber}
+              render={({ pageNumber, totalPages }) => `Side ${pageNumber} av ${totalPages}`}
+            />
+          </Page>
+        )
+      })}
+
+      {/* Appendix: Manual approvals (if any) */}
+      {reportData.manual_approvals.length > 0 && (
+        <Page size="A4" style={styles.page}>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              Manuelt godkjente deployments ({reportData.manual_approvals.length})
+            </Text>
+            {reportData.manual_approvals.map((approval: ManualApprovalEntry) => (
+              <View key={approval.deployment_id} style={styles.manualBox} wrap={false}>
+                <Text style={styles.manualTitle}>
+                  Deployment #{approval.deployment_id} - {formatDate(approval.date)}
+                </Text>
+                {approval.title && <Text style={[styles.manualDetail, { fontWeight: 600 }]}>{approval.title}</Text>}
+                <Text style={[styles.manualDetail, { fontSize: 7, color: '#666666' }]}>
+                  Nais ID: {approval.nais_deployment_id || 'N/A'}
+                </Text>
+                <Text style={styles.manualDetail}>
+                  Commit:{' '}
+                  {approval.commit_sha ? (
+                    <Link src={`https://github.com/${repository}/commit/${approval.commit_sha}`} style={styles.link}>
+                      {approval.commit_sha.substring(0, 7)}
+                    </Link>
+                  ) : (
+                    'N/A'
+                  )}
+                </Text>
+                <Text style={styles.manualDetail}>Deployer: {approval.deployer_display_name || approval.deployer}</Text>
+                <Text style={styles.manualDetail}>Årsak: {approval.reason}</Text>
+                {approval.registered_by && (
+                  <Text style={styles.manualDetail}>
+                    Registrert av: {approval.registered_by_display_name || approval.registered_by}
+                  </Text>
+                )}
+                <Text style={styles.manualDetail}>
+                  Godkjent av: {approval.approved_by_display_name || approval.approved_by}
+                </Text>
+                <Text style={styles.manualDetail}>Godkjent: {formatDateTime(approval.approved_at)}</Text>
+                <Text style={styles.manualDetail}>
+                  Slack:{' '}
+                  {approval.slack_link ? (
+                    <Link src={approval.slack_link} style={styles.link}>
+                      {approval.slack_link}
+                    </Link>
+                  ) : (
+                    '-'
+                  )}
+                </Text>
+                <Text style={styles.manualDetail}>Kommentar: {approval.comment}</Text>
+              </View>
+            ))}
+          </View>
+          <Text
+            style={styles.pageNumber}
+            render={({ pageNumber, totalPages }) => `Side ${pageNumber} av ${totalPages}`}
+          />
+        </Page>
+      )}
     </Document>
   )
 }
