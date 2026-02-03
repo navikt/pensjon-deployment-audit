@@ -192,7 +192,7 @@ export async function action({ request }: ActionFunctionArgs) {
       // Allow empty value to clear the start year
       const auditStartYear = startYearValue?.trim() ? parseInt(startYearValue, 10) : null
 
-      if (auditStartYear !== null && (isNaN(auditStartYear) || auditStartYear < 2000 || auditStartYear > 2100)) {
+      if (auditStartYear !== null && (Number.isNaN(auditStartYear) || auditStartYear < 2000 || auditStartYear > 2100)) {
         return { error: 'Ugyldig årstall (må være mellom 2000 og 2100)' }
       }
 
@@ -328,12 +328,12 @@ export default function AppDetail() {
                 </VStack>
               </Box>
             </Link>
-            {deploymentStats.last_deployment_id ? (
+            {deploymentStats.last_deployment_id && deploymentStats.last_deployment ? (
               <Link to={`${appUrl}/deployments?status=pending&period=${currentPeriod}`} className={styles.statCardLink}>
                 <Box padding="space-12" borderRadius="8" background="sunken" className={styles.clickableCard}>
                   <VStack gap="space-4">
                     <Detail textColor="subtle">Siste deployment</Detail>
-                    <BodyShort>{new Date(deploymentStats.last_deployment!).toLocaleString('no-NO')}</BodyShort>
+                    <BodyShort>{new Date(deploymentStats.last_deployment).toLocaleString('no-NO')}</BodyShort>
                   </VStack>
                 </Box>
               </Link>

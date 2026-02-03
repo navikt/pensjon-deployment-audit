@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { Pool, type PoolClient, type QueryResult } from 'pg'
+import { Pool, type QueryResult } from 'pg'
 
 let poolInstance: Pool | null = null
 
