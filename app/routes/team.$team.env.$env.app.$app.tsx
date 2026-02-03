@@ -311,16 +311,23 @@ export default function AppDetail() {
                 </VStack>
               </Box>
             </Link>
-            <Box padding="space-12" borderRadius="8" background="sunken">
-              <VStack gap="space-4">
-                <Detail textColor="subtle">Siste deployment</Detail>
-                <BodyShort>
-                  {deploymentStats.last_deployment
-                    ? new Date(deploymentStats.last_deployment).toLocaleString('no-NO')
-                    : 'Ingen deployments'}
-                </BodyShort>
-              </VStack>
-            </Box>
+            {deploymentStats.last_deployment_id ? (
+              <Link to={`${appUrl}/deployments?status=pending&period=${currentPeriod}`} className={styles.statCardLink}>
+                <Box padding="space-12" borderRadius="8" background="sunken" className={styles.clickableCard}>
+                  <VStack gap="space-4">
+                    <Detail textColor="subtle">Siste deployment</Detail>
+                    <BodyShort>{new Date(deploymentStats.last_deployment!).toLocaleString('no-NO')}</BodyShort>
+                  </VStack>
+                </Box>
+              </Link>
+            ) : (
+              <Box padding="space-12" borderRadius="8" background="sunken">
+                <VStack gap="space-4">
+                  <Detail textColor="subtle">Siste deployment</Detail>
+                  <BodyShort>Ingen deployments</BodyShort>
+                </VStack>
+              </Box>
+            )}
           </HGrid>
         </VStack>
       </Box>

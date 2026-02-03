@@ -722,6 +722,7 @@ export interface AppDeploymentStats {
   without_four_eyes: number
   pending_verification: number
   last_deployment: Date | null
+  last_deployment_id: number | null
   four_eyes_percentage: number
 }
 
@@ -735,7 +736,8 @@ export async function getAppDeploymentStats(
       SUM(CASE WHEN has_four_eyes = true THEN 1 ELSE 0 END) as with_four_eyes,
       SUM(CASE WHEN has_four_eyes = false THEN 1 ELSE 0 END) as without_four_eyes,
       SUM(CASE WHEN four_eyes_status = 'pending' THEN 1 ELSE 0 END) as pending_verification,
-      MAX(created_at) as last_deployment
+      MAX(created_at) as last_deployment,
+      (SELECT id FROM deployments WHERE monitored_app_id = $1 ORDER BY created_at DESC LIMIT 1) as last_deployment_id
     FROM deployments
     WHERE monitored_app_id = $1`
 
@@ -766,6 +768,7 @@ export async function getAppDeploymentStats(
     without_four_eyes: parseInt(row.without_four_eyes, 10) || 0,
     pending_verification: parseInt(row.pending_verification, 10) || 0,
     last_deployment: row.last_deployment ? new Date(row.last_deployment) : null,
+    last_deployment_id: row.last_deployment_id ? parseInt(row.last_deployment_id, 10) : null,
     four_eyes_percentage: percentage,
   }
 }
