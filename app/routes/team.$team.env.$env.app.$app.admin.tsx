@@ -37,7 +37,6 @@ import {
   updateAuditReportPdf,
 } from '~/db/audit-reports.server'
 import { getMonitoredApplicationByIdentity, updateMonitoredApplication } from '~/db/monitored-applications.server'
-import { getAllUserMappings } from '~/db/user-mappings.server'
 import { generateAuditReportPdf } from '~/lib/audit-report-pdf'
 import { requireAdmin } from '~/lib/auth.server'
 
@@ -177,12 +176,6 @@ export async function action({ request }: ActionFunctionArgs) {
       generatedBy: user.navIdent,
     })
 
-    // Get user mappings for PDF generation
-    const mappingsArray = await getAllUserMappings()
-    const userMappings = Object.fromEntries(
-      mappingsArray.map((m) => [m.github_username, { display_name: m.display_name, nav_ident: m.nav_ident }]),
-    )
-
     // Generate PDF and store in database
     const pdfBuffer = await generateAuditReportPdf({
       appName: report.app_name,
@@ -196,7 +189,6 @@ export async function action({ request }: ActionFunctionArgs) {
       contentHash: report.content_hash,
       reportId: report.report_id,
       generatedAt: new Date(report.generated_at),
-      userMappings,
     })
 
     // Store PDF in database

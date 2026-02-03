@@ -1,7 +1,6 @@
 import { join } from 'node:path'
 import { Document, Font, Link, Page, renderToBuffer, StyleSheet, Text, View } from '@react-pdf/renderer'
 import type { AuditReportData, ContributorEntry, ManualApprovalEntry, ReviewerEntry } from '~/db/audit-reports.server'
-import { getUserDisplayName, type UserMappings } from '~/lib/user-display'
 
 // Register fonts from local files (downloaded during Docker build)
 // In production: /app/fonts/
@@ -242,13 +241,6 @@ interface AuditReportPdfProps {
   contentHash: string
   reportId: string
   generatedAt: Date
-  userMappings?: UserMappings
-}
-
-// Helper to format user name - returns '-' for null/undefined
-function formatUserName(githubUsername: string | null | undefined, userMappings?: UserMappings): string {
-  const result = getUserDisplayName(githubUsername, userMappings || {})
-  return result || '-'
 }
 
 function formatDate(date: Date | string): string {
@@ -282,7 +274,6 @@ function AuditReportPdfDocument(props: AuditReportPdfProps) {
     contentHash,
     reportId,
     generatedAt,
-    userMappings,
   } = props
 
   const totalDeployments = reportData.deployments.length
@@ -518,10 +509,10 @@ function AuditReportPdfDocument(props: AuditReportPdfProps) {
                         )}
                       </Text>
                       <Text style={[styles.tableCell, styles.r2col5, { color: '#595959' }]}>
-                        {formatUserName(d.deployer, userMappings)}
+                        {d.deployer_display_name || d.deployer}
                       </Text>
                       <Text style={[styles.tableCell, styles.r2col6, { color: '#595959' }]}>
-                        {d.approver ? formatUserName(d.approver, userMappings) : '-'}
+                        {d.approver ? d.approver_display_name || d.approver : '-'}
                       </Text>
                       <Text style={[styles.tableCell, styles.r2col7, { fontSize: 6, color: '#888888' }]}>
                         {d.nais_deployment_id || ''}
@@ -570,14 +561,16 @@ function AuditReportPdfDocument(props: AuditReportPdfProps) {
                     'N/A'
                   )}
                 </Text>
-                <Text style={styles.manualDetail}>Deployer: {formatUserName(approval.deployer, userMappings)}</Text>
+                <Text style={styles.manualDetail}>Deployer: {approval.deployer_display_name || approval.deployer}</Text>
                 <Text style={styles.manualDetail}>Årsak: {approval.reason}</Text>
                 {approval.registered_by && (
                   <Text style={styles.manualDetail}>
-                    Registrert av: {formatUserName(approval.registered_by, userMappings)}
+                    Registrert av: {approval.registered_by_display_name || approval.registered_by}
                   </Text>
                 )}
-                <Text style={styles.manualDetail}>Godkjent av: {approval.approved_by}</Text>
+                <Text style={styles.manualDetail}>
+                  Godkjent av: {approval.approved_by_display_name || approval.approved_by}
+                </Text>
                 <Text style={styles.manualDetail}>Godkjent: {formatDateTime(approval.approved_at)}</Text>
                 <Text style={styles.manualDetail}>
                   Slack:{' '}

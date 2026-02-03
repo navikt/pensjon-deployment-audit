@@ -1,10 +1,31 @@
 import { createHash } from 'node:crypto'
 import { pool } from './connection.server'
-import type { DeploymentWithApp } from './deployments.server'
 
 // ============================================================================
 // Types
 // ============================================================================
+
+/**
+ * Slim deployment row for audit reports - excludes large github_pr_data blob
+ */
+export interface AuditDeploymentRow {
+  id: number
+  nais_deployment_id: string | null
+  title: string | null
+  created_at: Date
+  commit_sha: string | null
+  deployer_username: string | null
+  four_eyes_status: string
+  github_pr_number: number | null
+  github_pr_url: string | null
+  detected_github_owner: string | null
+  detected_github_repo_name: string | null
+  team_slug: string
+  environment_name: string
+  app_name: string
+  // Extracted from github_pr_data via SQL
+  approved_by_username: string | null
+}
 
 export interface AuditReport {
   id: number
@@ -45,7 +66,9 @@ export interface AuditDeploymentEntry {
   commit_sha: string
   method: 'pr' | 'manual' | 'legacy'
   deployer: string
+  deployer_display_name?: string
   approver: string
+  approver_display_name?: string
   pr_number?: number
   pr_url?: string
   slack_link?: string
@@ -58,9 +81,12 @@ export interface ManualApprovalEntry {
   date: string
   commit_sha: string
   deployer: string
+  deployer_display_name?: string
   reason: string
   registered_by: string
+  registered_by_display_name?: string
   approved_by: string
+  approved_by_display_name?: string
   approved_at: string
   slack_link: string
   comment: string
@@ -179,7 +205,7 @@ export async function getAuditReportData(
 ): Promise<{
   app: { app_name: string; team_slug: string; environment_name: string }
   repository: string
-  deployments: DeploymentWithApp[]
+  deployments: AuditDeploymentRow[]
   manual_approvals: Array<{
     deployment_id: number
     comment_text: string
@@ -191,6 +217,7 @@ export async function getAuditReportData(
     deployment_id: number
     registered_by: string
   }>
+  reviewer_counts: Map<string, number>
   user_mappings: Map<string, { display_name: string | null; nav_ident: string | null }>
 }> {
   const startDate = new Date(year, 0, 1)
@@ -206,9 +233,31 @@ export async function getAuditReportData(
   }
   const app = appResult.rows[0]
 
-  // Get all production deployments for the year
-  const deploymentsResult = await pool.query<DeploymentWithApp>(
-    `SELECT d.*, ma.team_slug, ma.environment_name, ma.app_name
+  // Get all production deployments for the year - extract approved_by from JSON in SQL
+  // This avoids loading the large github_pr_data blob into memory
+  const deploymentsResult = await pool.query<AuditDeploymentRow>(
+    `SELECT 
+       d.id,
+       d.nais_deployment_id,
+       d.title,
+       d.created_at,
+       d.commit_sha,
+       d.deployer_username,
+       d.four_eyes_status,
+       d.github_pr_number,
+       d.github_pr_url,
+       d.detected_github_owner,
+       d.detected_github_repo_name,
+       ma.team_slug,
+       ma.environment_name,
+       ma.app_name,
+       -- Extract first APPROVED reviewer username from JSON
+       (
+         SELECT r->>'username'
+         FROM jsonb_array_elements(d.github_pr_data->'reviewers') AS r
+         WHERE r->>'state' = 'APPROVED'
+         LIMIT 1
+       ) AS approved_by_username
      FROM deployments d
      JOIN monitored_applications ma ON d.monitored_app_id = ma.id
      WHERE d.monitored_app_id = $1
@@ -241,6 +290,9 @@ export async function getAuditReportData(
     registered_by: string
   }> = []
 
+  // Aggregate reviewer counts directly in SQL to avoid loading github_pr_data
+  const reviewer_counts = new Map<string, number>()
+
   if (deploymentIds.length > 0) {
     const approvalsResult = await pool.query(
       `SELECT deployment_id, comment_text, slack_link, approved_by, approved_at
@@ -259,23 +311,39 @@ export async function getAuditReportData(
       [deploymentIds],
     )
     legacy_infos = legacyInfoResult.rows
+
+    // Get reviewer counts aggregated from github_pr_data in SQL
+    const reviewerCountsResult = await pool.query<{ username: string; review_count: number }>(
+      `SELECT 
+         r->>'username' AS username,
+         COUNT(*)::int AS review_count
+       FROM deployments d,
+       LATERAL jsonb_array_elements(d.github_pr_data->'reviewers') AS r
+       WHERE d.id = ANY($1)
+         AND r->>'state' = 'APPROVED'
+       GROUP BY r->>'username'`,
+      [deploymentIds],
+    )
+    for (const row of reviewerCountsResult.rows) {
+      reviewer_counts.set(row.username, row.review_count)
+    }
   }
 
   // Get user mappings for all deployers and reviewers
   const usernames = new Set<string>()
   for (const d of deployments) {
     if (d.deployer_username) usernames.add(d.deployer_username)
-    if (d.github_pr_data?.reviewers) {
-      for (const r of d.github_pr_data.reviewers) {
-        if (r.state === 'APPROVED') usernames.add(r.username)
-      }
-    }
+    if (d.approved_by_username) usernames.add(d.approved_by_username)
   }
   for (const a of manual_approvals) {
     if (a.approved_by) usernames.add(a.approved_by)
   }
   for (const l of legacy_infos) {
     if (l.registered_by) usernames.add(l.registered_by)
+  }
+  // Add reviewer usernames from aggregated counts
+  for (const username of reviewer_counts.keys()) {
+    usernames.add(username)
   }
 
   const user_mappings = new Map<string, { display_name: string | null; nav_ident: string | null }>()
@@ -292,14 +360,14 @@ export async function getAuditReportData(
     }
   }
 
-  return { app, repository, deployments, manual_approvals, legacy_infos, user_mappings }
+  return { app, repository, deployments, manual_approvals, legacy_infos, reviewer_counts, user_mappings }
 }
 
 /**
  * Build the structured report data from raw data
  */
 export function buildReportData(rawData: Awaited<ReturnType<typeof getAuditReportData>>): AuditReportData {
-  const { deployments, manual_approvals, legacy_infos, user_mappings } = rawData
+  const { deployments, manual_approvals, legacy_infos, reviewer_counts, user_mappings } = rawData
   const manualApprovalMap = new Map(manual_approvals.map((a) => [a.deployment_id, a]))
   const legacyInfoMap = new Map(legacy_infos.map((l) => [l.deployment_id, l]))
 
@@ -309,15 +377,14 @@ export function buildReportData(rawData: Awaited<ReturnType<typeof getAuditRepor
     const isLegacy = d.four_eyes_status === 'legacy'
     const manualApproval = manualApprovalMap.get(d.id)
 
-    // Find approver
+    // Find approver - now using extracted approved_by_username from SQL
     let approver = ''
     if (isManual && manualApproval) {
       approver = manualApproval.approved_by
     } else if (isLegacy) {
       approver = 'Legacy'
-    } else if (d.github_pr_data?.reviewers) {
-      const approvedReviewer = d.github_pr_data.reviewers.find((r) => r.state === 'APPROVED')
-      if (approvedReviewer) approver = approvedReviewer.username
+    } else if (d.approved_by_username) {
+      approver = d.approved_by_username
     }
 
     // Determine method
@@ -336,7 +403,10 @@ export function buildReportData(rawData: Awaited<ReturnType<typeof getAuditRepor
       commit_sha: d.commit_sha || '',
       method,
       deployer: d.deployer_username || '',
+      deployer_display_name: user_mappings.get(d.deployer_username || '')?.display_name || undefined,
       approver,
+      approver_display_name:
+        approver && approver !== 'Legacy' ? user_mappings.get(approver)?.display_name || undefined : undefined,
       pr_number: d.github_pr_number || undefined,
       pr_url: d.github_pr_url || undefined,
       slack_link: manualApproval?.slack_link || undefined,
@@ -355,8 +425,6 @@ export function buildReportData(rawData: Awaited<ReturnType<typeof getAuditRepor
       reason = 'Legacy deployment (GitHub-verifisert)'
     } else if (deployment?.four_eyes_status === 'direct_push') {
       reason = 'Direct push til main'
-    } else if ((deployment?.github_pr_data as unknown as { _legacy_verified?: boolean })?._legacy_verified) {
-      reason = 'Legacy deployment (GitHub-verifisert)'
     }
 
     return {
@@ -366,9 +434,12 @@ export function buildReportData(rawData: Awaited<ReturnType<typeof getAuditRepor
       date: deployment?.created_at.toISOString() || '',
       commit_sha: deployment?.commit_sha || '',
       deployer: deployment?.deployer_username || '',
+      deployer_display_name: user_mappings.get(deployment?.deployer_username || '')?.display_name || undefined,
       reason,
       registered_by: legacyInfo?.registered_by || '',
+      registered_by_display_name: user_mappings.get(legacyInfo?.registered_by || '')?.display_name || undefined,
       approved_by: a.approved_by,
+      approved_by_display_name: user_mappings.get(a.approved_by)?.display_name || undefined,
       approved_at: a.approved_at.toISOString(),
       slack_link: a.slack_link,
       comment: a.comment_text,
@@ -391,24 +462,15 @@ export function buildReportData(rawData: Awaited<ReturnType<typeof getAuditRepor
     }))
     .sort((a, b) => b.deployment_count - a.deployment_count)
 
-  // Build reviewers list
-  const reviewerCounts = new Map<string, number>()
-  for (const d of deployments) {
-    if (d.github_pr_data?.reviewers) {
-      for (const r of d.github_pr_data.reviewers) {
-        if (r.state === 'APPROVED') {
-          reviewerCounts.set(r.username, (reviewerCounts.get(r.username) || 0) + 1)
-        }
-      }
-    }
-  }
-  // Also count manual approvers
+  // Build reviewers list - now using pre-aggregated reviewer_counts from SQL
+  // Also add manual approvers
+  const combinedReviewerCounts = new Map(reviewer_counts)
   for (const a of manual_approvals) {
     if (a.approved_by) {
-      reviewerCounts.set(a.approved_by, (reviewerCounts.get(a.approved_by) || 0) + 1)
+      combinedReviewerCounts.set(a.approved_by, (combinedReviewerCounts.get(a.approved_by) || 0) + 1)
     }
   }
-  const reviewers: ReviewerEntry[] = Array.from(reviewerCounts.entries())
+  const reviewers: ReviewerEntry[] = Array.from(combinedReviewerCounts.entries())
     .map(([username, count]) => ({
       github_username: username,
       display_name: user_mappings.get(username)?.display_name || null,
