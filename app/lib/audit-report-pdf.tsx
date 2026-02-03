@@ -111,6 +111,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 600,
   },
+  noticeBox: {
+    backgroundColor: '#FFF4E0',
+    padding: 12,
+    borderRadius: 4,
+    borderLeft: '3px solid #D47500',
+    marginBottom: 15,
+  },
+  noticeTitle: {
+    fontSize: 10,
+    fontWeight: 600,
+    color: '#D47500',
+    marginBottom: 6,
+  },
+  noticeText: {
+    fontSize: 9,
+    color: '#262626',
+    marginBottom: 4,
+    lineHeight: 1.4,
+  },
   table: {
     marginBottom: 10,
   },
@@ -268,6 +287,7 @@ function AuditReportPdfDocument(props: AuditReportPdfProps) {
     repository,
     teamSlug,
     environmentName,
+    year,
     periodStart,
     periodEnd,
     reportData,
@@ -384,6 +404,26 @@ function AuditReportPdfDocument(props: AuditReportPdfProps) {
             <Text style={styles.summaryValue}>{reportData.reviewers.length} personer</Text>
           </View>
         </View>
+
+        {/* Notice for 2025 reports about data quality issues */}
+        {year === 2025 && (
+          <View style={styles.noticeBox}>
+            <Text style={styles.noticeTitle}>Merknad om datakvalitet for januar og februar 2025</Text>
+            <Text style={styles.noticeText}>
+              Nais-API-et inneholdt ikke commit-SHA for deployments i januar og enkelte dager i februar. Disse
+              deployments er derfor kartlagt manuelt med informasjon fra Slack-kanalen #pensjon-produksjon-deploy.
+            </Text>
+            <Text style={styles.noticeText}>
+              Kartleggingen er utført med to sett øyne: én person la inn mappingen og en annen bekreftet at den var
+              korrekt. Personen som er oppført som godkjenner for disse deployments er den som bekreftet mappingen, ikke
+              nødvendigvis den som godkjente selve kodeendringen.
+            </Text>
+            <Text style={styles.noticeText}>
+              For deployments som er resultat av sammenslåing uten forutgående godkjenning, er det lagt inn kommentarer
+              basert på meldinger fra Slack-kanalen #pensjon-merge-uten-godkjenning.
+            </Text>
+          </View>
+        )}
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Godkjenningsmetoder</Text>
