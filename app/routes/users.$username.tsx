@@ -13,7 +13,7 @@ import {
   TextField,
   VStack,
 } from '@navikt/ds-react'
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import {
   type ActionFunctionArgs,
   Form,
@@ -21,6 +21,7 @@ import {
   type LoaderFunctionArgs,
   useActionData,
   useLoaderData,
+  useNavigation,
 } from 'react-router'
 import { getDeploymentCountByDeployer, getDeploymentsByDeployer } from '~/db/deployments.server'
 import { getUserMapping, upsertUserMapping } from '~/db/user-mappings.server'
@@ -56,16 +57,34 @@ export async function action({ request }: ActionFunctionArgs) {
 
   if (intent === 'create-mapping') {
     const githubUsername = formData.get('github_username') as string
+    const navEmail = (formData.get('nav_email') as string) || null
+    const navIdent = (formData.get('nav_ident') as string) || null
+
+    const fieldErrors: { nav_email?: string; nav_ident?: string } = {}
 
     if (!githubUsername) {
       return { error: 'GitHub brukernavn er påkrevd' }
     }
 
+    // Validate email format
+    if (navEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(navEmail)) {
+      fieldErrors.nav_email = 'Ugyldig e-postformat'
+    }
+
+    // Validate Nav-ident format (one letter followed by 6 digits)
+    if (navIdent && !/^[a-zA-Z]\d{6}$/.test(navIdent)) {
+      fieldErrors.nav_ident = 'Må være én bokstav etterfulgt av 6 siffer (f.eks. A123456)'
+    }
+
+    if (Object.keys(fieldErrors).length > 0) {
+      return { fieldErrors }
+    }
+
     await upsertUserMapping({
       githubUsername,
       displayName: (formData.get('display_name') as string) || null,
-      navEmail: (formData.get('nav_email') as string) || null,
-      navIdent: (formData.get('nav_ident') as string) || null,
+      navEmail,
+      navIdent,
       slackMemberId: (formData.get('slack_member_id') as string) || null,
     })
     return { success: true }
@@ -77,7 +96,16 @@ export async function action({ request }: ActionFunctionArgs) {
 export default function UserPage() {
   const { username, mapping, deploymentCount, recentDeployments } = useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
+  const navigation = useNavigation()
+  const isSubmitting = navigation.state === 'submitting'
   const modalRef = useRef<HTMLDialogElement>(null)
+
+  // Close modal when action succeeds
+  useEffect(() => {
+    if (actionData?.success && navigation.state === 'idle') {
+      modalRef.current?.close()
+    }
+  }, [actionData, navigation.state])
 
   const formatDate = (date: string | Date) => {
     const d = new Date(date)
@@ -234,19 +262,19 @@ export default function UserPage() {
             <VStack gap="space-16">
               <TextField label="GitHub brukernavn" value={username} disabled />
               <TextField label="Navn" name="display_name" />
-              <TextField label="Nav e-post" name="nav_email" type="email" />
-              <TextField label="Nav-ident" name="nav_ident" />
+              <TextField label="Nav e-post" name="nav_email" error={actionData?.fieldErrors?.nav_email} />
+              <TextField
+                label="Nav-ident"
+                name="nav_ident"
+                description="Format: én bokstav etterfulgt av 6 siffer (f.eks. A123456)"
+                error={actionData?.fieldErrors?.nav_ident}
+              />
               <TextField label="Slack member ID" name="slack_member_id" />
             </VStack>
           </Form>
-          {actionData?.error && (
-            <Alert variant="error" style={{ marginTop: '1rem' }}>
-              {actionData.error}
-            </Alert>
-          )}
         </Modal.Body>
         <Modal.Footer>
-          <Button type="submit" form="create-mapping-form" onClick={() => modalRef.current?.close()}>
+          <Button type="submit" form="create-mapping-form" loading={isSubmitting}>
             Lagre
           </Button>
           <Button variant="secondary" onClick={() => modalRef.current?.close()}>

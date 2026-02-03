@@ -47,16 +47,34 @@ export async function action({ request }: ActionFunctionArgs) {
 
   if (intent === 'upsert') {
     const githubUsername = formData.get('github_username') as string
+    const navEmail = (formData.get('nav_email') as string) || null
+    const navIdent = (formData.get('nav_ident') as string) || null
+
+    const fieldErrors: { github_username?: string; nav_email?: string; nav_ident?: string } = {}
 
     if (!githubUsername) {
-      return { error: 'GitHub brukernavn er påkrevd' }
+      fieldErrors.github_username = 'GitHub brukernavn er påkrevd'
+    }
+
+    // Validate email format
+    if (navEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(navEmail)) {
+      fieldErrors.nav_email = 'Ugyldig e-postformat'
+    }
+
+    // Validate Nav-ident format (one letter followed by 6 digits)
+    if (navIdent && !/^[a-zA-Z]\d{6}$/.test(navIdent)) {
+      fieldErrors.nav_ident = 'Må være én bokstav etterfulgt av 6 siffer (f.eks. A123456)'
+    }
+
+    if (Object.keys(fieldErrors).length > 0) {
+      return { fieldErrors }
     }
 
     await upsertUserMapping({
       githubUsername,
       displayName: (formData.get('display_name') as string) || null,
-      navEmail: (formData.get('nav_email') as string) || null,
-      navIdent: (formData.get('nav_ident') as string) || null,
+      navEmail,
+      navIdent,
       slackMemberId: (formData.get('slack_member_id') as string) || null,
     })
     return { success: true }
@@ -111,10 +129,12 @@ export default function AdminUsers() {
   const addModalRef = useRef<HTMLDialogElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Reset add form when action succeeds
+  // Reset add form and close modals when action succeeds
   useEffect(() => {
     if (actionData?.success && navigation.state === 'idle') {
       setAddFormKey((k) => k + 1)
+      addModalRef.current?.close()
+      modalRef.current?.close()
     }
   }, [actionData, navigation.state])
 
@@ -125,6 +145,7 @@ export default function AdminUsers() {
 
   const openAdd = () => {
     setPrefillUsername('')
+    setAddFormKey((k) => k + 1)
     addModalRef.current?.showModal()
   }
 
@@ -308,16 +329,27 @@ export default function AdminUsers() {
             <Form method="post" id="add-form" key={addFormKey}>
               <input type="hidden" name="intent" value="upsert" />
               <VStack gap="space-16">
-                <TextField label="GitHub brukernavn" name="github_username" required defaultValue={prefillUsername} />
+                <TextField
+                  label="GitHub brukernavn"
+                  name="github_username"
+                  required
+                  defaultValue={prefillUsername}
+                  error={actionData?.fieldErrors?.github_username}
+                />
                 <TextField label="Navn" name="display_name" />
-                <TextField label="Nav e-post" name="nav_email" type="email" />
-                <TextField label="Nav-ident" name="nav_ident" />
+                <TextField label="Nav e-post" name="nav_email" error={actionData?.fieldErrors?.nav_email} />
+                <TextField
+                  label="Nav-ident"
+                  name="nav_ident"
+                  description="Format: én bokstav etterfulgt av 6 siffer (f.eks. A123456)"
+                  error={actionData?.fieldErrors?.nav_ident}
+                />
                 <TextField label="Slack member ID" name="slack_member_id" />
               </VStack>
             </Form>
           </Modal.Body>
           <Modal.Footer>
-            <Button type="submit" form="add-form" loading={isSubmitting} onClick={() => addModalRef.current?.close()}>
+            <Button type="submit" form="add-form" loading={isSubmitting}>
               Lagre
             </Button>
             <Button variant="secondary" onClick={() => addModalRef.current?.close()}>
@@ -344,10 +376,16 @@ export default function AdminUsers() {
                   <TextField
                     label="Nav e-post"
                     name="nav_email"
-                    type="email"
                     defaultValue={editMapping.nav_email || ''}
+                    error={actionData?.fieldErrors?.nav_email}
                   />
-                  <TextField label="Nav-ident" name="nav_ident" defaultValue={editMapping.nav_ident || ''} />
+                  <TextField
+                    label="Nav-ident"
+                    name="nav_ident"
+                    description="Format: én bokstav etterfulgt av 6 siffer (f.eks. A123456)"
+                    defaultValue={editMapping.nav_ident || ''}
+                    error={actionData?.fieldErrors?.nav_ident}
+                  />
                   <TextField
                     label="Slack member ID"
                     name="slack_member_id"
@@ -358,7 +396,7 @@ export default function AdminUsers() {
             )}
           </Modal.Body>
           <Modal.Footer>
-            <Button type="submit" form="edit-form" loading={isSubmitting} onClick={() => modalRef.current?.close()}>
+            <Button type="submit" form="edit-form" loading={isSubmitting}>
               Lagre
             </Button>
             <Button variant="secondary" onClick={() => modalRef.current?.close()}>
