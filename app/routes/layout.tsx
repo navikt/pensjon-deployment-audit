@@ -93,7 +93,9 @@ export default function Layout({ loaderData }: Route.ComponentProps) {
 
         {/* Global search dialog */}
         <Show above="md" asChild>
-          <div style={{ paddingInline: 'var(--ax-space-20)' }}>
+          <div
+            style={{ display: 'flex', alignItems: 'center', alignSelf: 'center', paddingInline: 'var(--ax-space-20)' }}
+          >
             <SearchDialog />
           </div>
         </Show>
