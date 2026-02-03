@@ -236,6 +236,11 @@ export default function AppDetail() {
             </Button>
           </HStack>
         </div>
+        {isAdmin && (
+          <Button as={Link} to={`${appUrl}/admin`} variant="tertiary" size="small" icon={<CogIcon aria-hidden />}>
+            Administrer
+          </Button>
+        )}
       </HStack>
 
       {actionData?.success && <Alert variant="success">{actionData.success}</Alert>}
@@ -601,20 +606,6 @@ export default function AppDetail() {
           )}
         </VStack>
       </Box>
-
-      {/* Settings Section - only for admins */}
-      {isAdmin && (
-        <Box padding="space-24" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
-          <HStack justify="space-between" align="center">
-            <Heading size="medium">
-              <CogIcon aria-hidden /> Innstillinger
-            </Heading>
-            <Button as={Link} to={`${appUrl}/admin`} variant="secondary" size="small" icon={<CogIcon aria-hidden />}>
-              Administrer
-            </Button>
-          </HStack>
-        </Box>
-      )}
     </VStack>
   )
 }
