@@ -583,7 +583,7 @@ function AuditReportPdfDocument(props: AuditReportPdfProps) {
               Manuelt godkjente deployments ({reportData.manual_approvals.length})
             </Text>
             {reportData.manual_approvals.map((approval: ManualApprovalEntry) => (
-              <View key={approval.deployment_id} style={styles.manualBox}>
+              <View key={approval.deployment_id} style={styles.manualBox} wrap={false}>
                 <Text style={styles.manualTitle}>
                   Deployment #{approval.deployment_id} - {formatDate(approval.date)}
                 </Text>
