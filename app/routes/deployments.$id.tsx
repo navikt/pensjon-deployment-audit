@@ -809,11 +809,11 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
 
   const status = getFourEyesStatus(deployment)
 
-  // Helper to get user display info
+  // Helper to get user display info (falls back to username if no mapping)
   const getUserDisplay = (githubUsername: string | undefined | null) => {
     if (!githubUsername) return null
     const mapping = userMappings[githubUsername]
-    return mapping?.display_name || mapping?.nav_email || null
+    return mapping?.display_name || mapping?.nav_email || githubUsername
   }
 
   return (
@@ -1040,7 +1040,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
           <BodyShort>
             {deployment.deployer_username ? (
               <a href={`https://github.com/${deployment.deployer_username}`} target="_blank" rel="noopener noreferrer">
-                {getUserDisplay(deployment.deployer_username) || deployment.deployer_username}
+                {getUserDisplay(deployment.deployer_username)}
               </a>
             ) : (
               '(ukjent)'
@@ -1139,8 +1139,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  {getUserDisplay(deployment.github_pr_data.creator.username) ||
-                    deployment.github_pr_data.creator.username}
+                  {getUserDisplay(deployment.github_pr_data.creator.username)}
                 </a>
               </BodyShort>
             </VStack>
@@ -1154,8 +1153,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    {getUserDisplay(deployment.github_pr_data.merger.username) ||
-                      deployment.github_pr_data.merger.username}
+                    {getUserDisplay(deployment.github_pr_data.merger.username)}
                   </a>
                 </BodyShort>
               </VStack>
@@ -1247,7 +1245,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                 <HStack gap="space-8" wrap>
                   {deployment.github_pr_data.assignees.map((a) => (
                     <Tag data-color="neutral" key={a.username} variant="outline" size="small">
-                      {getUserDisplay(a.username) || a.username}
+                      {getUserDisplay(a.username)}
                     </Tag>
                   ))}
                 </HStack>
@@ -1296,7 +1294,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                         <ChatIcon aria-hidden style={{ color: 'var(--ax-text-neutral-subtle)' }} />
                       )}
                       <a href={`https://github.com/${reviewer.username}`} target="_blank" rel="noopener noreferrer">
-                        {getUserDisplay(reviewer.username) || reviewer.username}
+                        {getUserDisplay(reviewer.username)}
                       </a>
                       <span style={{ color: 'var(--ax-text-neutral-subtle)' }}>
                         {new Date(reviewer.submitted_at).toLocaleString('no-NO', {
@@ -1312,7 +1310,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                     <HStack key={`pending:${r.username}`} gap="space-8" align="center">
                       <CircleIcon aria-hidden style={{ color: 'var(--ax-text-warning)' }} />
                       <a href={`https://github.com/${r.username}`} target="_blank" rel="noopener noreferrer">
-                        {getUserDisplay(r.username) || r.username}
+                        {getUserDisplay(r.username)}
                       </a>
                     </HStack>
                   ))}
@@ -1396,7 +1394,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                       {commit.author.avatar_url && (
                         <img
                           src={commit.author.avatar_url}
-                          alt={getUserDisplay(commit.author.username) || commit.author.username}
+                          alt={getUserDisplay(commit.author.username) ?? ''}
                           style={{
                             width: '32px',
                             height: '32px',
@@ -1416,7 +1414,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                             {commit.sha.substring(0, 7)}
                           </a>
                           <span style={{ color: 'var(--ax-text-neutral-subtle)' }}>
-                            {getUserDisplay(commit.author.username) || commit.author.username}
+                            {getUserDisplay(commit.author.username)}
                           </span>
                           <span style={{ color: 'var(--ax-text-neutral-subtle)' }}>
                             {new Date(commit.date).toLocaleString('no-NO', {
@@ -1445,7 +1443,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                       {comment.user.avatar_url && (
                         <img
                           src={comment.user.avatar_url}
-                          alt={getUserDisplay(comment.user.username) || comment.user.username}
+                          alt={getUserDisplay(comment.user.username) ?? ''}
                           style={{
                             width: '32px',
                             height: '32px',
@@ -1461,7 +1459,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                             target="_blank"
                             rel="noopener noreferrer"
                           >
-                            {getUserDisplay(comment.user.username) || comment.user.username}
+                            {getUserDisplay(comment.user.username)}
                           </a>
                           <span style={{ color: 'var(--ax-text-neutral-subtle)' }}>
                             {new Date(comment.created_at).toLocaleString('no-NO', {
