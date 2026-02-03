@@ -405,26 +405,6 @@ function AuditReportPdfDocument(props: AuditReportPdfProps) {
           </View>
         </View>
 
-        {/* Notice for 2025 reports about data quality issues - on new page */}
-        {year === 2025 && (
-          <View style={styles.noticeBox} break>
-            <Text style={styles.noticeTitle}>Merknad om datakvalitet for januar og februar 2025</Text>
-            <Text style={styles.noticeText}>
-              Nais-API-et inneholdt ikke commit-SHA for deployments i januar og enkelte dager i februar. Disse
-              deployments er derfor kartlagt manuelt med informasjon fra Slack-kanalen #pensjon-produksjon-deploy.
-            </Text>
-            <Text style={styles.noticeText}>
-              Kartleggingen er utført med to sett øyne: én person la inn mappingen og en annen bekreftet at den var
-              korrekt. Personen som er oppført som godkjenner for disse deployments er den som bekreftet mappingen, ikke
-              nødvendigvis den som godkjente selve kodeendringen.
-            </Text>
-            <Text style={styles.noticeText}>
-              For deployments som er resultat av sammenslåing uten forutgående godkjenning, er det lagt inn kommentarer
-              basert på meldinger fra Slack-kanalen #pensjon-merge-uten-godkjenning.
-            </Text>
-          </View>
-        )}
-
         <View style={styles.footer}>
           <Text style={styles.footerText}>
             Generert: {formatDateTime(generatedAt)} | Pensjon Deployment Audit System
@@ -621,15 +601,17 @@ function AuditReportPdfDocument(props: AuditReportPdfProps) {
             <View style={[styles.methodologyBox, { backgroundColor: '#FFF4E0', borderLeft: '3px solid #D47500' }]}>
               <Text style={styles.methodologyTitle}>C. Legacy deployments ({legacyCount} stk)</Text>
               <Text style={styles.methodologyText}>
-                Legacy deployments er deployments fra før systemet for automatisk verifisering ble innført.
+                Nais-API-et inneholdt ikke commit-SHA for deployments i januar og enkelte dager i februar 2025. Disse
+                deployments er derfor kartlagt manuelt med informasjon fra Slack-kanalen #pensjon-produksjon-deploy.
               </Text>
               <Text style={styles.methodologyText}>
-                Disse deployments mangler commit SHA eller annen nødvendig informasjon for å verifisere
-                four-eyes-prinsippet automatisk.
+                Kartleggingen er utført med to sett øyne: én person la inn mappingen og en annen bekreftet at den var
+                korrekt. Personen som er oppført som godkjenner for disse deployments er den som bekreftet mappingen,
+                ikke nødvendigvis den som godkjente selve kodeendringen.
               </Text>
               <Text style={styles.methodologyText}>
-                For perioder med legacy deployments gjaldt andre rutiner for kodereview som ikke er sporbare i dette
-                systemet.
+                For deployments som er resultat av sammenslåing uten forutgående godkjenning, er det lagt inn
+                kommentarer basert på meldinger fra Slack-kanalen #pensjon-merge-uten-godkjenning.
               </Text>
             </View>
           )}
