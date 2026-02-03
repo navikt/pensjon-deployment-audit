@@ -792,6 +792,14 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
   const [legacySearchValue, setLegacySearchValue] = useState('')
   const [legacySlackLink, setLegacySlackLink] = useState('')
 
+  // Reset legacy form to initial state
+  const resetLegacyForm = () => {
+    setShowLegacyForm(false)
+    setLegacySearchType('sha')
+    setLegacySearchValue('')
+    setLegacySlackLink('')
+  }
+
   // Statuses that require manual approval (when no manualApproval exists)
   const statusesRequiringApproval = [
     'direct_push',
@@ -1788,7 +1796,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                 </Box>
 
                 <HStack gap="space-8">
-                  <Form method="post">
+                  <Form method="post" onSubmit={resetLegacyForm}>
                     <input type="hidden" name="intent" value="confirm_legacy_lookup" />
                     <input type="hidden" name="slack_link" value={actionData.legacyLookup.slackLink} />
                     <input type="hidden" name="commit_sha" value={actionData.legacyLookup.commitSha || ''} />
@@ -1817,7 +1825,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                       Bekreft og lagre
                     </Button>
                   </Form>
-                  <Button variant="secondary" size="small" onClick={() => setShowLegacyForm(false)}>
+                  <Button variant="secondary" size="small" onClick={resetLegacyForm}>
                     Avbryt
                   </Button>
                 </HStack>
@@ -1875,7 +1883,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                     <Button type="submit" variant="primary" size="small">
                       Søk på GitHub
                     </Button>
-                    <Button type="button" variant="secondary" size="small" onClick={() => setShowLegacyForm(false)}>
+                    <Button type="button" variant="secondary" size="small" onClick={resetLegacyForm}>
                       Avbryt
                     </Button>
                   </HStack>
