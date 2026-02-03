@@ -406,11 +406,23 @@ export function buildReportData(rawData: Awaited<ReturnType<typeof getAuditRepor
     const isManual = d.four_eyes_status === 'manually_approved'
     const isLegacy = d.four_eyes_status === 'legacy'
     const manualApproval = manualApprovalMap.get(d.id)
+    const legacyInfo = legacyInfoMap.get(d.id)
+
+    // Check if this is a Jan/Feb 2025 legacy deployment (special handling)
+    const deploymentDate = d.created_at
+    const isJanFeb2025Legacy =
+      isLegacy &&
+      legacyInfo &&
+      deploymentDate.getFullYear() === 2025 &&
+      (deploymentDate.getMonth() === 0 || deploymentDate.getMonth() === 1)
 
     // Find approver - now using extracted approved_by_username from SQL
     let approver = ''
     if (isManual && manualApproval) {
       approver = manualApproval.approved_by
+    } else if (isJanFeb2025Legacy) {
+      // For Jan/Feb 2025 legacy: use PR reviewer if available, otherwise '-'
+      approver = d.approved_by_username || '-'
     } else if (isLegacy) {
       approver = 'Legacy'
     } else if (d.approved_by_username) {
@@ -435,7 +447,8 @@ export function buildReportData(rawData: Awaited<ReturnType<typeof getAuditRepor
       deployer: d.deployer_username || '',
       deployer_display_name: getDisplayName(d.deployer_username),
       approver,
-      approver_display_name: approver && approver !== 'Legacy' ? getDisplayName(approver) : undefined,
+      approver_display_name:
+        approver && approver !== 'Legacy' && approver !== '-' ? getDisplayName(approver) : undefined,
       pr_number: d.github_pr_number || undefined,
       pr_url: d.github_pr_url || undefined,
       slack_link: manualApproval?.slack_link || undefined,
