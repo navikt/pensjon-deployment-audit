@@ -448,18 +448,19 @@ function AuditReportPdfDocument(props: AuditReportPdfProps) {
                 Deployments - {formatMonthName(monthKey)} ({monthDeployments.length} stk)
               </Text>
               <View style={styles.table}>
-                {/* Header row 1 */}
-                <View style={styles.tableHeader}>
+                {/* Header row 1 - fixed to repeat on each page */}
+                <View style={styles.tableHeader} fixed>
                   <Text style={[styles.tableHeaderCell, styles.r1col1]}>#</Text>
                   <Text style={[styles.tableHeaderCell, styles.r1col2]}>Dato</Text>
                   <Text style={[styles.tableHeaderCell, styles.r1col3]}>Tittel</Text>
                 </View>
-                {/* Header row 2 */}
+                {/* Header row 2 - fixed to repeat on each page */}
                 <View
                   style={[
                     styles.tableHeader,
                     { borderTopLeftRadius: 0, borderTopRightRadius: 0, backgroundColor: '#F0EDEB' },
                   ]}
+                  fixed
                 >
                   <Text style={[styles.tableHeaderCell, styles.r2col1]} />
                   <Text style={[styles.tableHeaderCell, styles.r2col2]}>Commit</Text>
