@@ -601,6 +601,20 @@ export async function action({ request, params }: Route.ActionArgs) {
     }
   }
 
+  if (intent === 'approve_baseline') {
+    try {
+      await updateDeploymentFourEyes(deploymentId, {
+        hasFourEyes: true,
+        fourEyesStatus: 'baseline',
+        githubPrNumber: null,
+        githubPrUrl: null,
+      })
+      return { success: 'Deployment godkjent som baseline' }
+    } catch (_error) {
+      return { error: 'Kunne ikke godkjenne baseline' }
+    }
+  }
+
   return null
 }
 
@@ -623,6 +637,12 @@ function getFourEyesStatus(deployment: any): {
         text: 'Baseline',
         variant: 'success',
         description: 'Første deployment for dette miljøet. Brukes som utgangspunkt for verifisering.',
+      }
+    case 'pending_baseline':
+      return {
+        text: 'Foreslått baseline',
+        variant: 'warning',
+        description: 'Første deployment for dette miljøet. Må godkjennes manuelt som baseline før videre verifisering.',
       }
     case 'no_changes':
       return {
@@ -842,6 +862,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                 'approved_pr_with_unreviewed',
                 'baseline',
                 'no_changes',
+                'pending_baseline',
               ].includes(deployment.four_eyes_status) && (
                 <Form method="post" style={{ display: 'inline' }}>
                   <input type="hidden" name="intent" value="verify_four_eyes" />
@@ -856,6 +877,21 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                   </Button>
                 </Form>
               )}
+            {/* Approve baseline button */}
+            {deployment.four_eyes_status === 'pending_baseline' && (
+              <Form method="post" style={{ display: 'inline' }}>
+                <input type="hidden" name="intent" value="approve_baseline" />
+                <Button
+                  type="submit"
+                  size="small"
+                  variant="primary"
+                  icon={<CheckmarkCircleIcon aria-hidden />}
+                  title="Godkjenn dette deploymentet som baseline"
+                >
+                  Godkjenn baseline
+                </Button>
+              </Form>
+            )}
           </HStack>
         </div>
         <BodyShort textColor="subtle">

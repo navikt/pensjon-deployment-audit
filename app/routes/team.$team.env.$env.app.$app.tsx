@@ -86,7 +86,7 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
     recentConfigChanges,
   ] = await Promise.all([
     getRepositoriesByAppId(app.id),
-    getAppDeploymentStats(app.id, startDate, endDate),
+    getAppDeploymentStats(app.id, startDate, endDate, app.audit_start_year),
     getUnresolvedAlertsByApp(app.id),
     getAuditReportsForApp(app.id),
     // Check readiness for current year if it's a production app
@@ -183,6 +183,23 @@ export async function action({ request }: ActionFunctionArgs) {
       })
 
       return { success: 'Implisitt godkjenning-innstillinger oppdatert!' }
+    }
+
+    if (action === 'update_audit_start_year') {
+      const appId = parseInt(formData.get('app_id') as string, 10)
+      const startYearValue = formData.get('audit_start_year') as string
+
+      // Allow empty value to clear the start year
+      const auditStartYear = startYearValue?.trim() ? parseInt(startYearValue, 10) : null
+
+      if (auditStartYear !== null && (isNaN(auditStartYear) || auditStartYear < 2000 || auditStartYear > 2100)) {
+        return { error: 'Ugyldig årstall (må være mellom 2000 og 2100)' }
+      }
+
+      await updateMonitoredApplication(appId, { audit_start_year: auditStartYear })
+      return {
+        success: auditStartYear ? `Startår oppdatert til ${auditStartYear}` : 'Startår fjernet',
+      }
     }
 
     return { error: 'Ukjent handling' }
@@ -698,6 +715,28 @@ export default function AppDetail() {
                 defaultValue={app.default_branch}
                 size="small"
                 style={{ minWidth: '200px' }}
+              />
+              <Button type="submit" size="small" variant="secondary">
+                Lagre
+              </Button>
+            </HStack>
+          </Form>
+
+          <hr style={{ border: 'none', borderTop: '1px solid var(--ax-border-neutral-subtle)', margin: 0 }} />
+
+          {/* Audit Start Year */}
+          <Form method="post">
+            <input type="hidden" name="action" value="update_audit_start_year" />
+            <input type="hidden" name="app_id" value={app.id} />
+            <HStack gap="space-16" align="end" wrap>
+              <TextField
+                label="Startår for revisjon"
+                description="Deployments før dette året ignoreres i statistikk og rapporter"
+                name="audit_start_year"
+                type="number"
+                defaultValue={app.audit_start_year ?? ''}
+                size="small"
+                style={{ minWidth: '120px' }}
               />
               <Button type="submit" size="small" variant="secondary">
                 Lagre

@@ -23,7 +23,7 @@ import {
   type UnverifiedCommit,
   updateDeploymentFourEyes,
 } from '~/db/deployments.server'
-import { getMonitoredApplication } from '~/db/monitored-applications.server'
+import { getMonitoredApplication, getMonitoredApplicationById } from '~/db/monitored-applications.server'
 import { isBaseBranchMergeCommit, shouldApproveWithBaseMerge } from '~/lib/base-branch-merge'
 import {
   clearPrCommitsCache,
@@ -526,6 +526,13 @@ export async function verifyDeploymentFourEyes(
   clearPrCommitsCache()
   clearPrCommitsMetadataCache()
 
+  // Get app settings for audit_start_year filter
+  let auditStartYear: number | null = null
+  if (monitoredAppId) {
+    const appInfo = await getMonitoredApplicationById(monitoredAppId)
+    auditStartYear = appInfo?.audit_start_year ?? null
+  }
+
   try {
     console.log(`🔍 [Deployment ${deploymentId}] Verifying commits up to ${commitSha.substring(0, 7)} in ${repository}`)
 
@@ -548,15 +555,15 @@ export async function verifyDeploymentFourEyes(
     }
 
     // Step 2: Get previous deployment for this repo/environment
-    const previousDeployment = await getPreviousDeployment(deploymentId, owner, repo, environmentName)
+    const previousDeployment = await getPreviousDeployment(deploymentId, owner, repo, environmentName, auditStartYear)
 
     if (!previousDeployment) {
       console.log(
-        `📍 [Deployment ${deploymentId}] First deployment for ${repository}/${environmentName} - marking as baseline`,
+        `📍 [Deployment ${deploymentId}] First deployment for ${repository}/${environmentName} - marking as pending_baseline`,
       )
       await updateDeploymentFourEyes(deploymentId, {
-        hasFourEyes: true,
-        fourEyesStatus: 'baseline',
+        hasFourEyes: false,
+        fourEyesStatus: 'pending_baseline',
         githubPrNumber: deployedPrNumber,
         githubPrUrl: deployedPrUrl,
         githubPrData: deployedPrData,

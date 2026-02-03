@@ -44,6 +44,7 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
     commit_sha: sha,
     start_date: range?.startDate,
     end_date: range?.endDate,
+    audit_start_year: app.audit_start_year,
   }
 
   const result = await getDeploymentsPaginated(filters)

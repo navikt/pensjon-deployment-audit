@@ -170,6 +170,7 @@ export interface DeploymentFilters {
   method?: 'pr' | 'direct_push' | 'legacy'
   page?: number
   per_page?: number
+  audit_start_year?: number | null
 }
 
 export interface PaginatedDeployments {
@@ -205,6 +206,13 @@ export async function getDeploymentsPaginated(filters?: DeploymentFilters): Prom
   if (filters?.environment_name) {
     whereSql += ` AND ma.environment_name = $${paramIndex}`
     params.push(filters.environment_name)
+    paramIndex++
+  }
+
+  // Filter by audit start year
+  if (filters?.audit_start_year) {
+    whereSql += ` AND EXTRACT(YEAR FROM d.created_at) >= $${paramIndex}`
+    params.push(filters.audit_start_year)
     paramIndex++
   }
 
@@ -570,9 +578,9 @@ export async function getPreviousDeployment(
   repoOwner: string,
   repoName: string,
   environmentName: string,
+  auditStartYear?: number | null,
 ): Promise<Deployment | null> {
-  const result = await pool.query(
-    `SELECT prev_dep.* FROM deployments prev_dep
+  let sql = `SELECT prev_dep.* FROM deployments prev_dep
      CROSS JOIN deployments curr_dep
      JOIN monitored_applications ma ON prev_dep.monitored_app_id = ma.id
      WHERE prev_dep.detected_github_owner = $1
@@ -580,11 +588,19 @@ export async function getPreviousDeployment(
        AND ma.environment_name = $3
        AND curr_dep.id = $4
        AND prev_dep.created_at < curr_dep.created_at
-       AND prev_dep.commit_sha IS NOT NULL
-     ORDER BY prev_dep.created_at DESC
-     LIMIT 1`,
-    [repoOwner, repoName, environmentName, currentDeploymentId],
-  )
+       AND prev_dep.commit_sha IS NOT NULL`
+
+  const params: any[] = [repoOwner, repoName, environmentName, currentDeploymentId]
+
+  // Filter out deployments before audit start year
+  if (auditStartYear) {
+    sql += ` AND EXTRACT(YEAR FROM prev_dep.created_at) >= $5`
+    params.push(auditStartYear)
+  }
+
+  sql += ` ORDER BY prev_dep.created_at DESC LIMIT 1`
+
+  const result = await pool.query(sql, params)
 
   return result.rows[0] || null
 }
@@ -730,6 +746,7 @@ export async function getAppDeploymentStats(
   monitoredAppId: number,
   startDate?: Date,
   endDate?: Date,
+  auditStartYear?: number | null,
 ): Promise<AppDeploymentStats> {
   let sql = `SELECT 
       COUNT(*) as total,
@@ -743,6 +760,13 @@ export async function getAppDeploymentStats(
 
   const params: any[] = [monitoredAppId]
   let paramIndex = 2
+
+  // Filter by audit start year if specified
+  if (auditStartYear) {
+    sql += ` AND EXTRACT(YEAR FROM created_at) >= $${paramIndex}`
+    params.push(auditStartYear)
+    paramIndex++
+  }
 
   if (startDate) {
     sql += ` AND created_at >= $${paramIndex}`

@@ -7,6 +7,7 @@ export interface MonitoredApplication {
   app_name: string
   is_active: boolean
   default_branch: string
+  audit_start_year: number | null
   created_at: Date
   updated_at: Date
 }
@@ -61,6 +62,7 @@ export async function updateMonitoredApplication(
   data: {
     is_active?: boolean
     default_branch?: string
+    audit_start_year?: number | null
   },
 ): Promise<MonitoredApplication> {
   const updates: string[] = []
@@ -75,6 +77,11 @@ export async function updateMonitoredApplication(
   if (data.default_branch !== undefined) {
     updates.push(`default_branch = $${paramCount++}`)
     values.push(data.default_branch)
+  }
+
+  if (data.audit_start_year !== undefined) {
+    updates.push(`audit_start_year = $${paramCount++}`)
+    values.push(data.audit_start_year)
   }
 
   if (updates.length === 0) {
