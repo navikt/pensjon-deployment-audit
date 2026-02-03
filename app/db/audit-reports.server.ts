@@ -413,13 +413,6 @@ export function buildReportData(rawData: Awaited<ReturnType<typeof getAuditRepor
     // Treat as legacy if has legacy_info comment (even if status is manually_approved)
     const hasLegacyInfo = !!legacyInfo
 
-    // Check if this is a Jan/Feb 2025 legacy deployment (special handling)
-    const deploymentDate = d.created_at
-    const isJanFeb2025Legacy =
-      hasLegacyInfo &&
-      deploymentDate.getFullYear() === 2025 &&
-      (deploymentDate.getMonth() === 0 || deploymentDate.getMonth() === 1)
-
     // Helper to format approvers list with display names
     const formatApprovers = (usernames: string[]): string => {
       return usernames.map((u) => getDisplayName(u) || u).join(', ')
@@ -427,13 +420,11 @@ export function buildReportData(rawData: Awaited<ReturnType<typeof getAuditRepor
 
     // Find approver - now using extracted approved_by_usernames array from SQL
     let approver = ''
-    if (isManual && manualApproval) {
-      approver = getDisplayName(manualApproval.approved_by) || manualApproval.approved_by
-    } else if (isJanFeb2025Legacy) {
-      // For Jan/Feb 2025 legacy: use PR reviewers if available, otherwise '-'
+    if (isLegacy || hasLegacyInfo) {
+      // Legacy: use GitHub PR reviewers if available, otherwise '-'
       approver = d.approved_by_usernames?.length ? formatApprovers(d.approved_by_usernames) : '-'
-    } else if (isLegacy || hasLegacyInfo) {
-      approver = 'Legacy'
+    } else if (isManual && manualApproval) {
+      approver = getDisplayName(manualApproval.approved_by) || manualApproval.approved_by
     } else if (d.approved_by_usernames?.length) {
       approver = formatApprovers(d.approved_by_usernames)
     }
