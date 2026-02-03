@@ -667,12 +667,12 @@ function getFourEyesStatus(deployment: any): {
     case 'legacy':
     case 'legacy_pending':
       return {
-        text: deployment.four_eyes_status === 'legacy_pending' ? 'Legacy (venter)' : 'Legacy (>1 år)',
+        text: deployment.four_eyes_status === 'legacy_pending' ? 'Legacy (venter)' : 'Legacy',
         variant: deployment.four_eyes_status === 'legacy_pending' ? 'warning' : 'success',
         description:
           deployment.four_eyes_status === 'legacy_pending'
             ? 'GitHub-data hentet. Venter på godkjenning fra en annen person.'
-            : 'Dette deploymentet er eldre enn 1 år og mangler informasjon om commit. Deploymentet er ignorert.',
+            : 'Dette deploymentet har ugyldig eller mangelfull data fra Nais API, som skyldes endringer i Nais sitt skjema.',
       }
     case 'manually_approved':
       return {

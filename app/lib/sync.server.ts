@@ -463,6 +463,22 @@ export async function verifyDeploymentsFourEyes(filters?: DeploymentFilters & { 
         continue
       }
 
+      // Check for invalid SHA (e.g., "refs/heads/main" instead of actual SHA)
+      // Treat these as legacy deployments that need manual lookup
+      if (deployment.commit_sha.startsWith('refs/')) {
+        console.log(
+          `⚠️  Invalid commit SHA (ref instead of SHA): ${deployment.commit_sha} - marking as legacy for manual lookup`,
+        )
+        await updateDeploymentFourEyes(deployment.id, {
+          hasFourEyes: false,
+          fourEyesStatus: 'legacy',
+          githubPrNumber: null,
+          githubPrUrl: null,
+        })
+        skipped++
+        continue
+      }
+
       const success = await verifyDeploymentFourEyes(
         deployment.id,
         deployment.commit_sha,
