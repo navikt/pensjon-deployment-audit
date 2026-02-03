@@ -410,12 +410,13 @@ export function buildReportData(rawData: Awaited<ReturnType<typeof getAuditRepor
     const isLegacy = d.four_eyes_status === 'legacy'
     const manualApproval = manualApprovalMap.get(d.id)
     const legacyInfo = legacyInfoMap.get(d.id)
+    // Treat as legacy if has legacy_info comment (even if status is manually_approved)
+    const hasLegacyInfo = !!legacyInfo
 
     // Check if this is a Jan/Feb 2025 legacy deployment (special handling)
     const deploymentDate = d.created_at
     const isJanFeb2025Legacy =
-      isLegacy &&
-      legacyInfo &&
+      hasLegacyInfo &&
       deploymentDate.getFullYear() === 2025 &&
       (deploymentDate.getMonth() === 0 || deploymentDate.getMonth() === 1)
 
@@ -431,15 +432,15 @@ export function buildReportData(rawData: Awaited<ReturnType<typeof getAuditRepor
     } else if (isJanFeb2025Legacy) {
       // For Jan/Feb 2025 legacy: use PR reviewers if available, otherwise '-'
       approver = d.approved_by_usernames?.length ? formatApprovers(d.approved_by_usernames) : '-'
-    } else if (isLegacy) {
+    } else if (isLegacy || hasLegacyInfo) {
       approver = 'Legacy'
     } else if (d.approved_by_usernames?.length) {
       approver = formatApprovers(d.approved_by_usernames)
     }
 
-    // Determine method
+    // Determine method - use legacy if has legacy_info comment
     let method: 'pr' | 'manual' | 'legacy' = 'pr'
-    if (isLegacy) {
+    if (isLegacy || hasLegacyInfo) {
       method = 'legacy'
     } else if (isManual) {
       method = 'manual'
