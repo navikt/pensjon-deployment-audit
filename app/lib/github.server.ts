@@ -509,13 +509,15 @@ export interface PullRequestReview {
 async function getPullRequestReviews(owner: string, repo: string, pull_number: number): Promise<PullRequestReview[]> {
   const client = getGitHubClient()
 
-  const response = await client.pulls.listReviews({
+  // Use paginate to get all reviews (PRs with many comments can have 30+ reviews)
+  const allReviews = await client.paginate(client.pulls.listReviews, {
     owner,
     repo,
     pull_number,
+    per_page: 100,
   })
 
-  return response.data as PullRequestReview[]
+  return allReviews as PullRequestReview[]
 }
 
 export interface PullRequestCommit {
@@ -768,11 +770,12 @@ export async function getDetailedPullRequestInfo(
 
     const pr = prResponse.data
 
-    // Fetch reviews
-    const reviewsResponse = await client.pulls.listReviews({
+    // Fetch reviews with pagination to get all reviews
+    const allReviews = await client.paginate(client.pulls.listReviews, {
       owner,
       repo,
       pull_number,
+      per_page: 100,
     })
 
     // Group reviews by user - prioritize APPROVED state, then latest timestamp
@@ -791,7 +794,7 @@ export async function getDetailedPullRequestInfo(
       html_url: string
     }> = []
 
-    for (const review of reviewsResponse.data) {
+    for (const review of allReviews) {
       if (review.user && review.submitted_at) {
         const existing = reviewsByUser.get(review.user.login)
 
@@ -907,16 +910,16 @@ export async function getDetailedPullRequestInfo(
       html_url: commit.html_url,
     }))
 
-    // Fetch issue comments (general PR discussion comments)
-    const issueCommentsResponse = await client.issues.listComments({
+    // Fetch issue comments (general PR discussion comments) with pagination
+    const allIssueComments = await client.paginate(client.issues.listComments, {
       owner,
       repo,
       issue_number: pull_number,
       per_page: 100,
     })
 
-    // Fetch review comments (comments on code lines)
-    const reviewCommentsResponse = await client.pulls.listReviewComments({
+    // Fetch review comments (comments on code lines) with pagination
+    const allReviewComments = await client.paginate(client.pulls.listReviewComments, {
       owner,
       repo,
       pull_number,
@@ -924,7 +927,7 @@ export async function getDetailedPullRequestInfo(
     })
 
     // Combine both types of comments
-    const issueComments = issueCommentsResponse.data.map((comment) => ({
+    const issueComments = allIssueComments.map((comment) => ({
       id: comment.id,
       body: comment.body || '',
       user: {
@@ -935,7 +938,7 @@ export async function getDetailedPullRequestInfo(
       html_url: comment.html_url,
     }))
 
-    const reviewComments = reviewCommentsResponse.data.map((comment) => ({
+    const reviewComments = allReviewComments.map((comment) => ({
       id: comment.id,
       body: comment.body || '',
       user: {
