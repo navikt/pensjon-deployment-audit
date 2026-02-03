@@ -1,6 +1,5 @@
 import {
   BarChartIcon,
-  CheckmarkCircleIcon,
   CheckmarkIcon,
   CogIcon,
   DownloadIcon,
@@ -46,7 +45,7 @@ import {
   rejectRepository,
   setRepositoryAsActive,
 } from '~/db/application-repositories.server'
-import { checkAuditReadiness, getAuditReportsForApp } from '~/db/audit-reports.server'
+import { getAuditReportsForApp } from '~/db/audit-reports.server'
 import { getAppDeploymentStats } from '~/db/deployments.server'
 import { getMonitoredApplicationByIdentity, updateMonitoredApplication } from '~/db/monitored-applications.server'
 import { getUserIdentity } from '~/lib/auth.server'
