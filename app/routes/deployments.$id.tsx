@@ -1771,11 +1771,11 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                       <strong>Melding:</strong> {actionData.legacyLookup.commitMessage}
                     </Detail>
                     <Detail>
-                      <strong>Forfatter:</strong> {actionData.legacyLookup.commitAuthor}
+                      <strong>Forfatter:</strong> {getUserDisplay(actionData.legacyLookup.commitAuthor)}
                     </Detail>
                     {actionData.legacyLookup.mergedBy && (
                       <Detail>
-                        <strong>Merget av:</strong> {actionData.legacyLookup.mergedBy}
+                        <strong>Merget av:</strong> {getUserDisplay(actionData.legacyLookup.mergedBy)}
                       </Detail>
                     )}
                     {actionData.legacyLookup.prNumber && (
@@ -1787,7 +1787,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                           <strong>Godkjennere:</strong>{' '}
                           {actionData.legacyLookup.reviewers
                             ?.filter((r: { state: string }) => r.state === 'APPROVED')
-                            .map((r: { username: string }) => r.username)
+                            .map((r: { username: string }) => getUserDisplay(r.username))
                             .join(', ') || 'Ingen'}
                         </Detail>
                       </>
