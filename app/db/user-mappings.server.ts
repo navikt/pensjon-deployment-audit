@@ -14,52 +14,79 @@ export interface UserMapping {
 const userMappingCache = new Map<string, UserMapping | null>()
 
 /**
- * Get user mapping by GitHub username
+ * Get user mapping by GitHub username or NAV-ident
  */
-export async function getUserMapping(githubUsername: string): Promise<UserMapping | null> {
+export async function getUserMapping(identifier: string): Promise<UserMapping | null> {
+  const key = identifier.toLowerCase()
+
   // Check cache first
-  if (userMappingCache.has(githubUsername)) {
-    return userMappingCache.get(githubUsername) || null
+  if (userMappingCache.has(key)) {
+    return userMappingCache.get(key) || null
   }
 
-  const result = await pool.query('SELECT * FROM user_mappings WHERE github_username = $1', [githubUsername])
+  // Search both github_username and nav_ident
+  const result = await pool.query(
+    `SELECT * FROM user_mappings 
+     WHERE github_username = $1 OR UPPER(nav_ident) = UPPER($1)`,
+    [identifier],
+  )
 
   const mapping = result.rows[0] || null
-  userMappingCache.set(githubUsername, mapping)
+
+  // Cache by both github_username and nav_ident
+  if (mapping) {
+    userMappingCache.set(mapping.github_username.toLowerCase(), mapping)
+    if (mapping.nav_ident) {
+      userMappingCache.set(mapping.nav_ident.toLowerCase(), mapping)
+    }
+  } else {
+    userMappingCache.set(key, null)
+  }
+
   return mapping
 }
 
 /**
- * Get multiple user mappings by GitHub usernames
+ * Get multiple user mappings by GitHub usernames or NAV-idents
+ * Searches both github_username and nav_ident fields
  */
-export async function getUserMappings(githubUsernames: string[]): Promise<Map<string, UserMapping>> {
-  if (githubUsernames.length === 0) return new Map()
+export async function getUserMappings(identifiers: string[]): Promise<Map<string, UserMapping>> {
+  if (identifiers.length === 0) return new Map()
 
-  // Filter out cached entries
-  const uncached = githubUsernames.filter((u) => !userMappingCache.has(u))
+  // Filter out cached entries (check both github_username and nav_ident keys)
+  const uncached = identifiers.filter((u) => !userMappingCache.has(u.toLowerCase()))
 
   if (uncached.length > 0) {
-    const result = await pool.query('SELECT * FROM user_mappings WHERE github_username = ANY($1)', [uncached])
+    // Search both github_username and nav_ident
+    const result = await pool.query(
+      `SELECT * FROM user_mappings 
+       WHERE github_username = ANY($1) 
+          OR UPPER(nav_ident) = ANY($2)`,
+      [uncached, uncached.map((u) => u.toUpperCase())],
+    )
 
-    // Cache results
+    // Cache results by both github_username and nav_ident
     for (const row of result.rows) {
-      userMappingCache.set(row.github_username, row)
+      userMappingCache.set(row.github_username.toLowerCase(), row)
+      if (row.nav_ident) {
+        userMappingCache.set(row.nav_ident.toLowerCase(), row)
+      }
     }
 
-    // Mark missing usernames as null in cache
-    for (const username of uncached) {
-      if (!userMappingCache.has(username)) {
-        userMappingCache.set(username, null)
+    // Mark missing identifiers as null in cache
+    for (const identifier of uncached) {
+      if (!userMappingCache.has(identifier.toLowerCase())) {
+        userMappingCache.set(identifier.toLowerCase(), null)
       }
     }
   }
 
   // Build result map from cache
   const mappings = new Map<string, UserMapping>()
-  for (const username of githubUsernames) {
-    const mapping = userMappingCache.get(username)
+  for (const identifier of identifiers) {
+    const mapping = userMappingCache.get(identifier.toLowerCase())
     if (mapping) {
-      mappings.set(username, mapping)
+      mappings.set(identifier, mapping)
     }
   }
 
