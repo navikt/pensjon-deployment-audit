@@ -26,40 +26,6 @@
   margin: 0 auto;
 }
 
-/* Clickable card hover effect */
-.clickableCard {
-  transition:
-    transform 0.1s ease,
-    box-shadow 0.1s ease;
-  cursor: pointer;
-  height: 100%;
-}
-
-.clickableCard:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-/* Stat card link wrapper */
-.statCardLink {
-  text-decoration: none;
-  display: block;
-  height: 100%;
-}
-
-/* Stat card button wrapper */
-.statCardButton {
-  text-decoration: none;
-  display: block;
-  height: 100%;
-  background: none;
-  border: none;
-  padding: 0;
-  font: inherit;
-  text-align: left;
-  width: 100%;
-}
-
 /* Stacked list styles - for connected cards without gaps */
 .stackedListItem {
   border-radius: 0;

@@ -37,6 +37,7 @@ import {
   useLoaderData,
   useSearchParams,
 } from 'react-router'
+import { StatCard } from '~/components/StatCard'
 import { getUnresolvedAlertsByApp, resolveRepositoryAlert } from '~/db/alerts.server'
 import { updateImplicitApprovalSettings } from '~/db/app-settings.server'
 import {
@@ -50,7 +51,6 @@ import { getAppDeploymentStats } from '~/db/deployments.server'
 import { getMonitoredApplicationByIdentity, updateMonitoredApplication } from '~/db/monitored-applications.server'
 import { getUserIdentity } from '~/lib/auth.server'
 import { getDateRangeForPeriod, TIME_PERIOD_OPTIONS, type TimePeriod } from '~/lib/time-periods'
-import styles from '~/styles/common.module.css'
 
 export async function loader({ params, request }: LoaderFunctionArgs) {
   const { team, env, app: appName } = params
@@ -255,63 +255,42 @@ export default function AppDetail() {
             </Form>
           </HStack>
           <HGrid gap="space-16" columns={{ xs: 2, md: 3, lg: 5 }}>
-            <Link to={`${appUrl}/deployments?period=${currentPeriod}`} className={styles.statCardLink}>
-              <Box padding="space-12" borderRadius="8" background="sunken" className={styles.clickableCard}>
-                <VStack gap="space-4">
-                  <Detail textColor="subtle">Totalt deployments</Detail>
-                  <Heading size="large">{deploymentStats.total}</Heading>
-                </VStack>
-              </Box>
-            </Link>
-            <Link to={`${appUrl}/deployments?status=approved&period=${currentPeriod}`} className={styles.statCardLink}>
-              <Box padding="space-12" borderRadius="8" background="sunken" className={styles.clickableCard}>
-                <VStack gap="space-4">
-                  <Detail textColor="subtle">Godkjent</Detail>
-                  <Heading size="large" style={{ color: 'var(--ax-text-success)' }}>
-                    {deploymentStats.with_four_eyes} ({deploymentStats.four_eyes_percentage}%)
-                  </Heading>
-                </VStack>
-              </Box>
-            </Link>
-            <Link
+            <StatCard
+              label="Totalt deployments"
+              value={deploymentStats.total}
+              to={`${appUrl}/deployments?period=${currentPeriod}`}
+              compact
+            />
+            <StatCard
+              label="Godkjent"
+              value={`${deploymentStats.with_four_eyes} (${deploymentStats.four_eyes_percentage}%)`}
+              variant="success"
+              to={`${appUrl}/deployments?status=approved&period=${currentPeriod}`}
+              compact
+            />
+            <StatCard
+              label="Mangler godkjenning"
+              value={deploymentStats.without_four_eyes}
+              variant="danger"
               to={`${appUrl}/deployments?status=not_approved&period=${currentPeriod}`}
-              className={styles.statCardLink}
-            >
-              <Box padding="space-12" borderRadius="8" background="sunken" className={styles.clickableCard}>
-                <VStack gap="space-4">
-                  <Detail textColor="subtle">Mangler godkjenning</Detail>
-                  <Heading size="large" style={{ color: 'var(--ax-text-danger)' }}>
-                    {deploymentStats.without_four_eyes}
-                  </Heading>
-                </VStack>
-              </Box>
-            </Link>
-            <Link to={`${appUrl}/deployments?status=pending&period=${currentPeriod}`} className={styles.statCardLink}>
-              <Box padding="space-12" borderRadius="8" background="sunken" className={styles.clickableCard}>
-                <VStack gap="space-4">
-                  <Detail textColor="subtle">Venter verifisering</Detail>
-                  <Heading size="large" style={{ color: 'var(--ax-text-warning)' }}>
-                    {deploymentStats.pending_verification}
-                  </Heading>
-                </VStack>
-              </Box>
-            </Link>
+              compact
+            />
+            <StatCard
+              label="Venter verifisering"
+              value={deploymentStats.pending_verification}
+              variant="warning"
+              to={`${appUrl}/deployments?status=pending&period=${currentPeriod}`}
+              compact
+            />
             {deploymentStats.last_deployment_id && deploymentStats.last_deployment ? (
-              <Link to={`${appUrl}/deployments?status=pending&period=${currentPeriod}`} className={styles.statCardLink}>
-                <Box padding="space-12" borderRadius="8" background="sunken" className={styles.clickableCard}>
-                  <VStack gap="space-4">
-                    <Detail textColor="subtle">Siste deployment</Detail>
-                    <BodyShort>{new Date(deploymentStats.last_deployment).toLocaleString('no-NO')}</BodyShort>
-                  </VStack>
-                </Box>
-              </Link>
+              <StatCard
+                label="Siste deployment"
+                value={new Date(deploymentStats.last_deployment).toLocaleString('no-NO')}
+                to={`${appUrl}/deployments?status=pending&period=${currentPeriod}`}
+                compact
+              />
             ) : (
-              <Box padding="space-12" borderRadius="8" background="sunken">
-                <VStack gap="space-4">
-                  <Detail textColor="subtle">Siste deployment</Detail>
-                  <BodyShort>Ingen deployments</BodyShort>
-                </VStack>
-              </Box>
+              <StatCard label="Siste deployment" value="Ingen deployments" compact />
             )}
           </HGrid>
         </VStack>

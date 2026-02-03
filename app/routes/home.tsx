@@ -14,6 +14,7 @@ import {
   VStack,
 } from '@navikt/ds-react'
 import { Link, useSearchParams } from 'react-router'
+import { StatCard } from '~/components/StatCard'
 import { getRepositoriesByAppId } from '~/db/application-repositories.server'
 import { getAlertCountsByApp } from '../db/alerts.server'
 import { getAppDeploymentStats, getDeploymentStats } from '../db/deployments.server'
@@ -151,97 +152,29 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       {/* Stats - clickable cards that filter the list */}
       {stats && stats.total > 0 && (
         <HGrid gap="space-16" columns={{ xs: 2, sm: 4 }}>
-          <button
-            type="button"
+          <StatCard
+            label="Totalt deployments"
+            value={stats.total}
             onClick={() => updateFilter('all')}
-            className={styles.statCardButton}
-            aria-pressed={statusFilter === 'all'}
-          >
-            <Box
-              padding="space-20"
-              borderRadius="8"
-              background="raised"
-              borderColor={statusFilter === 'all' ? 'accent' : 'neutral-subtle'}
-              borderWidth={statusFilter === 'all' ? '2' : '1'}
-              className={styles.clickableCard}
-            >
-              <BodyShort size="small" textColor="subtle">
-                Totalt deployments
-              </BodyShort>
-              <Heading size="large">{stats.total}</Heading>
-            </Box>
-          </button>
-
-          <button
-            type="button"
+            selected={statusFilter === 'all'}
+          />
+          <StatCard
+            label="Godkjent"
+            value={stats.with_four_eyes}
+            subtitle={`${stats.percentage}%`}
+            variant="success"
             onClick={() => updateFilter('ok')}
-            className={styles.statCardButton}
-            aria-pressed={statusFilter === 'ok'}
-          >
-            <Box
-              padding="space-20"
-              borderRadius="8"
-              background="raised"
-              borderColor={statusFilter === 'ok' ? 'accent' : 'success-subtle'}
-              borderWidth={statusFilter === 'ok' ? '2' : '1'}
-              data-color="success"
-              className={styles.clickableCard}
-            >
-              <BodyShort size="small" textColor="subtle">
-                Godkjent
-              </BodyShort>
-              <Heading size="large">{stats.with_four_eyes}</Heading>
-              <BodyShort size="small" textColor="subtle">
-                {stats.percentage}%
-              </BodyShort>
-            </Box>
-          </button>
-
-          <button
-            type="button"
+            selected={statusFilter === 'ok'}
+          />
+          <StatCard
+            label="Mangler godkjenning"
+            value={stats.without_four_eyes}
+            subtitle={`${(100 - stats.percentage).toFixed(1)}%`}
+            variant="danger"
             onClick={() => updateFilter('missing')}
-            className={styles.statCardButton}
-            aria-pressed={statusFilter === 'missing'}
-          >
-            <Box
-              padding="space-20"
-              borderRadius="8"
-              background="raised"
-              borderColor={statusFilter === 'missing' ? 'accent' : 'danger-subtle'}
-              borderWidth={statusFilter === 'missing' ? '2' : '1'}
-              data-color="danger"
-              className={styles.clickableCard}
-            >
-              <BodyShort size="small" textColor="subtle">
-                Mangler godkjenning
-              </BodyShort>
-              <Heading size="large">{stats.without_four_eyes}</Heading>
-              <BodyShort size="small" textColor="subtle">
-                {(100 - stats.percentage).toFixed(1)}%
-              </BodyShort>
-            </Box>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => updateFilter('all')}
-            className={styles.statCardButton}
-            aria-pressed={statusFilter === 'all'}
-          >
-            <Box
-              padding="space-20"
-              borderRadius="8"
-              background="raised"
-              borderColor="neutral-subtle"
-              borderWidth="1"
-              className={styles.clickableCard}
-            >
-              <BodyShort size="small" textColor="subtle">
-                Applikasjoner
-              </BodyShort>
-              <Heading size="large">{allAppsCount}</Heading>
-            </Box>
-          </button>
+            selected={statusFilter === 'missing'}
+          />
+          <StatCard label="Applikasjoner" value={allAppsCount} onClick={() => updateFilter('all')} />
         </HGrid>
       )}
 
