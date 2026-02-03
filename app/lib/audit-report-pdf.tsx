@@ -431,7 +431,7 @@ function AuditReportPdfDocument(props: AuditReportPdfProps) {
             <Text style={styles.methodologyTitle}>A. Pull Request (automatisk verifisert)</Text>
             <Text style={styles.methodologyText}>• PR må være godkjent (approved) av minst én annen person</Text>
             <Text style={styles.methodologyText}>• Siste commit må være før godkjenning (ingen post-commits)</Text>
-            <Text style={styles.methodologyText}>• Alle commits i PR må være fra PR-forfatteren</Text>
+            <Text style={styles.methodologyText}>• Siste commit kan ikke være fra reviewer</Text>
           </View>
           <View style={styles.methodologyBox}>
             <Text style={styles.methodologyTitle}>B. Manuell godkjenning (etterkontroll)</Text>
