@@ -23,8 +23,8 @@ export interface AuditDeploymentRow {
   team_slug: string
   environment_name: string
   app_name: string
-  // Extracted from github_pr_data via SQL
-  approved_by_username: string | null
+  // Extracted from github_pr_data via SQL - array of all approved reviewers
+  approved_by_usernames: string[] | null
 }
 
 export interface AuditReport {
@@ -252,13 +252,12 @@ export async function getAuditReportData(
        ma.team_slug,
        ma.environment_name,
        ma.app_name,
-       -- Extract first APPROVED reviewer username from JSON
+       -- Extract all APPROVED reviewer usernames from JSON as array
        (
-         SELECT r->>'username'
+         SELECT jsonb_agg(r->>'username')
          FROM jsonb_array_elements(d.github_pr_data->'reviewers') AS r
          WHERE r->>'state' = 'APPROVED'
-         LIMIT 1
-       ) AS approved_by_username
+       ) AS approved_by_usernames
      FROM deployments d
      JOIN monitored_applications ma ON d.monitored_app_id = ma.id
      WHERE d.monitored_app_id = $1
@@ -335,7 +334,11 @@ export async function getAuditReportData(
   const identifiers = new Set<string>()
   for (const d of deployments) {
     if (d.deployer_username) identifiers.add(d.deployer_username)
-    if (d.approved_by_username) identifiers.add(d.approved_by_username)
+    if (d.approved_by_usernames) {
+      for (const username of d.approved_by_usernames) {
+        identifiers.add(username)
+      }
+    }
   }
   for (const a of manual_approvals) {
     if (a.approved_by) identifiers.add(a.approved_by)
@@ -416,17 +419,22 @@ export function buildReportData(rawData: Awaited<ReturnType<typeof getAuditRepor
       deploymentDate.getFullYear() === 2025 &&
       (deploymentDate.getMonth() === 0 || deploymentDate.getMonth() === 1)
 
-    // Find approver - now using extracted approved_by_username from SQL
+    // Helper to format approvers list with display names
+    const formatApprovers = (usernames: string[]): string => {
+      return usernames.map((u) => getDisplayName(u) || u).join(', ')
+    }
+
+    // Find approver - now using extracted approved_by_usernames array from SQL
     let approver = ''
     if (isManual && manualApproval) {
-      approver = manualApproval.approved_by
+      approver = getDisplayName(manualApproval.approved_by) || manualApproval.approved_by
     } else if (isJanFeb2025Legacy) {
-      // For Jan/Feb 2025 legacy: use PR reviewer if available, otherwise '-'
-      approver = d.approved_by_username || '-'
+      // For Jan/Feb 2025 legacy: use PR reviewers if available, otherwise '-'
+      approver = d.approved_by_usernames?.length ? formatApprovers(d.approved_by_usernames) : '-'
     } else if (isLegacy) {
       approver = 'Legacy'
-    } else if (d.approved_by_username) {
-      approver = d.approved_by_username
+    } else if (d.approved_by_usernames?.length) {
+      approver = formatApprovers(d.approved_by_usernames)
     }
 
     // Determine method
@@ -447,8 +455,8 @@ export function buildReportData(rawData: Awaited<ReturnType<typeof getAuditRepor
       deployer: d.deployer_username || '',
       deployer_display_name: getDisplayName(d.deployer_username),
       approver,
-      approver_display_name:
-        approver && approver !== 'Legacy' && approver !== '-' ? getDisplayName(approver) : undefined,
+      // Display name is already baked into approver string above
+      approver_display_name: undefined,
       pr_number: d.github_pr_number || undefined,
       pr_url: d.github_pr_url || undefined,
       slack_link: manualApproval?.slack_link || undefined,
