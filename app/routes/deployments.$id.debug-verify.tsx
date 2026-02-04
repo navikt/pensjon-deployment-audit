@@ -161,30 +161,38 @@ export default function DebugVerifyPage({ loaderData }: Route.ComponentProps) {
 function DebugResultView({ result }: { result: DebugVerificationResult }) {
   const { existingStatus, fetchedData, newResult, comparison } = result
 
+  // Determine the display state
+  const hasRealChange = comparison.statusChanged || comparison.hasFourEyesChanged
+  const onlyNameChange = comparison.statusEquivalent && !comparison.hasFourEyesChanged
+
   return (
     <VStack gap="space-6">
       {/* Comparison Summary */}
-      <Box
-        background={comparison.statusChanged || comparison.hasFourEyesChanged ? 'warning-soft' : 'success-soft'}
-        padding="space-4"
-        borderRadius="8"
-      >
-        <HStack gap="space-4" align="center">
-          {comparison.statusChanged || comparison.hasFourEyesChanged ? (
-            <>
-              <Tag variant="warning">Endring oppdaget</Tag>
-              <BodyShort>
-                Status: {comparison.oldStatus || 'null'} → {comparison.newStatus} | Four eyes:{' '}
-                {String(comparison.oldHasFourEyes)} → {String(comparison.newHasFourEyes)}
-              </BodyShort>
-            </>
-          ) : (
-            <>
-              <Tag variant="success">Ingen endring</Tag>
-              <BodyShort>Gammelt og nytt resultat er identisk</BodyShort>
-            </>
+      <Box background={hasRealChange ? 'warning-soft' : 'success-soft'} padding="space-4" borderRadius="8">
+        <VStack gap="space-2">
+          <HStack gap="space-4" align="center">
+            {hasRealChange ? (
+              <>
+                <Tag variant="warning">Endring oppdaget</Tag>
+                <BodyShort>
+                  Status: {comparison.oldStatus || 'null'} → {comparison.newStatus} | Four eyes:{' '}
+                  {String(comparison.oldHasFourEyes)} → {String(comparison.newHasFourEyes)}
+                </BodyShort>
+              </>
+            ) : (
+              <>
+                <Tag variant="success">Ingen endring</Tag>
+                <BodyShort>Gammelt og nytt resultat er identisk</BodyShort>
+              </>
+            )}
+          </HStack>
+          {onlyNameChange && (
+            <BodyShort size="small" textColor="subtle">
+              ℹ️ Status-navnene er forskjellige ({comparison.oldStatus} → {comparison.newStatus}), men betyr det samme.
+              Det nye systemet bruker forenklede status-navn.
+            </BodyShort>
           )}
-        </HStack>
+        </VStack>
       </Box>
 
       {/* Side-by-side comparison */}

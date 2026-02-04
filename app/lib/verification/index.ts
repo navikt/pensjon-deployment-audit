@@ -168,6 +168,7 @@ export interface DebugVerificationResult {
     newStatus: string
     oldHasFourEyes: boolean | null
     newHasFourEyes: boolean
+    statusEquivalent: boolean // True if statuses differ in name only
   }
 }
 
@@ -213,13 +214,29 @@ export async function runDebugVerification(
   console.log(`      - Four eyes: ${newResult.hasFourEyes}`)
 
   // Step 4: Build comparison
+  // Normalize equivalent statuses for comparison
+  const normalizeStatus = (status: string | null): string | null => {
+    if (!status) return status
+    // These status pairs are semantically equivalent
+    const equivalentStatuses: Record<string, string> = {
+      approved_pr: 'approved',
+      pending_approval: 'pending',
+    }
+    return equivalentStatuses[status] || status
+  }
+
+  const normalizedOldStatus = normalizeStatus(existingStatus.status)
+  const normalizedNewStatus = normalizeStatus(newResult.status)
+  const statusEquivalent = existingStatus.status !== newResult.status && normalizedOldStatus === normalizedNewStatus
+
   const comparison = {
-    statusChanged: existingStatus.status !== newResult.status,
+    statusChanged: normalizedOldStatus !== normalizedNewStatus,
     hasFourEyesChanged: existingStatus.hasFourEyes !== newResult.hasFourEyes,
     oldStatus: existingStatus.status,
     newStatus: newResult.status,
     oldHasFourEyes: existingStatus.hasFourEyes,
     newHasFourEyes: newResult.hasFourEyes,
+    statusEquivalent, // True if statuses differ in name only, not meaning
   }
 
   if (comparison.statusChanged || comparison.hasFourEyesChanged) {
