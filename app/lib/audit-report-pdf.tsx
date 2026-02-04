@@ -178,10 +178,11 @@ const styles = StyleSheet.create({
   r2col1: { width: '5%' },
   r2col2: { width: '8%' },
   r2col3: { width: '8%' },
-  r2col4: { width: '12%' },
-  r2col5: { width: '18%' },
-  r2col6: { width: '18%' },
-  r2col7: { width: '31%' },
+  r2col4: { width: '10%' },
+  r2col5: { width: '14%' },
+  r2col6: { width: '14%' },
+  r2col7: { width: '14%' },
+  r2col8: { width: '27%' },
   manualBox: {
     backgroundColor: '#FFF4E0',
     padding: 10,
@@ -591,9 +592,10 @@ function AuditReportPdfDocument(props: AuditReportPdfProps) {
                   <Text style={[styles.tableHeaderCell, styles.r2col2]}>Commit</Text>
                   <Text style={[styles.tableHeaderCell, styles.r2col3]}>Metode</Text>
                   <Text style={[styles.tableHeaderCell, styles.r2col4]}>Referanse</Text>
-                  <Text style={[styles.tableHeaderCell, styles.r2col5]}>Deployer</Text>
-                  <Text style={[styles.tableHeaderCell, styles.r2col6]}>Godkjenner</Text>
-                  <Text style={[styles.tableHeaderCell, styles.r2col7]}>Nais ID</Text>
+                  <Text style={[styles.tableHeaderCell, styles.r2col5]}>PR-forf.</Text>
+                  <Text style={[styles.tableHeaderCell, styles.r2col6]}>Deployer</Text>
+                  <Text style={[styles.tableHeaderCell, styles.r2col7]}>Godkjenner</Text>
+                  <Text style={[styles.tableHeaderCell, styles.r2col8]}>Nais ID</Text>
                 </View>
                 {monthDeployments.map((d, idx) => (
                   <View key={d.id} style={[styles.deploymentCard, idx % 2 === 1 ? styles.deploymentCardAlt : {}]}>
@@ -638,12 +640,15 @@ function AuditReportPdfDocument(props: AuditReportPdfProps) {
                         )}
                       </Text>
                       <Text style={[styles.tableCell, styles.r2col5, { color: '#595959' }]}>
-                        {d.deployer_display_name || d.deployer}
+                        {d.pr_author_display_name || d.pr_author || '-'}
                       </Text>
                       <Text style={[styles.tableCell, styles.r2col6, { color: '#595959' }]}>
+                        {d.deployer_display_name || d.deployer}
+                      </Text>
+                      <Text style={[styles.tableCell, styles.r2col7, { color: '#595959' }]}>
                         {d.approver ? d.approver_display_name || d.approver : '-'}
                       </Text>
-                      <Text style={[styles.tableCell, styles.r2col7, { fontSize: 6, color: '#888888' }]}>
+                      <Text style={[styles.tableCell, styles.r2col8, { fontSize: 6, color: '#888888' }]}>
                         {d.nais_deployment_id || ''}
                       </Text>
                     </View>

@@ -25,6 +25,8 @@ export interface AuditDeploymentRow {
   app_name: string
   // Extracted from github_pr_data via SQL - array of all approved reviewers
   approved_by_usernames: string[] | null
+  // Extracted from github_pr_data via SQL - PR author
+  pr_author: string | null
 }
 
 export interface AuditReport {
@@ -65,6 +67,8 @@ export interface AuditDeploymentEntry {
   date: string
   commit_sha: string
   method: 'pr' | 'manual' | 'legacy'
+  pr_author?: string
+  pr_author_display_name?: string
   deployer: string
   deployer_display_name?: string
   approver: string
@@ -257,7 +261,9 @@ export async function getAuditReportData(
          SELECT jsonb_agg(r->>'username')
          FROM jsonb_array_elements(d.github_pr_data->'reviewers') AS r
          WHERE r->>'state' = 'APPROVED'
-       ) AS approved_by_usernames
+       ) AS approved_by_usernames,
+       -- Extract PR creator/author from JSON
+       d.github_pr_data->'creator'->>'username' AS pr_author
      FROM deployments d
      JOIN monitored_applications ma ON d.monitored_app_id = ma.id
      WHERE d.monitored_app_id = $1
@@ -334,6 +340,7 @@ export async function getAuditReportData(
   const identifiers = new Set<string>()
   for (const d of deployments) {
     if (d.deployer_username) identifiers.add(d.deployer_username)
+    if (d.pr_author) identifiers.add(d.pr_author)
     if (d.approved_by_usernames) {
       for (const username of d.approved_by_usernames) {
         identifiers.add(username)
@@ -444,6 +451,8 @@ export function buildReportData(rawData: Awaited<ReturnType<typeof getAuditRepor
       date: d.created_at.toISOString(),
       commit_sha: d.commit_sha || '',
       method,
+      pr_author: d.pr_author || undefined,
+      pr_author_display_name: getDisplayName(d.pr_author),
       deployer: d.deployer_username || '',
       deployer_display_name: getDisplayName(d.deployer_username),
       approver,
