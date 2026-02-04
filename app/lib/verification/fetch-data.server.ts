@@ -114,11 +114,9 @@ async function getAppSettings(monitoredAppId: number): Promise<{
 }> {
   const result = await pool.query(
     `SELECT 
-       ma.audit_start_year,
-       COALESCE(aps.implicit_approval_mode, 'off') as implicit_approval_mode
-     FROM monitored_applications ma
-     LEFT JOIN app_settings aps ON aps.monitored_app_id = ma.id
-     WHERE ma.id = $1`,
+       audit_start_year
+     FROM monitored_applications
+     WHERE id = $1`,
     [monitoredAppId],
   )
 
@@ -132,8 +130,9 @@ async function getAppSettings(monitoredAppId: number): Promise<{
   const row = result.rows[0]
   return {
     auditStartYear: row.audit_start_year,
+    // TODO: Add app_settings table for implicit approval configuration
     implicitApprovalSettings: {
-      mode: row.implicit_approval_mode || 'off',
+      mode: 'off',
       requireMergerDifferentFromAuthor: true,
     },
   }

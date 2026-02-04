@@ -228,7 +228,7 @@ export async function runDebugVerification(
 async function getExistingVerificationStatus(deploymentId: number): Promise<ExistingVerificationStatus> {
   const result = await pool.query(
     `SELECT 
-       four_eyes,
+       has_four_eyes,
        four_eyes_status,
        github_pr_number,
        github_pr_url,
@@ -252,7 +252,7 @@ async function getExistingVerificationStatus(deploymentId: number): Promise<Exis
 
   const row = result.rows[0]
   return {
-    hasFourEyes: row.four_eyes,
+    hasFourEyes: row.has_four_eyes,
     status: row.four_eyes_status,
     prNumber: row.github_pr_number,
     prUrl: row.github_pr_url,
