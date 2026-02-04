@@ -9,10 +9,12 @@ import {
   Heading,
   HStack,
   Label,
+  Loader,
   Select,
   TextField,
   VStack,
 } from '@navikt/ds-react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   type ActionFunctionArgs,
   Form,
@@ -21,6 +23,7 @@ import {
   useActionData,
   useLoaderData,
   useNavigation,
+  useRevalidator,
   useSearchParams,
 } from 'react-router'
 import {
@@ -36,9 +39,60 @@ import {
   saveAuditReport,
   updateAuditReportPdf,
 } from '~/db/audit-reports.server'
+import { pool } from '~/db/connection.server'
 import { getMonitoredApplicationByIdentity, updateMonitoredApplication } from '~/db/monitored-applications.server'
 import { generateAuditReportPdf } from '~/lib/audit-report-pdf'
 import { requireAdmin } from '~/lib/auth.server'
+
+// Async function to process report generation in background
+async function processReportJobAsync(jobId: string, appId: number, year: number, generatedBy: string) {
+  try {
+    await pool.query(`UPDATE report_jobs SET status = 'processing' WHERE job_id = $1`, [jobId])
+
+    const rawData = await getAuditReportData(appId, year)
+    const reportData = buildReportData(rawData)
+
+    // Save report metadata
+    const report = await saveAuditReport({
+      monitoredAppId: appId,
+      appName: rawData.app.app_name,
+      teamSlug: rawData.app.team_slug,
+      environmentName: rawData.app.environment_name,
+      repository: rawData.repository,
+      year,
+      reportData,
+      generatedBy,
+    })
+
+    // Generate PDF
+    const pdfBuffer = await generateAuditReportPdf({
+      appName: report.app_name,
+      repository: report.repository,
+      teamSlug: report.team_slug,
+      environmentName: report.environment_name,
+      year: report.year,
+      periodStart: new Date(report.period_start),
+      periodEnd: new Date(report.period_end),
+      reportData: report.report_data,
+      contentHash: report.content_hash,
+      reportId: report.report_id,
+      generatedAt: new Date(report.generated_at),
+    })
+
+    // Store PDF in audit_reports table
+    await updateAuditReportPdf(report.id, Buffer.from(pdfBuffer))
+
+    // Update job with PDF data and mark completed
+    await pool.query(
+      `UPDATE report_jobs SET status = 'completed', pdf_data = $2, completed_at = NOW() WHERE job_id = $1`,
+      [jobId, pdfBuffer],
+    )
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+    await pool.query(`UPDATE report_jobs SET status = 'failed', error = $2 WHERE job_id = $1`, [jobId, errorMessage])
+    throw err
+  }
+}
 
 export function meta({ data }: { data: Awaited<ReturnType<typeof loader>> | undefined }) {
   return [{ title: data?.app ? `Admin - ${data.app.app_name}` : 'Admin' }]
@@ -160,41 +214,22 @@ export async function action({ request }: ActionFunctionArgs) {
       }
     }
 
-    // Get all data
-    const rawData = await getAuditReportData(appId, year)
-    const reportData = buildReportData(rawData)
+    // Create background job for PDF generation
+    const { pool } = await import('~/db/connection.server')
+    const result = await pool.query(
+      `INSERT INTO report_jobs (monitored_app_id, year, status)
+       VALUES ($1, $2, 'pending')
+       RETURNING job_id`,
+      [appId, year],
+    )
+    const jobId = result.rows[0].job_id
 
-    // Save report metadata first
-    const report = await saveAuditReport({
-      monitoredAppId: appId,
-      appName: rawData.app.app_name,
-      teamSlug: rawData.app.team_slug,
-      environmentName: rawData.app.environment_name,
-      repository: rawData.repository,
-      year,
-      reportData,
-      generatedBy: user.navIdent,
+    // Start async processing (fire and forget)
+    processReportJobAsync(jobId, appId, year, user.navIdent).catch((err) => {
+      console.error(`Report job ${jobId} failed:`, err)
     })
 
-    // Generate PDF and store in database
-    const pdfBuffer = await generateAuditReportPdf({
-      appName: report.app_name,
-      repository: report.repository,
-      teamSlug: report.team_slug,
-      environmentName: report.environment_name,
-      year: report.year,
-      periodStart: new Date(report.period_start),
-      periodEnd: new Date(report.period_end),
-      reportData: report.report_data,
-      contentHash: report.content_hash,
-      reportId: report.report_id,
-      generatedAt: new Date(report.generated_at),
-    })
-
-    // Store PDF in database
-    await updateAuditReportPdf(report.id, Buffer.from(pdfBuffer))
-
-    return { generated: report }
+    return { jobStarted: jobId }
   }
 
   return null
@@ -205,8 +240,15 @@ export default function AppAdmin() {
     useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
+  const revalidator = useRevalidator()
   const isSubmitting = navigation.state === 'submitting'
   const [, setSearchParams] = useSearchParams()
+
+  // Polling state for background job
+  const [pendingJobId, setPendingJobId] = useState<string | null>(null)
+  const [jobStatus, setJobStatus] = useState<'pending' | 'processing' | 'completed' | 'failed' | null>(null)
+  const [jobError, setJobError] = useState<string | null>(null)
+  const [jobCompleted, setJobCompleted] = useState(false)
 
   const currentYear = new Date().getFullYear()
   // Only allow previous years down to audit_start_year
@@ -228,6 +270,51 @@ export default function AppAdmin() {
     })
   }
 
+  // Start polling when job is started
+  useEffect(() => {
+    if (actionData?.jobStarted) {
+      setPendingJobId(actionData.jobStarted)
+      setJobStatus('pending')
+      setJobError(null)
+      setJobCompleted(false)
+    }
+  }, [actionData?.jobStarted])
+
+  // Poll for job status
+  const pollJobStatus = useCallback(async () => {
+    if (!pendingJobId) return
+
+    try {
+      const response = await fetch(`/api/reports/status?jobId=${pendingJobId}`)
+      const data = await response.json()
+
+      setJobStatus(data.status)
+
+      if (data.status === 'completed') {
+        setPendingJobId(null)
+        setJobCompleted(true)
+        // Reload to show new report in list
+        revalidator.revalidate()
+      } else if (data.status === 'failed') {
+        setPendingJobId(null)
+        setJobError(data.error || 'Ukjent feil')
+      }
+    } catch {
+      setJobError('Kunne ikke sjekke status')
+      setPendingJobId(null)
+    }
+  }, [pendingJobId, revalidator])
+
+  useEffect(() => {
+    if (!pendingJobId) return
+
+    const interval = setInterval(pollJobStatus, 2000)
+    // Also poll immediately
+    pollJobStatus()
+
+    return () => clearInterval(interval)
+  }, [pendingJobId, pollJobStatus])
+
   return (
     <VStack gap="space-32">
       {/* Header */}
@@ -245,15 +332,29 @@ export default function AppAdmin() {
           <BodyShort>{actionData.success}</BodyShort>
         </Box>
       )}
-      {actionData?.generated && (
-        <Alert variant="success">
-          Leveranserapport generert! Dokument-ID: <strong>{actionData.generated.report_id}</strong>
-        </Alert>
-      )}
       {actionData?.error && (
         <Box padding="space-16" borderRadius="8" background="danger-softA">
           <BodyShort>{actionData.error}</BodyShort>
         </Box>
+      )}
+      {jobError && <Alert variant="error">Rapportgenerering feilet: {jobError}</Alert>}
+      {jobCompleted && (
+        <Alert variant="success">
+          Leveranserapport er generert! Du finner den i listen over genererte rapporter nedenfor.
+        </Alert>
+      )}
+
+      {/* Job progress indicator */}
+      {pendingJobId && (
+        <Alert variant="info">
+          <HStack gap="space-12" align="center">
+            <Loader size="small" />
+            <span>
+              {jobStatus === 'pending' && 'Starter rapportgenerering...'}
+              {jobStatus === 'processing' && 'Genererer rapport... Dette kan ta opptil et minutt.'}
+            </span>
+          </HStack>
+        </Alert>
       )}
 
       {/* Audit Report Generation - only for prod apps - MOVED TO TOP */}
@@ -293,10 +394,12 @@ export default function AppAdmin() {
                     value="generate_report"
                     variant="primary"
                     size="small"
-                    loading={isSubmitting && navigation.formData?.get('action') === 'generate_report'}
-                    disabled={!readinessData?.is_ready}
+                    loading={
+                      (isSubmitting && navigation.formData?.get('action') === 'generate_report') || !!pendingJobId
+                    }
+                    disabled={!readinessData?.is_ready || !!pendingJobId}
                   >
-                    Generer rapport
+                    {pendingJobId ? 'Genererer...' : 'Generer rapport'}
                   </Button>
                 </HStack>
 

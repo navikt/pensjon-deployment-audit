@@ -4,6 +4,9 @@ export default [
   // Health check endpoints (outside layout)
   route('api/isalive', 'routes/api.isalive.ts'),
   route('api/isready', 'routes/api.isready.ts'),
+  route('api/reports/generate', 'routes/api.reports.generate.ts'),
+  route('api/reports/download', 'routes/api.reports.download.ts'),
+  route('api/reports/status', 'routes/api.reports.status.ts'),
   route('api/search', 'routes/api.search.ts'),
 
   layout('routes/layout.tsx', [
