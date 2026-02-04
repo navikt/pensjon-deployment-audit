@@ -8,14 +8,15 @@
  * Output: VerificationResult (verification decision)
  */
 
-import type {
-  ImplicitApprovalSettings,
-  PrCommit,
-  PrReview,
-  UnverifiedCommit,
-  UnverifiedReason,
-  VerificationInput,
-  VerificationResult,
+import {
+  assertNever,
+  type ImplicitApprovalSettings,
+  type PrCommit,
+  type PrReview,
+  type UnverifiedCommit,
+  type UnverifiedReason,
+  type VerificationInput,
+  type VerificationResult,
 } from './types'
 
 // =============================================================================
@@ -411,43 +412,45 @@ export function checkImplicitApproval(params: {
   allCommitAuthors: string[]
 }): { qualifies: boolean; reason?: string } {
   const { settings, prCreator, lastCommitAuthor, mergedBy, allCommitAuthors } = params
-
-  if (settings.mode === 'off') {
-    return { qualifies: false }
-  }
+  const { mode } = settings
 
   const mergedByLower = mergedBy.toLowerCase()
   const prCreatorLower = prCreator.toLowerCase()
   const lastCommitAuthorLower = lastCommitAuthor.toLowerCase()
 
-  // mode === 'dependabot_only': Only Dependabot PRs with only Dependabot commits
-  if (settings.mode === 'dependabot_only') {
-    const isDependabotPR = prCreatorLower === 'dependabot[bot]'
-    const onlyDependabotCommits = allCommitAuthors.every(
-      (author) => author.toLowerCase() === 'dependabot[bot]' || author.toLowerCase() === 'dependabot',
-    )
+  switch (mode) {
+    case 'off':
+      return { qualifies: false }
 
-    if (isDependabotPR && onlyDependabotCommits && mergedByLower !== prCreatorLower) {
-      return {
-        qualifies: true,
-        reason: 'Dependabot-PR med kun Dependabot-commits, merget av en annen bruker',
+    case 'dependabot_only': {
+      const isDependabotPR = prCreatorLower === 'dependabot[bot]'
+      const onlyDependabotCommits = allCommitAuthors.every(
+        (author) => author.toLowerCase() === 'dependabot[bot]' || author.toLowerCase() === 'dependabot',
+      )
+
+      if (isDependabotPR && onlyDependabotCommits && mergedByLower !== prCreatorLower) {
+        return {
+          qualifies: true,
+          reason: 'Dependabot-PR med kun Dependabot-commits, merget av en annen bruker',
+        }
       }
+      return { qualifies: false }
     }
 
-    return { qualifies: false }
-  }
-
-  // mode === 'all': Merger different from creator and last author
-  if (settings.mode === 'all') {
-    if (mergedByLower !== prCreatorLower && mergedByLower !== lastCommitAuthorLower) {
-      return {
-        qualifies: true,
-        reason: `Merget av ${mergedBy} som verken opprettet PR-en (${prCreator}) eller har siste commit (${lastCommitAuthor})`,
+    case 'all': {
+      if (mergedByLower !== prCreatorLower && mergedByLower !== lastCommitAuthorLower) {
+        return {
+          qualifies: true,
+          reason: `Merget av ${mergedBy} som verken opprettet PR-en (${prCreator}) eller har siste commit (${lastCommitAuthor})`,
+        }
       }
+      return { qualifies: false }
     }
-  }
 
-  return { qualifies: false }
+    default:
+      // TypeScript will error here if a new mode is added but not handled
+      return assertNever(mode, `Unhandled implicit approval mode: ${mode}`)
+  }
 }
 
 // =============================================================================

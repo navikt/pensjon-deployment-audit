@@ -19,6 +19,125 @@
 export const CURRENT_SCHEMA_VERSION = 1
 
 // =============================================================================
+// Exhaustive Check Helper
+// =============================================================================
+
+/**
+ * Helper function for exhaustive switch checks.
+ * If TypeScript complains that the argument is not of type `never`,
+ * it means you've forgotten to handle a case in your switch statement.
+ *
+ * @example
+ * switch (mode) {
+ *   case 'off': return ...
+ *   case 'dependabot_only': return ...
+ *   case 'all': return ...
+ *   default: return assertNever(mode) // Error if new mode added but not handled
+ * }
+ */
+export function assertNever(value: never, message?: string): never {
+  throw new Error(message ?? `Unhandled value: ${JSON.stringify(value)}`)
+}
+
+// =============================================================================
+// Implicit Approval Mode
+// =============================================================================
+
+/**
+ * All valid implicit approval modes.
+ * Add new modes here - TypeScript will enforce handling in all switch statements.
+ */
+export const IMPLICIT_APPROVAL_MODES = ['off', 'dependabot_only', 'all'] as const
+export type ImplicitApprovalMode = (typeof IMPLICIT_APPROVAL_MODES)[number]
+
+/**
+ * Human-readable labels for implicit approval modes
+ */
+export const IMPLICIT_APPROVAL_MODE_LABELS: Record<ImplicitApprovalMode, string> = {
+  off: 'Av',
+  dependabot_only: 'Kun Dependabot',
+  all: 'Alle PRer',
+}
+
+/**
+ * Descriptions for implicit approval modes
+ */
+export const IMPLICIT_APPROVAL_MODE_DESCRIPTIONS: Record<ImplicitApprovalMode, string> = {
+  off: 'Ingen implisitt godkjenning - krever eksplisitt review-godkjenning',
+  dependabot_only: 'Dependabot-PRer med kun Dependabot-commits godkjennes når merget av annen bruker',
+  all: 'PRer godkjennes når merger er forskjellig fra PR-forfatter og siste commit-forfatter',
+}
+
+// =============================================================================
+// Verification Status
+// =============================================================================
+
+/**
+ * All valid verification statuses.
+ * Add new statuses here - TypeScript will enforce handling in all switch statements.
+ */
+export const VERIFICATION_STATUSES = [
+  'approved',
+  'implicitly_approved',
+  'unverified_commits',
+  'pending_baseline',
+  'no_changes',
+  'manually_approved',
+  'legacy',
+  'error',
+] as const
+export type VerificationStatus = (typeof VERIFICATION_STATUSES)[number]
+
+/**
+ * Human-readable labels for verification statuses
+ */
+export const VERIFICATION_STATUS_LABELS: Record<VerificationStatus, string> = {
+  approved: 'Godkjent',
+  implicitly_approved: 'Implisitt godkjent',
+  unverified_commits: 'Ikke verifisert',
+  pending_baseline: 'Første deployment',
+  no_changes: 'Ingen endringer',
+  manually_approved: 'Manuelt godkjent',
+  legacy: 'Legacy',
+  error: 'Feil',
+}
+
+// =============================================================================
+// Unverified Commit Reasons
+// =============================================================================
+
+/**
+ * All valid reasons for unverified commits.
+ */
+export const UNVERIFIED_REASONS = [
+  'no_pr',
+  'no_approved_reviews',
+  'approval_before_last_commit',
+  'pr_not_approved',
+] as const
+export type UnverifiedReason = (typeof UNVERIFIED_REASONS)[number]
+
+/**
+ * Human-readable labels for unverified reasons
+ */
+export const UNVERIFIED_REASON_LABELS: Record<UnverifiedReason, string> = {
+  no_pr: 'Ingen PR funnet',
+  no_approved_reviews: 'Ingen godkjent review',
+  approval_before_last_commit: 'Godkjenning før siste commit',
+  pr_not_approved: 'PR ikke godkjent',
+}
+
+// =============================================================================
+// Approval Methods
+// =============================================================================
+
+/**
+ * All valid approval methods.
+ */
+export const APPROVAL_METHODS = ['pr_review', 'implicit', 'base_merge', 'no_changes', 'pending_baseline'] as const
+export type ApprovalMethod = (typeof APPROVAL_METHODS)[number] | null
+
+// =============================================================================
 // Data Types for Granular Storage
 // =============================================================================
 
@@ -279,8 +398,7 @@ export interface VerificationInput {
  * Settings for implicit approval (single-author PRs, etc.)
  */
 export interface ImplicitApprovalSettings {
-  mode: 'off' | 'dependabot_only' | 'all'
-  requireMergerDifferentFromAuthor?: boolean // Legacy field, not used in new logic
+  mode: ImplicitApprovalMode
 }
 
 // =============================================================================
@@ -308,7 +426,7 @@ export interface VerificationResult {
 
   // Approval details
   approvalDetails: {
-    method: 'pr_review' | 'implicit' | 'base_merge' | 'no_changes' | 'pending_baseline' | null
+    method: ApprovalMethod
     approvers: string[]
     reason: string
   }
@@ -317,19 +435,6 @@ export interface VerificationResult {
   verifiedAt: Date
   schemaVersion: number
 }
-
-/**
- * Possible verification statuses
- */
-export type VerificationStatus =
-  | 'approved' // All commits verified via PR review
-  | 'implicitly_approved' // Approved via implicit approval rules
-  | 'unverified_commits' // Some commits not verified
-  | 'pending_baseline' // First deployment, no previous to compare
-  | 'no_changes' // Same commit as previous deployment
-  | 'manually_approved' // Manually approved by user
-  | 'legacy' // Legacy deployment (before audit start)
-  | 'error' // Error during verification
 
 /**
  * An unverified commit
@@ -344,15 +449,8 @@ export interface UnverifiedCommit {
   reason: UnverifiedReason
 }
 
-/**
- * Reasons why a commit is unverified
- */
-export type UnverifiedReason =
-  | 'no_pr' // Commit was pushed directly to main
-  | 'pr_not_approved' // PR exists but has no approval
-  | 'approval_before_last_commit' // Approval was before the last commit
-  | 'no_approved_reviews' // PR has reviews but none approved
-  | 'author_is_approver' // Self-approval (if not allowed)
+// Note: UnverifiedReason and VerificationStatus are defined at the top of this file
+// using const arrays for exhaustive checking support
 
 // =============================================================================
 // Verification Run (stored in database)

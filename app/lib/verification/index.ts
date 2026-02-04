@@ -27,8 +27,24 @@ import { verifyDeployment } from './verify'
 // Re-export individual modules
 export { fetchVerificationData } from './fetch-data.server'
 export { storeVerificationResult } from './store-data.server'
-// Re-export types for convenience
-export type { VerificationInput, VerificationResult, VerificationStatus } from './types'
+// Re-export types and constants for convenience
+export type {
+  ImplicitApprovalMode,
+  UnverifiedReason,
+  VerificationInput,
+  VerificationResult,
+  VerificationStatus,
+} from './types'
+export {
+  assertNever,
+  IMPLICIT_APPROVAL_MODE_DESCRIPTIONS,
+  IMPLICIT_APPROVAL_MODE_LABELS,
+  IMPLICIT_APPROVAL_MODES,
+  UNVERIFIED_REASON_LABELS,
+  UNVERIFIED_REASONS,
+  VERIFICATION_STATUS_LABELS,
+  VERIFICATION_STATUSES,
+} from './types'
 export { verifyDeployment } from './verify'
 
 // =============================================================================
