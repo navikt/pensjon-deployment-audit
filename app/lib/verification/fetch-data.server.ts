@@ -15,11 +15,11 @@ import { pool } from '~/db/connection.server'
 import {
   getAllLatestPrSnapshots,
   getLatestCommitSnapshot,
-  getLatestPrSnapshot,
   markPrDataUnavailable,
   saveCommitSnapshot,
   savePrSnapshotsBatch,
 } from '~/db/github-data.server'
+import { getCommitsBetween, getDetailedPullRequestInfo, getPullRequestForCommit } from '~/lib/github.server'
 import {
   CURRENT_SCHEMA_VERSION,
   type ImplicitApprovalSettings,
@@ -69,7 +69,7 @@ export async function fetchVerificationData(
   )
 
   // Get deployed commit's PR
-  const deployedPr = await fetchDeployedPrData(owner, repo, commitSha, options)
+  const deployedPr = await fetchDeployedPrData(owner, repo, commitSha, baseBranch, options)
 
   // Get commits between deployments
   let commitsBetween: VerificationInput['commitsBetween'] = []
@@ -190,10 +190,11 @@ async function fetchDeployedPrData(
   owner: string,
   repo: string,
   commitSha: string,
+  baseBranch: string,
   options?: FetchOptions,
 ): Promise<VerificationInput['deployedPr']> {
   // First, find PR number for this commit
-  const prNumber = await findPrForCommit(owner, repo, commitSha)
+  const prNumber = await findPrForCommit(owner, repo, commitSha, baseBranch)
   if (!prNumber) {
     return null
   }
@@ -203,9 +204,9 @@ async function fetchDeployedPrData(
     const cachedData = await getAllLatestPrSnapshots(owner, repo, prNumber)
 
     if (cachedData.has('metadata') && cachedData.has('reviews') && cachedData.has('commits')) {
-      const metadata = cachedData.get('metadata')!.data as PrMetadata
-      const reviews = cachedData.get('reviews')!.data as PrReview[]
-      const commits = cachedData.get('commits')!.data as PrCommit[]
+      const metadata = cachedData.get('metadata')?.data as PrMetadata
+      const reviews = cachedData.get('reviews')?.data as PrReview[]
+      const commits = cachedData.get('commits')?.data as PrCommit[]
 
       return {
         number: prNumber,
@@ -236,35 +237,107 @@ async function fetchDeployedPrData(
   }
 }
 
-async function findPrForCommit(owner: string, repo: string, commitSha: string): Promise<number | null> {
+async function findPrForCommit(
+  owner: string,
+  repo: string,
+  commitSha: string,
+  baseBranch?: string,
+): Promise<number | null> {
   // First check our cached PR associations
   const cached = await getLatestCommitSnapshot(owner, repo, commitSha, 'prs')
-  if (cached) {
-    const prs = (cached.data as { prs: Array<{ number: number }> }).prs
-    if (prs.length > 0) {
-      return prs[0].number
+  if (cached && cached.schemaVersion >= CURRENT_SCHEMA_VERSION) {
+    const prs = (cached.data as { prs: Array<{ number: number; baseBranch: string }> }).prs
+    // Filter by base branch if specified
+    const matchingPrs = baseBranch ? prs.filter((pr) => pr.baseBranch === baseBranch) : prs
+    if (matchingPrs.length > 0) {
+      return matchingPrs[0].number
     }
   }
 
-  // Fetch from GitHub
-  // Note: This uses the GitHub API to find PRs associated with a commit
-  // For now, return null - this will be connected to github.server.ts
-  // TODO: Implement actual GitHub API call
+  // Fetch from GitHub API
+  const prInfo = await getPullRequestForCommit(owner, repo, commitSha, true, baseBranch)
+
+  if (prInfo) {
+    // Store the result to database for future lookups
+    await saveCommitSnapshot(owner, repo, commitSha, 'prs', {
+      prs: [{ number: prInfo.number, baseBranch: baseBranch || 'unknown' }],
+    })
+    return prInfo.number
+  }
+
+  // No PR found - also cache this negative result
+  await saveCommitSnapshot(owner, repo, commitSha, 'prs', { prs: [] })
   return null
 }
 
 async function fetchPrFromGitHub(
-  _owner: string,
-  _repo: string,
-  _prNumber: number,
+  owner: string,
+  repo: string,
+  prNumber: number,
 ): Promise<{
   metadata: PrMetadata
   reviews: PrReview[]
   commits: PrCommit[]
 }> {
-  // TODO: Implement actual GitHub API calls
-  // This will connect to getDetailedPullRequestInfo from github.server.ts
-  throw new Error('Not implemented - connect to github.server.ts')
+  const prData = await getDetailedPullRequestInfo(owner, repo, prNumber)
+
+  if (!prData) {
+    throw new Error(`Failed to fetch PR #${prNumber} from ${owner}/${repo}`)
+  }
+
+  // Transform to our schema types
+  const metadata: PrMetadata = {
+    number: prNumber,
+    title: prData.title,
+    body: prData.body || null,
+    state: prData.merged_at ? 'closed' : 'open',
+    merged: !!prData.merged_at,
+    draft: prData.draft,
+    createdAt: prData.created_at,
+    updatedAt: prData.created_at, // Not available in getDetailedPullRequestInfo
+    mergedAt: prData.merged_at || null,
+    closedAt: prData.merged_at || null,
+    baseBranch: prData.base_branch,
+    baseSha: prData.base_sha,
+    headBranch: prData.head_branch,
+    headSha: prData.head_sha,
+    mergeCommitSha: prData.merge_commit_sha || null,
+    author: {
+      username: prData.creator.username,
+      avatarUrl: prData.creator.avatar_url,
+    },
+    mergedBy: prData.merged_by
+      ? {
+          username: prData.merged_by.username,
+          avatarUrl: prData.merged_by.avatar_url,
+        }
+      : null,
+    labels: prData.labels,
+    commitsCount: prData.commits_count,
+    changedFiles: prData.changed_files,
+    additions: prData.additions,
+    deletions: prData.deletions,
+  }
+
+  const reviews: PrReview[] = prData.reviewers.map((r, index) => ({
+    id: index + 1, // GitHub doesn't provide review ID in this response
+    username: r.username,
+    state: r.state as 'APPROVED' | 'CHANGES_REQUESTED' | 'COMMENTED' | 'PENDING' | 'DISMISSED',
+    submittedAt: r.submitted_at,
+    body: null,
+  }))
+
+  const commits: PrCommit[] = prData.commits.map((c) => ({
+    sha: c.sha,
+    message: c.message,
+    authorUsername: c.author.username,
+    authorDate: c.date,
+    committerDate: c.date,
+    isMergeCommit: false,
+    parentShas: [],
+  }))
+
+  return { metadata, reviews, commits }
 }
 
 // =============================================================================
@@ -277,18 +350,98 @@ async function fetchCommitsBetween(
   fromSha: string,
   toSha: string,
   baseBranch: string,
-  previousDeploymentDate: string,
+  _previousDeploymentDate: string,
   options?: FetchOptions,
 ): Promise<VerificationInput['commitsBetween']> {
-  // TODO: Implement fetching commits between two SHAs
-  // 1. Check database cache for commit list
-  // 2. If not cached or forceRefresh, fetch from GitHub
-  // 3. Store to database
-  // 4. For each commit, check if it has an associated PR
-  // 5. Return enriched commit data
+  // Fetch commits between the two SHAs from GitHub
+  const commitsRaw = await getCommitsBetween(owner, repo, fromSha, toSha)
 
-  // Placeholder implementation
-  return []
+  if (!commitsRaw) {
+    console.warn(`Could not fetch commits between ${fromSha} and ${toSha}`)
+    return []
+  }
+
+  // Store each commit to database
+  for (const commit of commitsRaw) {
+    await saveCommitSnapshot(owner, repo, commit.sha, 'metadata', {
+      sha: commit.sha,
+      message: commit.message,
+      authorUsername: commit.author,
+      authorDate: commit.date,
+      committerUsername: commit.author,
+      committerDate: commit.committer_date,
+      parentShas: commit.parent_shas,
+      isMergeCommit: commit.parents_count > 1,
+      htmlUrl: commit.html_url,
+    })
+  }
+
+  // For each commit, find its associated PR
+  const result: VerificationInput['commitsBetween'] = []
+
+  for (const commit of commitsRaw) {
+    const prNumber = await findPrForCommit(owner, repo, commit.sha, baseBranch)
+
+    let prData: VerificationInput['commitsBetween'][0]['pr'] = null
+
+    if (prNumber && !options?.forceRefresh) {
+      // Try to get PR data from cache first
+      const cachedData = await getAllLatestPrSnapshots(owner, repo, prNumber)
+
+      if (cachedData.has('metadata') && cachedData.has('reviews') && cachedData.has('commits')) {
+        const metadata = cachedData.get('metadata')?.data as PrMetadata
+        const reviews = cachedData.get('reviews')?.data as PrReview[]
+        const prCommits = cachedData.get('commits')?.data as PrCommit[]
+
+        prData = {
+          number: prNumber,
+          title: metadata.title,
+          url: `https://github.com/${owner}/${repo}/pull/${prNumber}`,
+          reviews,
+          commits: prCommits,
+          baseBranch: metadata.baseBranch,
+        }
+      }
+    }
+
+    if (prNumber && !prData) {
+      // Fetch from GitHub
+      try {
+        const { metadata, reviews, commits: prCommits } = await fetchPrFromGitHub(owner, repo, prNumber)
+
+        // Store to database
+        await savePrSnapshotsBatch(owner, repo, prNumber, [
+          { dataType: 'metadata', data: metadata },
+          { dataType: 'reviews', data: reviews },
+          { dataType: 'commits', data: prCommits },
+        ])
+
+        prData = {
+          number: prNumber,
+          title: metadata.title,
+          url: `https://github.com/${owner}/${repo}/pull/${prNumber}`,
+          reviews,
+          commits: prCommits,
+          baseBranch: metadata.baseBranch,
+        }
+      } catch (error) {
+        console.warn(`Failed to fetch PR #${prNumber} for commit ${commit.sha}:`, error)
+      }
+    }
+
+    result.push({
+      sha: commit.sha,
+      message: commit.message,
+      authorUsername: commit.author,
+      authorDate: commit.date,
+      isMergeCommit: commit.parents_count > 1,
+      parentShas: commit.parent_shas,
+      htmlUrl: commit.html_url,
+      pr: prData,
+    })
+  }
+
+  return result
 }
 
 // =============================================================================
