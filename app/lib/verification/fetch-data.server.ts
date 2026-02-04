@@ -149,11 +149,14 @@ async function getPreviousDeployment(
   environmentName: string,
   auditStartYear: number | null,
 ): Promise<{ id: number; commitSha: string; createdAt: string } | null> {
+  // VIKTIG: Bruk created_at for å finne forrige deployment, IKKE id.
+  // Deployment-IDer korrelerer ikke med kronologisk rekkefølge fordi
+  // deployments kan legges til systemet i vilkårlig rekkefølge.
   let query = `
     SELECT d.id, d.commit_sha, d.created_at
     FROM deployments d
     JOIN monitored_applications ma ON d.monitored_app_id = ma.id
-    WHERE d.id < $1
+    WHERE d.created_at < (SELECT created_at FROM deployments WHERE id = $1)
       AND ma.environment_name = $2
       AND d.detected_github_owner = $3
       AND d.detected_github_repo_name = $4
