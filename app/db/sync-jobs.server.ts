@@ -1,7 +1,26 @@
 import { pool } from './connection.server'
 
-export type SyncJobType = 'nais_sync' | 'github_verify'
-export type SyncJobStatus = 'pending' | 'running' | 'completed' | 'failed'
+// =============================================================================
+// Sync Job Types and Statuses
+// =============================================================================
+
+export const SYNC_JOB_TYPES = ['nais_sync', 'github_verify'] as const
+export type SyncJobType = (typeof SYNC_JOB_TYPES)[number]
+
+export const SYNC_JOB_TYPE_LABELS: Record<SyncJobType, string> = {
+  nais_sync: 'NAIS Sync',
+  github_verify: 'GitHub Verifisering',
+}
+
+export const SYNC_JOB_STATUSES = ['pending', 'running', 'completed', 'failed'] as const
+export type SyncJobStatus = (typeof SYNC_JOB_STATUSES)[number]
+
+export const SYNC_JOB_STATUS_LABELS: Record<SyncJobStatus, string> = {
+  pending: 'Venter',
+  running: 'Kjører',
+  completed: 'Fullført',
+  failed: 'Feilet',
+}
 
 export interface SyncJob {
   id: number

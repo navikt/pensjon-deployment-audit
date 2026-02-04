@@ -1,3 +1,4 @@
+import { assertNever, IMPLICIT_APPROVAL_MODES, type ImplicitApprovalMode } from '~/lib/verification/types'
 import { pool } from './connection.server'
 
 // ============================================================================
@@ -25,9 +26,8 @@ export interface AppConfigAuditLogEntry {
 }
 
 // Implicit approval settings structure
-// mode: 'off' = disabled, 'dependabot_only' = only for Dependabot PRs, 'all' = for all PRs
 export interface ImplicitApprovalSettings {
-  mode: 'off' | 'dependabot_only' | 'all'
+  mode: ImplicitApprovalMode
   [key: string]: unknown // Allow index signature for Record<string, unknown> compatibility
 }
 
@@ -39,6 +39,9 @@ export const DEFAULT_IMPLICIT_APPROVAL_SETTINGS: ImplicitApprovalSettings = {
 export const SETTING_KEYS = {
   IMPLICIT_APPROVAL: 'implicit_approval',
 } as const
+
+// Re-export for convenience
+export { IMPLICIT_APPROVAL_MODES, type ImplicitApprovalMode }
 
 // ============================================================================
 // Settings CRUD
@@ -233,39 +236,42 @@ export function checkImplicitApproval(params: {
   allCommitAuthors: string[]
 }): { qualifies: boolean; reason?: string } {
   const { settings, prCreator, lastCommitAuthor, mergedBy, allCommitAuthors } = params
-
-  if (settings.mode === 'off') {
-    return { qualifies: false }
-  }
+  const { mode } = settings
 
   const mergedByLower = mergedBy.toLowerCase()
   const prCreatorLower = prCreator.toLowerCase()
   const lastCommitAuthorLower = lastCommitAuthor.toLowerCase()
 
-  // For dependabot_only mode, only check Dependabot case
-  if (settings.mode === 'dependabot_only') {
-    const isDependabotPR = prCreatorLower === 'dependabot[bot]'
-    const onlyDependabotCommits = allCommitAuthors.every(
-      (author) => author.toLowerCase() === 'dependabot[bot]' || author.toLowerCase() === 'dependabot',
-    )
+  switch (mode) {
+    case 'off':
+      return { qualifies: false }
 
-    if (isDependabotPR && onlyDependabotCommits && mergedByLower !== prCreatorLower) {
-      return {
-        qualifies: true,
-        reason: 'Dependabot-PR med kun Dependabot-commits, merget av en annen bruker',
+    case 'dependabot_only': {
+      const isDependabotPR = prCreatorLower === 'dependabot[bot]'
+      const onlyDependabotCommits = allCommitAuthors.every(
+        (author) => author.toLowerCase() === 'dependabot[bot]' || author.toLowerCase() === 'dependabot',
+      )
+
+      if (isDependabotPR && onlyDependabotCommits && mergedByLower !== prCreatorLower) {
+        return {
+          qualifies: true,
+          reason: 'Dependabot-PR med kun Dependabot-commits, merget av en annen bruker',
+        }
       }
+      return { qualifies: false }
     }
 
-    return { qualifies: false }
-  }
-
-  // mode === 'all': Check if merger is different from creator and last author
-  if (mergedByLower !== prCreatorLower && mergedByLower !== lastCommitAuthorLower) {
-    return {
-      qualifies: true,
-      reason: `Merget av ${mergedBy} som verken opprettet PR-en (${prCreator}) eller har siste commit (${lastCommitAuthor})`,
+    case 'all': {
+      if (mergedByLower !== prCreatorLower && mergedByLower !== lastCommitAuthorLower) {
+        return {
+          qualifies: true,
+          reason: `Merget av ${mergedBy} som verken opprettet PR-en (${prCreator}) eller har siste commit (${lastCommitAuthor})`,
+        }
+      }
+      return { qualifies: false }
     }
-  }
 
-  return { qualifies: false }
+    default:
+      return assertNever(mode, `Unhandled implicit approval mode: ${mode}`)
+  }
 }
