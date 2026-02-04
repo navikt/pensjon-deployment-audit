@@ -73,8 +73,25 @@ export async function loader({ params }: Route.LoaderArgs) {
   }
 }
 
+function downloadJson(data: unknown, filename: string) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export default function DebugVerifyPage({ loaderData }: Route.ComponentProps) {
   const { deployment, debugResult, error } = loaderData
+
+  const handleExport = () => {
+    if (debugResult) {
+      const filename = `debug-verify-${deployment.id}-${new Date().toISOString().slice(0, 10)}.json`
+      downloadJson(debugResult, filename)
+    }
+  }
 
   return (
     <Box paddingBlock="space-8" paddingInline={{ xs: 'space-4', md: 'space-8' }}>
@@ -86,11 +103,18 @@ export default function DebugVerifyPage({ loaderData }: Route.ComponentProps) {
               Deployment #{deployment.id} - {deployment.commit_sha?.substring(0, 7)}
             </BodyShort>
           </VStack>
-          <Link to={`/deployments/${deployment.id}`}>
-            <Button variant="secondary" size="small">
-              ← Tilbake til deployment
-            </Button>
-          </Link>
+          <HStack gap="space-2">
+            {debugResult && (
+              <Button variant="secondary" size="small" onClick={handleExport}>
+                📥 Eksporter JSON
+              </Button>
+            )}
+            <Link to={`/deployments/${deployment.id}`}>
+              <Button variant="secondary" size="small">
+                ← Tilbake
+              </Button>
+            </Link>
+          </HStack>
         </HStack>
 
         <Alert variant="warning">
