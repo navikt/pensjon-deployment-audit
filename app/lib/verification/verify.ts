@@ -16,7 +16,6 @@ import type {
   UnverifiedReason,
   VerificationInput,
   VerificationResult,
-  VerificationStatus,
 } from './types'
 
 // =============================================================================
