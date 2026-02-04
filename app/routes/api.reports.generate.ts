@@ -62,6 +62,7 @@ async function processReportJob(jobId: string, monitoredAppId: number, year: num
       contentHash,
       reportId,
       generatedAt,
+      testRequirement: rawData.app.test_requirement as 'none' | 'unit_tests' | 'integration_tests',
     })
 
     // Save completed job with PDF data

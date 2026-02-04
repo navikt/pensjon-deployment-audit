@@ -77,6 +77,7 @@ async function processReportJobAsync(jobId: string, appId: number, year: number,
       contentHash: report.content_hash,
       reportId: report.report_id,
       generatedAt: new Date(report.generated_at),
+      testRequirement: rawData.app.test_requirement as 'none' | 'unit_tests' | 'integration_tests',
     })
 
     // Store PDF in audit_reports table
@@ -166,6 +167,16 @@ export async function action({ request }: ActionFunctionArgs) {
       changedByName: user.name || undefined,
     })
     return { success: 'Implisitt godkjenning-innstillinger oppdatert!' }
+  }
+
+  if (action === 'update_test_requirement') {
+    const testRequirement = formData.get('test_requirement') as 'none' | 'unit_tests' | 'integration_tests'
+    if (!['none', 'unit_tests', 'integration_tests'].includes(testRequirement)) {
+      return { error: 'Ugyldig testkrav' }
+    }
+
+    await updateMonitoredApplication(appId, { test_requirement: testRequirement })
+    return { success: 'Testkrav oppdatert!' }
   }
 
   if (action === 'update_audit_start_year') {
@@ -581,6 +592,44 @@ export default function AppAdmin() {
 
               <Button type="submit" size="small" variant="secondary">
                 Lagre innstillinger
+              </Button>
+            </VStack>
+          </Form>
+        </VStack>
+      </Box>
+
+      {/* Test Requirements */}
+      <Box padding="space-24" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
+        <VStack gap="space-16">
+          <div>
+            <Heading size="small">Testkrav for leveranser</Heading>
+            <BodyShort textColor="subtle" size="small">
+              Spesifiser hvilke tester som må være vellykket før en leveranse kan gjennomføres.
+            </BodyShort>
+          </div>
+
+          <Form method="post">
+            <input type="hidden" name="action" value="update_test_requirement" />
+            <input type="hidden" name="app_id" value={app.id} />
+            <VStack gap="space-12">
+              <Select
+                label="Testkrav"
+                name="test_requirement"
+                defaultValue={app.test_requirement || 'none'}
+                size="small"
+                style={{ maxWidth: '300px' }}
+              >
+                <option value="none">Ingen</option>
+                <option value="unit_tests">Enhetstester</option>
+                <option value="integration_tests">Integrasjonstester</option>
+              </Select>
+
+              <BodyShort size="small" textColor="subtle">
+                Dette valget dokumenteres i rapporten under «Sikkerhet og dataintegritet».
+              </BodyShort>
+
+              <Button type="submit" size="small" variant="secondary">
+                Lagre testkrav
               </Button>
             </VStack>
           </Form>

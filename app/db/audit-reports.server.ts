@@ -203,7 +203,7 @@ export async function getAuditReportData(
   monitoredAppId: number,
   year: number,
 ): Promise<{
-  app: { app_name: string; team_slug: string; environment_name: string }
+  app: { app_name: string; team_slug: string; environment_name: string; test_requirement: string }
   repository: string
   deployments: AuditDeploymentRow[]
   manual_approvals: Array<{
@@ -226,7 +226,7 @@ export async function getAuditReportData(
 
   // Get app info
   const appResult = await pool.query(
-    `SELECT app_name, team_slug, environment_name FROM monitored_applications WHERE id = $1`,
+    `SELECT app_name, team_slug, environment_name, test_requirement FROM monitored_applications WHERE id = $1`,
     [monitoredAppId],
   )
   if (appResult.rows.length === 0) {

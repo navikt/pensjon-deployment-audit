@@ -260,6 +260,7 @@ interface AuditReportPdfProps {
   contentHash: string
   reportId: string
   generatedAt: Date
+  testRequirement?: 'none' | 'unit_tests' | 'integration_tests'
 }
 
 function formatDate(date: Date | string): string {
@@ -293,6 +294,7 @@ function AuditReportPdfDocument(props: AuditReportPdfProps) {
     contentHash,
     reportId,
     generatedAt,
+    testRequirement,
   } = props
 
   const totalDeployments = reportData.deployments.length
@@ -508,6 +510,18 @@ function AuditReportPdfDocument(props: AuditReportPdfProps) {
               kode er deployet uten forutgående godkjenning, og krever manuell dokumentasjon for disse.
             </Text>
           </View>
+
+          {testRequirement && testRequirement !== 'none' && (
+            <View style={styles.methodologyBox}>
+              <Text style={styles.methodologyTitle}>6. Testkrav før leveranse</Text>
+              <Text style={styles.methodologyText}>
+                {testRequirement === 'unit_tests' &&
+                  'Applikasjonen er konfigurert med krav om at enhetstester må være vellykket før en leveranse kan gjennomføres. Dette sikrer at grunnleggende funksjonalitet er verifisert før kode rulles ut til produksjon.'}
+                {testRequirement === 'integration_tests' &&
+                  'Applikasjonen er konfigurert med krav om at integrasjonstester må være vellykket før en leveranse kan gjennomføres. Dette sikrer at samspillet mellom komponenter er verifisert før kode rulles ut til produksjon.'}
+              </Text>
+            </View>
+          )}
         </View>
 
         <Text
