@@ -270,7 +270,7 @@ export default function VerificationDiffPage() {
                       as={Link}
                       to={
                         appContext
-                          ? `/team/${appContext.teamSlug}/env/${diff.environmentName}/app/${appContext.appName}/deployments/${diff.id}/debug-verify`
+                          ? `/team/${appContext.teamSlug}/env/${appContext.environmentName}/app/${appContext.appName}/admin/verification-diff/${diff.id}`
                           : `/deployments/${diff.id}`
                       }
                     >
