@@ -1,4 +1,4 @@
-import { CheckmarkCircleIcon, CogIcon, ExclamationmarkTriangleIcon } from '@navikt/aksel-icons'
+import { ChatIcon, CheckmarkCircleIcon, CogIcon, ExclamationmarkTriangleIcon } from '@navikt/aksel-icons'
 import {
   Link as AkselLink,
   Alert,
@@ -11,6 +11,7 @@ import {
   Label,
   Loader,
   Select,
+  Switch,
   TextField,
   VStack,
 } from '@navikt/ds-react'
@@ -282,6 +283,22 @@ export async function action({ request }: ActionFunctionArgs) {
     }
     const job = await getSyncJobById(jobId)
     return { fetchJobStatus: job }
+  }
+
+  if (action === 'update_slack_config') {
+    const slackChannelId = (formData.get('slack_channel_id') as string)?.trim() || null
+    const slackNotificationsEnabled = formData.get('slack_notifications_enabled') === 'true'
+
+    // Validate channel ID format if provided (C followed by alphanumeric, or #channel-name)
+    if (slackChannelId && !/^(C[A-Z0-9]+|#[\w-]+)$/i.test(slackChannelId)) {
+      return { error: 'Ugyldig kanal-format. Bruk kanal-ID (C01234567) eller kanalnavn (#kanal-navn)' }
+    }
+
+    await updateMonitoredApplication(appId, {
+      slack_channel_id: slackChannelId,
+      slack_notifications_enabled: slackNotificationsEnabled,
+    })
+    return { success: 'Slack-innstillinger oppdatert!' }
   }
 
   return null
@@ -717,6 +734,44 @@ export default function AppAdmin() {
 
               <Button type="submit" size="small" variant="secondary">
                 Lagre testkrav
+              </Button>
+            </VStack>
+          </Form>
+        </VStack>
+      </Box>
+
+      {/* Slack Configuration */}
+      <Box padding="space-24" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
+        <VStack gap="space-16">
+          <HStack gap="space-8" align="center">
+            <ChatIcon aria-hidden fontSize="1.25rem" />
+            <div>
+              <Heading size="small">Slack-varsler</Heading>
+              <BodyShort textColor="subtle" size="small">
+                Konfigurer Slack-varsler for uverifiserte deployments.
+              </BodyShort>
+            </div>
+          </HStack>
+
+          <Form method="post">
+            <input type="hidden" name="action" value="update_slack_config" />
+            <input type="hidden" name="app_id" value={app.id} />
+            <VStack gap="space-16">
+              <Switch name="slack_notifications_enabled" value="true" defaultChecked={app.slack_notifications_enabled}>
+                Aktiver Slack-varsler for denne appen
+              </Switch>
+
+              <TextField
+                label="Slack-kanal"
+                name="slack_channel_id"
+                defaultValue={app.slack_channel_id || ''}
+                description="Kanal-ID (f.eks. C01234567) eller kanalnavn (f.eks. #min-kanal)"
+                size="small"
+                style={{ maxWidth: '300px' }}
+              />
+
+              <Button type="submit" size="small" variant="secondary">
+                Lagre Slack-innstillinger
               </Button>
             </VStack>
           </Form>

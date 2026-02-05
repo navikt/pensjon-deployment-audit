@@ -9,6 +9,8 @@ export interface MonitoredApplication {
   default_branch: string
   audit_start_year: number | null
   test_requirement: 'none' | 'unit_tests' | 'integration_tests'
+  slack_channel_id: string | null
+  slack_notifications_enabled: boolean
   created_at: Date
   updated_at: Date
 }
@@ -65,6 +67,8 @@ export async function updateMonitoredApplication(
     default_branch?: string
     audit_start_year?: number | null
     test_requirement?: 'none' | 'unit_tests' | 'integration_tests'
+    slack_channel_id?: string | null
+    slack_notifications_enabled?: boolean
   },
 ): Promise<MonitoredApplication> {
   const updates: string[] = []
@@ -89,6 +93,16 @@ export async function updateMonitoredApplication(
   if (data.test_requirement !== undefined) {
     updates.push(`test_requirement = $${paramCount++}`)
     values.push(data.test_requirement)
+  }
+
+  if (data.slack_channel_id !== undefined) {
+    updates.push(`slack_channel_id = $${paramCount++}`)
+    values.push(data.slack_channel_id)
+  }
+
+  if (data.slack_notifications_enabled !== undefined) {
+    updates.push(`slack_notifications_enabled = $${paramCount++}`)
+    values.push(data.slack_notifications_enabled)
   }
 
   if (updates.length === 0) {
