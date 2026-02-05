@@ -206,6 +206,12 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     isCurrentUserInvolved,
     involvementReason,
     isDebugMode: isVerificationDebugMode,
+    isAdmin: currentUser?.role === 'admin',
+    slackConfig: {
+      enabled: app.slack_notifications_enabled,
+      channelId: app.slack_channel_id,
+      alreadySent: !!deployment.slack_message_ts,
+    },
   }
 }
 
@@ -656,6 +662,53 @@ export async function action({ request, params }: Route.ActionArgs) {
     }
   }
 
+  if (intent === 'send_slack_notification') {
+    const identity = await getUserIdentity(request)
+    if (!identity || identity.role !== 'admin') {
+      return { error: 'Kun administratorer kan sende Slack-varsler' }
+    }
+
+    const deployment = await getDeploymentById(deploymentId)
+    if (!deployment) {
+      return { error: 'Deployment ikke funnet' }
+    }
+
+    const app = await getMonitoredApplicationById(deployment.monitored_app_id)
+    if (!app) {
+      return { error: 'App ikke funnet' }
+    }
+
+    if (!app.slack_notifications_enabled || !app.slack_channel_id) {
+      return { error: 'Slack-varsler er ikke konfigurert for denne appen' }
+    }
+
+    if (deployment.slack_message_ts) {
+      return { error: 'Slack-varsel er allerede sendt for denne deploymenten' }
+    }
+
+    try {
+      const { notifyDeploymentIfNeeded } = await import('~/lib/slack.server')
+      const baseUrl = new URL(request.url).origin
+
+      const sent = await notifyDeploymentIfNeeded(
+        {
+          ...deployment,
+          app_slack_channel_id: app.slack_channel_id,
+          slack_notifications_enabled: app.slack_notifications_enabled,
+        },
+        baseUrl,
+      )
+
+      if (sent) {
+        return { success: 'Slack-varsel sendt!' }
+      }
+      return { error: 'Kunne ikke sende Slack-varsel. Sjekk at Slack er konfigurert.' }
+    } catch (error) {
+      console.error('Slack notification error:', error)
+      return { error: 'Feil ved sending av Slack-varsel' }
+    }
+  }
+
   return null
 }
 
@@ -783,6 +836,8 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
     isCurrentUserInvolved,
     involvementReason,
     isDebugMode,
+    isAdmin,
+    slackConfig,
   } = loaderData
   const [searchParams] = useSearchParams()
   const [commentText, setCommentText] = useState('')
@@ -1668,6 +1723,27 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
           </div>
         </div>
       )}
+      {/* Admin: Send Slack notification */}
+      {isAdmin &&
+        slackConfig?.enabled &&
+        slackConfig?.channelId &&
+        !slackConfig?.alreadySent &&
+        !deployment.has_four_eyes && (
+          <Box background="info-moderate" padding="space-24" borderRadius="8">
+            <VStack gap="space-16">
+              <Heading size="small">
+                <ChatIcon aria-hidden /> Send Slack-varsel
+              </Heading>
+              <BodyShort>Send varsel til Slack-kanal om at dette deploymentet krever oppfølging.</BodyShort>
+              <Form method="post">
+                <input type="hidden" name="intent" value="send_slack_notification" />
+                <Button type="submit" variant="secondary" size="small" icon={<ChatIcon aria-hidden />}>
+                  Send til Slack
+                </Button>
+              </Form>
+            </VStack>
+          </Box>
+        )}
       {/* Manual approval section - for deployments needing manual approval */}
       {requiresManualApproval && (
         <Box background="warning-moderate" padding="space-24" borderRadius="8">
