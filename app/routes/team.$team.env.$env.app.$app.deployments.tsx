@@ -182,9 +182,9 @@ export default function AppDeployments() {
             <Box key={deployment.id} padding="space-20" background="raised" className={styles.stackedListItem}>
               <VStack gap="space-12">
                 {/* First row: Time, Title (on desktop), Tags (right-aligned) */}
-                <HStack gap="space-8" align="center" justify="space-between" wrap>
-                  <HStack gap="space-8" align="center" style={{ flex: 1 }}>
-                    <BodyShort weight="semibold" style={{ whiteSpace: 'nowrap' }}>
+                <HStack gap="space-8" align="center" justify="space-between">
+                  <HStack gap="space-8" align="center" style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                    <BodyShort weight="semibold" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
                       {new Date(deployment.created_at).toLocaleString('no-NO', {
                         dateStyle: 'short',
                         timeStyle: 'short',
@@ -193,13 +193,13 @@ export default function AppDeployments() {
                     {/* Title on desktop - inline with time */}
                     <Show above="md">
                       {deployment.title && (
-                        <BodyShort style={{ flex: 1 }} truncate>
+                        <BodyShort className={styles.truncateText} style={{ flex: 1, minWidth: 0 }}>
                           {deployment.title}
                         </BodyShort>
                       )}
                     </Show>
                   </HStack>
-                  <HStack gap="space-8">
+                  <HStack gap="space-8" style={{ flexShrink: 0 }}>
                     <MethodTag
                       github_pr_number={deployment.github_pr_number}
                       four_eyes_status={deployment.four_eyes_status}
@@ -212,7 +212,9 @@ export default function AppDeployments() {
                 </HStack>
 
                 {/* Title on mobile - separate line */}
-                <Hide above="md">{deployment.title && <BodyShort>{deployment.title}</BodyShort>}</Hide>
+                <Hide above="md">
+                  {deployment.title && <BodyShort className={styles.truncateText}>{deployment.title}</BodyShort>}
+                </Hide>
 
                 {/* Second row: Details and View button */}
                 <HStack gap="space-16" align="center" justify="space-between" wrap>

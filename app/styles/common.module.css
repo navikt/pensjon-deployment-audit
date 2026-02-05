@@ -43,3 +43,10 @@
   border-bottom-right-radius: var(--ax-radius-8);
   border-bottom: 1px solid var(--ax-border-neutral-subtle);
 }
+
+/* Truncated text with ellipsis */
+.truncateText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
