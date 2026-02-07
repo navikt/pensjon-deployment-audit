@@ -81,3 +81,7 @@ spec:
       external:
         - host: api.github.com
         - host: console.nav.cloud.nais.io
+        - host: slack.com
+        - host: wss-primary.slack.com
+        - host: wss-backup.slack.com
+        - host: wss-mobile.slack.com
