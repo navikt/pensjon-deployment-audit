@@ -17,6 +17,7 @@ export default [
     route('team/:team', 'routes/team.$team.tsx'),
     route('team/:team/env/:env/app/:app', 'routes/team.$team.env.$env.app.$app.tsx'),
     route('team/:team/env/:env/app/:app/admin', 'routes/team.$team.env.$env.app.$app.admin.tsx'),
+    route('team/:team/env/:env/app/:app/slack', 'routes/team.$team.env.$env.app.$app.slack.tsx'),
     route(
       'team/:team/env/:env/app/:app/admin/verification-diff',
       'routes/team.$team.env.$env.app.$app.admin.verification-diff.tsx',

@@ -52,6 +52,11 @@ const dynamicBreadcrumbs: Array<{
     },
   },
   {
+    pattern: /^\/team\/([^/]+)\/env\/([^/]+)\/app\/([^/]+)\/slack$/,
+    getLabel: () => 'Slack',
+    parent: '/team/:team/env/:env/app/:app',
+  },
+  {
     pattern: /^\/team\/([^/]+)\/env\/([^/]+)\/app\/([^/]+)\/admin\/verification-diff$/,
     getLabel: () => 'Verifiseringsavvik',
     parent: '/team/:team/env/:env/app/:app/admin',

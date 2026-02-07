@@ -743,14 +743,24 @@ export default function AppAdmin() {
       {/* Slack Configuration */}
       <Box padding="space-24" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
         <VStack gap="space-16">
-          <HStack gap="space-8" align="center">
-            <ChatIcon aria-hidden fontSize="1.25rem" />
-            <div>
-              <Heading size="small">Slack-varsler</Heading>
-              <BodyShort textColor="subtle" size="small">
-                Konfigurer Slack-varsler for uverifiserte deployments.
-              </BodyShort>
-            </div>
+          <HStack gap="space-8" align="center" justify="space-between">
+            <HStack gap="space-8" align="center">
+              <ChatIcon aria-hidden fontSize="1.25rem" />
+              <div>
+                <Heading size="small">Slack-varsler</Heading>
+                <BodyShort textColor="subtle" size="small">
+                  Konfigurer Slack-varsler for uverifiserte deployments.
+                </BodyShort>
+              </div>
+            </HStack>
+            <Button
+              as={Link}
+              to={`/team/${app.team_slug}/env/${app.environment_name}/app/${app.app_name}/slack`}
+              variant="tertiary"
+              size="small"
+            >
+              Se meldingshistorikk
+            </Button>
           </HStack>
 
           <Form method="post">

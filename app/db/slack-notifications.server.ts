@@ -209,3 +209,34 @@ export async function getRecentSlackNotifications(options?: {
   const result = await pool.query('SELECT * FROM slack_notifications ORDER BY sent_at DESC LIMIT $1', [limit])
   return result.rows
 }
+
+/**
+ * Get Slack notifications for an application (via deployments)
+ */
+export async function getSlackNotificationsByApp(
+  appId: number,
+  limit = 50,
+): Promise<
+  (SlackNotification & {
+    deployment_commit_sha: string | null
+    deployment_created_at: Date | null
+    update_count: number
+    interaction_count: number
+  })[]
+> {
+  const result = await pool.query(
+    `SELECT 
+       sn.*,
+       d.commit_sha as deployment_commit_sha,
+       d.created_at as deployment_created_at,
+       (SELECT COUNT(*) FROM slack_notification_updates WHERE notification_id = sn.id) as update_count,
+       (SELECT COUNT(*) FROM slack_interactions WHERE notification_id = sn.id) as interaction_count
+     FROM slack_notifications sn
+     JOIN deployments d ON d.id = sn.deployment_id
+     WHERE d.monitored_app_id = $1
+     ORDER BY sn.sent_at DESC
+     LIMIT $2`,
+    [appId, limit],
+  )
+  return result.rows
+}
