@@ -45,8 +45,8 @@ export function StatusTag({
 }: Pick<DeploymentTagProps, 'four_eyes_status' | 'has_four_eyes'>) {
   if (has_four_eyes) {
     return (
-      <Tag data-color="success" variant="outline" size="small">
-        <CheckmarkIcon aria-hidden /> Godkjent
+      <Tag data-color="success" variant="outline" size="small" icon={<CheckmarkIcon aria-hidden />}>
+        Godkjent
       </Tag>
     )
   }
@@ -60,21 +60,21 @@ export function StatusTag({
     case 'direct_push':
     case 'unverified_commits':
       return (
-        <Tag data-color="warning" variant="outline" size="small">
-          <XMarkIcon aria-hidden /> Ikke godkjent
+        <Tag data-color="warning" variant="outline" size="small" icon={<XMarkIcon aria-hidden />}>
+          Ikke godkjent
         </Tag>
       )
     case 'approved_pr_with_unreviewed':
       return (
-        <Tag data-color="warning" variant="outline" size="small">
-          <ExclamationmarkTriangleIcon aria-hidden /> Ureviewed
+        <Tag data-color="warning" variant="outline" size="small" icon={<ExclamationmarkTriangleIcon aria-hidden />}>
+          Ureviewed
         </Tag>
       )
     case 'error':
     case 'missing':
       return (
-        <Tag data-color="danger" variant="outline" size="small">
-          <XMarkIcon aria-hidden /> Feil
+        <Tag data-color="danger" variant="outline" size="small" icon={<XMarkIcon aria-hidden />}>
+          Feil
         </Tag>
       )
     case 'legacy':

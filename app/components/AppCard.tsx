@@ -23,28 +23,28 @@ function getStatusTag(appStats: AppStats) {
   if (appStats.without_four_eyes > 0) {
     const label = appStats.without_four_eyes === 1 ? 'mangel' : 'mangler'
     return (
-      <Tag data-color="danger" variant="outline" size="small">
-        <XMarkOctagonIcon aria-hidden /> {appStats.without_four_eyes} {label}
+      <Tag data-color="danger" variant="outline" size="small" icon={<XMarkOctagonIcon aria-hidden />}>
+        {appStats.without_four_eyes} {label}
       </Tag>
     )
   }
   if (appStats.pending_verification > 0) {
     return (
-      <Tag data-color="warning" variant="outline" size="small">
-        <ExclamationmarkTriangleIcon aria-hidden /> {appStats.pending_verification} venter
+      <Tag data-color="warning" variant="outline" size="small" icon={<ExclamationmarkTriangleIcon aria-hidden />}>
+        {appStats.pending_verification} venter
       </Tag>
     )
   }
   if (appStats.total === 0) {
     return (
-      <Tag data-color="warning" variant="outline" size="small">
-        <ExclamationmarkTriangleIcon aria-hidden /> Ingen data
+      <Tag data-color="warning" variant="outline" size="small" icon={<ExclamationmarkTriangleIcon aria-hidden />}>
+        Ingen data
       </Tag>
     )
   }
   return (
-    <Tag data-color="success" variant="outline" size="small">
-      <CheckmarkCircleIcon aria-hidden /> OK
+    <Tag data-color="success" variant="outline" size="small" icon={<CheckmarkCircleIcon aria-hidden />}>
+      OK
     </Tag>
   )
 }
@@ -79,8 +79,8 @@ export function AppCard({ app, showEnvironment = true }: AppCardProps) {
           <HStack gap="space-8" align="center">
             {app.alertCount > 0 && (
               <Link to={`${appUrl}#varsler`} style={{ textDecoration: 'none' }}>
-                <Tag data-color="danger" variant="moderate" size="xsmall">
-                  <BellIcon aria-hidden /> {app.alertCount}
+                <Tag data-color="danger" variant="moderate" size="xsmall" icon={<BellIcon aria-hidden />}>
+                  {app.alertCount}
                 </Tag>
               </Link>
             )}
