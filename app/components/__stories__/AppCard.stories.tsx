@@ -38,11 +38,21 @@ export const StatusOK: Story = {
 }
 
 export const StatusMissing: Story = {
-  name: 'Status: Mangler godkjenning',
+  name: 'Status: Mangler godkjenning (flertall)',
   args: {
     app: {
       ...baseApp,
       stats: { total: 42, without_four_eyes: 3, pending_verification: 0 },
+    },
+  },
+}
+
+export const StatusMissingSingular: Story = {
+  name: 'Status: Mangler godkjenning (entall)',
+  args: {
+    app: {
+      ...baseApp,
+      stats: { total: 42, without_four_eyes: 1, pending_verification: 0 },
     },
   },
 }

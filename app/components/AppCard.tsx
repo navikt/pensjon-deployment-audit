@@ -21,9 +21,10 @@ export interface AppCardData {
 
 function getStatusTag(appStats: AppStats) {
   if (appStats.without_four_eyes > 0) {
+    const label = appStats.without_four_eyes === 1 ? 'mangel' : 'mangler'
     return (
       <Tag data-color="danger" variant="outline" size="small">
-        <XMarkOctagonIcon aria-hidden /> {appStats.without_four_eyes} mangler
+        <XMarkOctagonIcon aria-hidden /> {appStats.without_four_eyes} {label}
       </Tag>
     )
   }
