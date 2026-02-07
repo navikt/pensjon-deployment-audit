@@ -2,6 +2,7 @@ import type { Preview } from '@storybook/react-vite';
 import '@navikt/ds-css';
 import { Theme } from '@navikt/ds-react';
 import React from 'react';
+import { MemoryRouter } from 'react-router';
 
 const preview: Preview = {
   parameters: {
@@ -30,13 +31,24 @@ const preview: Preview = {
     theme: 'light',
   },
   decorators: [
-    (Story, context) => (
-      <Theme theme={context.globals.theme}>
-        <div style={{ padding: '1rem' }}>
-          <Story />
-        </div>
-      </Theme>
-    ),
+    (Story, context) => {
+      // Skip MemoryRouter if story provides its own (uses parameters.router.skip)
+      const skipRouter = context.parameters?.router?.skip;
+
+      const content = (
+        <Theme theme={context.globals.theme}>
+          <div style={{ padding: '1rem' }}>
+            <Story />
+          </div>
+        </Theme>
+      );
+
+      if (skipRouter) {
+        return content;
+      }
+
+      return <MemoryRouter>{content}</MemoryRouter>;
+    },
   ],
 };
 
