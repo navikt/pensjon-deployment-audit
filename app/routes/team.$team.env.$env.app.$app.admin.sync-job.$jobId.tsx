@@ -3,13 +3,7 @@ import { Alert, BodyShort, Box, Button, Detail, Heading, HStack, Loader, Tag, VS
 import { useEffect } from 'react'
 import { Link, useRevalidator } from 'react-router'
 import { getMonitoredApplicationByIdentity } from '~/db/monitored-applications.server'
-import {
-  getSyncJobById,
-  getSyncJobLogs,
-  SYNC_JOB_STATUS_LABELS,
-  SYNC_JOB_TYPE_LABELS,
-  type SyncJobLog,
-} from '~/db/sync-jobs.server'
+import { getSyncJobById, getSyncJobLogs, SYNC_JOB_STATUS_LABELS, SYNC_JOB_TYPE_LABELS } from '~/db/sync-jobs.server'
 import { requireAdmin } from '~/lib/auth.server'
 import type { Route } from './+types/team.$team.env.$env.app.$app.admin.sync-job.$jobId'
 
@@ -29,15 +23,20 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     throw new Response('Not found', { status: 404 })
   }
 
-  // Get logs (support incremental fetching via afterId query param)
   const url = new URL(request.url)
   const afterId = parseInt(url.searchParams.get('afterId') || '0', 10)
   const logs = await getSyncJobLogs(jobId, { afterId })
 
-  return { app, job, logs }
+  return {
+    app,
+    job,
+    logs,
+    jobTypeLabel: SYNC_JOB_TYPE_LABELS[job.job_type] || job.job_type,
+    jobStatusLabel: SYNC_JOB_STATUS_LABELS[job.status] || job.status,
+  }
 }
 
-function LogLevelTag({ level }: { level: SyncJobLog['level'] }) {
+function LogLevelTag({ level }: { level: 'info' | 'warn' | 'error' }) {
   switch (level) {
     case 'error':
       return (
@@ -76,7 +75,7 @@ function statusColor(status: string): 'success' | 'error' | 'warning' | 'info' |
 }
 
 export default function SyncJobDetail({ loaderData }: Route.ComponentProps) {
-  const { app, job, logs } = loaderData
+  const { app, job, logs, jobTypeLabel, jobStatusLabel } = loaderData
   const revalidator = useRevalidator()
 
   const isRunning = job.status === 'running'
@@ -106,12 +105,12 @@ export default function SyncJobDetail({ loaderData }: Route.ComponentProps) {
         <HStack gap="space-12" align="center">
           <Heading size="medium">Jobb #{job.id}</Heading>
           <Tag variant={statusColor(job.status)} size="small">
-            {SYNC_JOB_STATUS_LABELS[job.status] || job.status}
+            {jobStatusLabel}
           </Tag>
           {isRunning && <Loader size="xsmall" />}
         </HStack>
         <BodyShort textColor="subtle" size="small">
-          {SYNC_JOB_TYPE_LABELS[job.job_type] || job.job_type}
+          {jobTypeLabel}
         </BodyShort>
       </VStack>
 
