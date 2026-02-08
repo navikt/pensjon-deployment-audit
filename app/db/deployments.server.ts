@@ -1123,3 +1123,47 @@ export async function getHomeTabSummaryStats(): Promise<{
     pendingVerification: parseInt(row.pending_verification, 10) || 0,
   }
 }
+
+export interface AppWithIssues {
+  app_name: string
+  team_slug: string
+  environment_name: string
+  without_four_eyes: number
+  pending_verification: number
+  alert_count: number
+}
+
+/**
+ * Get apps that have issues (missing approval, pending verification, or repo alerts)
+ */
+export async function getAppsWithIssues(): Promise<AppWithIssues[]> {
+  const result = await pool.query(`
+    SELECT 
+      ma.app_name,
+      ma.team_slug,
+      ma.environment_name,
+      COALESCE(dep.without_four_eyes, 0)::integer as without_four_eyes,
+      COALESCE(dep.pending_verification, 0)::integer as pending_verification,
+      COALESCE(alerts.count, 0)::integer as alert_count
+    FROM monitored_applications ma
+    LEFT JOIN LATERAL (
+      SELECT 
+        SUM(CASE WHEN d.has_four_eyes = false AND d.four_eyes_status NOT IN ('legacy', 'pending', 'legacy_pending', 'pending_baseline') THEN 1 ELSE 0 END) as without_four_eyes,
+        SUM(CASE WHEN d.four_eyes_status = 'pending' THEN 1 ELSE 0 END) as pending_verification
+      FROM deployments d
+      WHERE d.monitored_app_id = ma.id
+        AND (ma.audit_start_year IS NULL OR d.created_at >= make_date(ma.audit_start_year, 1, 1))
+    ) dep ON true
+    LEFT JOIN LATERAL (
+      SELECT COUNT(*) as count
+      FROM repository_alerts ra
+      WHERE ra.monitored_app_id = ma.id AND ra.resolved_at IS NULL
+    ) alerts ON true
+    WHERE ma.is_active = true
+      AND (COALESCE(dep.without_four_eyes, 0) > 0 
+        OR COALESCE(dep.pending_verification, 0) > 0 
+        OR COALESCE(alerts.count, 0) > 0)
+    ORDER BY COALESCE(dep.without_four_eyes, 0) DESC, COALESCE(alerts.count, 0) DESC
+  `)
+  return result.rows
+}

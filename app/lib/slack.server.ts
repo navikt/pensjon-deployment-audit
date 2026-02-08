@@ -589,19 +589,20 @@ function registerEventHandlers(app: App): void {
 
       // Fetch data for Home Tab
       console.log('[Slack Home Tab] Fetching data...')
-      const { getDeploymentsByDeployer, getRecentDeploymentsForHomeTab, getHomeTabSummaryStats } = await import(
-        '~/db/deployments.server'
-      )
+      const { getDeploymentsByDeployer, getRecentDeploymentsForHomeTab, getHomeTabSummaryStats, getAppsWithIssues } =
+        await import('~/db/deployments.server')
 
-      const [userDeployments, recentDeployments, stats] = await Promise.all([
+      const [userDeployments, recentDeployments, stats, appsWithIssues] = await Promise.all([
         githubUsername ? getDeploymentsByDeployer(githubUsername, 5) : Promise.resolve([]),
         getRecentDeploymentsForHomeTab(10),
         getHomeTabSummaryStats(),
+        getAppsWithIssues(),
       ])
       console.log('[Slack Home Tab] Data fetched:', {
         userDeploymentsCount: userDeployments.length,
         recentDeploymentsCount: recentDeployments.length,
         stats,
+        appsWithIssuesCount: appsWithIssues.length,
       })
 
       // Build and publish Home Tab
@@ -611,6 +612,7 @@ function registerEventHandlers(app: App): void {
         userDeployments,
         recentDeployments,
         stats,
+        appsWithIssues,
       })
       console.log('[Slack Home Tab] Built blocks, count:', blocks.length)
 
@@ -640,6 +642,7 @@ function buildHomeTabBlocks({
   userDeployments,
   recentDeployments,
   stats,
+  appsWithIssues,
 }: {
   slackUserId: string
   githubUsername: string | null | undefined
@@ -670,6 +673,14 @@ function buildHomeTabBlocks({
     withoutFourEyes: number
     pendingVerification: number
   }
+  appsWithIssues: Array<{
+    app_name: string
+    team_slug: string
+    environment_name: string
+    without_four_eyes: number
+    pending_verification: number
+    alert_count: number
+  }>
 }): KnownBlock[] {
   const baseUrl = process.env.BASE_URL || 'https://pensjon-deployment-audit.ansatt.nav.no'
   const blocks: KnownBlock[] = []
@@ -802,7 +813,42 @@ function buildHomeTabBlocks({
 
   blocks.push({ type: 'divider' })
 
-  // Section 3: Recent activity
+  // Section 3: Apps with issues
+  if (appsWithIssues.length > 0) {
+    blocks.push({
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `*🔔 Applikasjoner med mangler* (${appsWithIssues.length})`,
+      },
+    })
+
+    for (const app of appsWithIssues) {
+      const issues: string[] = []
+      if (app.without_four_eyes > 0) {
+        issues.push(`⚠️ ${app.without_four_eyes} uten godkjenning`)
+      }
+      if (app.pending_verification > 0) {
+        issues.push(`⏳ ${app.pending_verification} venter verifisering`)
+      }
+      if (app.alert_count > 0) {
+        issues.push(`🚨 ${app.alert_count} varsler`)
+      }
+
+      const appUrl = `${baseUrl}/team/${app.team_slug}/env/${app.environment_name}/app/${app.app_name}`
+      blocks.push({
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `*<${appUrl}|${app.app_name}>* (${app.environment_name})\n${issues.join('  •  ')}`,
+        },
+      })
+    }
+
+    blocks.push({ type: 'divider' })
+  }
+
+  // Section 4: Recent activity
   blocks.push({
     type: 'section',
     text: {
