@@ -72,6 +72,8 @@ spec:
       value: "true"
     - name: ALLOWED_ENVIRONMENTS
       value: "prod-fss,prod-gcp"
+    - name: VERIFICATION_DEBUG
+      value: "true"
 
   envFrom:
     - secret: nais-deployment-audit

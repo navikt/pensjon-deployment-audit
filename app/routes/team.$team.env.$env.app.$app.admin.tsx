@@ -16,17 +16,7 @@ import {
   VStack,
 } from '@navikt/ds-react'
 import { useCallback, useEffect, useState } from 'react'
-import {
-  type ActionFunctionArgs,
-  Form,
-  Link,
-  type LoaderFunctionArgs,
-  useActionData,
-  useLoaderData,
-  useNavigation,
-  useRevalidator,
-  useSearchParams,
-} from 'react-router'
+import { Form, Link, useNavigation, useRevalidator, useSearchParams } from 'react-router'
 import {
   getAppConfigAuditLog,
   getImplicitApprovalSettings,
@@ -47,6 +37,7 @@ import { acquireSyncLock, getLatestSyncJob, getSyncJobById, releaseSyncLock, typ
 import { generateAuditReportPdf } from '~/lib/audit-report-pdf'
 import { requireAdmin } from '~/lib/auth.server'
 import { fetchVerificationDataForAllDeployments, isVerificationDebugMode } from '~/lib/verification'
+import type { Route } from './+types/team.$team.env.$env.app.$app.admin'
 
 // Async function to process data fetch job in background
 async function processFetchDataJobAsync(jobId: number, appId: number) {
@@ -111,17 +102,14 @@ async function processReportJobAsync(jobId: string, appId: number, year: number,
   }
 }
 
-export function meta({ data }: { data: Awaited<ReturnType<typeof loader>> | undefined }) {
+export function meta({ data }: Route.MetaArgs) {
   return [{ title: data?.app ? `Admin - ${data.app.app_name}` : 'Admin' }]
 }
 
-export async function loader({ params, request }: LoaderFunctionArgs) {
+export async function loader({ params, request }: Route.LoaderArgs) {
   await requireAdmin(request)
 
   const { team, env, app: appName } = params
-  if (!team || !env || !appName) {
-    throw new Response('Missing route parameters', { status: 400 })
-  }
 
   const app = await getMonitoredApplicationByIdentity(team, env, appName)
   if (!app) {
@@ -160,7 +148,7 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
   }
 }
 
-export async function action({ request }: ActionFunctionArgs) {
+export async function action({ request }: Route.ActionArgs) {
   const user = await requireAdmin(request)
 
   const formData = await request.formData()
@@ -308,7 +296,7 @@ export async function action({ request }: ActionFunctionArgs) {
   return null
 }
 
-export default function AppAdmin() {
+export default function AppAdmin({ loaderData, actionData }: Route.ComponentProps) {
   const {
     app,
     implicitApprovalSettings,
@@ -320,8 +308,7 @@ export default function AppAdmin() {
     latestFetchJob,
     debugMode,
     githubDataStats,
-  } = useLoaderData<typeof loader>()
-  const actionData = useActionData<typeof action>()
+  } = loaderData
   const navigation = useNavigation()
   const revalidator = useRevalidator()
   const isSubmitting = navigation.state === 'submitting'

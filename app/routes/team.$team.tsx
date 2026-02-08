@@ -1,18 +1,14 @@
 import { ExternalLinkIcon } from '@navikt/aksel-icons'
 import { Link as AkselLink, Box, Heading, HStack, Tag, VStack } from '@navikt/ds-react'
-import { Link, type LoaderFunctionArgs, useLoaderData } from 'react-router'
+import { Link } from 'react-router'
 import { AppCard, type AppCardData } from '~/components/AppCard'
 import { getAlertCountsByApp } from '~/db/alerts.server'
 import { getRepositoriesByAppId } from '~/db/application-repositories.server'
 import { getAppDeploymentStats } from '~/db/deployments.server'
 import { getApplicationsByTeam } from '~/db/monitored-applications.server'
+import type { Route } from './+types/team.$team'
 
-export async function loader({ params }: LoaderFunctionArgs) {
-  const { team } = params
-  if (!team) {
-    throw new Response('Missing team parameter', { status: 400 })
-  }
-
+export async function loader({ params: { team } }: Route.LoaderArgs) {
   const applications = await getApplicationsByTeam(team)
 
   if (applications.length === 0) {
@@ -54,9 +50,7 @@ export async function loader({ params }: LoaderFunctionArgs) {
   }
 }
 
-export default function TeamPage() {
-  const { team, appsByEnv } = useLoaderData<typeof loader>()
-
+export default function TeamPage({ loaderData: { team, appsByEnv } }: Route.ComponentProps) {
   const environments = Object.keys(appsByEnv).sort()
 
   return (
