@@ -41,6 +41,7 @@ import {
   updateAuditReportPdf,
 } from '~/db/audit-reports.server'
 import { pool } from '~/db/connection.server'
+import { getGitHubDataStatsForApp } from '~/db/github-data.server'
 import { getMonitoredApplicationByIdentity, updateMonitoredApplication } from '~/db/monitored-applications.server'
 import { acquireSyncLock, getLatestSyncJob, getSyncJobById, releaseSyncLock, type SyncJob } from '~/db/sync-jobs.server'
 import { generateAuditReportPdf } from '~/lib/audit-report-pdf'
@@ -135,13 +136,15 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
   const currentYear = new Date().getFullYear()
   const selectedYear = Number(url.searchParams.get('year')) || currentYear - 1
 
-  const [implicitApprovalSettings, recentConfigChanges, auditReports, readiness, latestFetchJob] = await Promise.all([
-    getImplicitApprovalSettings(app.id),
-    getAppConfigAuditLog(app.id, { limit: 10 }),
-    getAuditReportsForApp(app.id),
-    isProdApp ? checkAuditReadiness(app.id, selectedYear) : null,
-    getLatestSyncJob(app.id, 'fetch_verification_data'),
-  ])
+  const [implicitApprovalSettings, recentConfigChanges, auditReports, readiness, latestFetchJob, githubDataStats] =
+    await Promise.all([
+      getImplicitApprovalSettings(app.id),
+      getAppConfigAuditLog(app.id, { limit: 10 }),
+      getAuditReportsForApp(app.id),
+      isProdApp ? checkAuditReadiness(app.id, selectedYear) : null,
+      getLatestSyncJob(app.id, 'fetch_verification_data'),
+      getGitHubDataStatsForApp(app.id, app.audit_start_year),
+    ])
 
   return {
     app,
@@ -153,6 +156,7 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
     selectedYear,
     latestFetchJob,
     debugMode: isVerificationDebugMode,
+    githubDataStats,
   }
 }
 
@@ -315,6 +319,7 @@ export default function AppAdmin() {
     selectedYear,
     latestFetchJob,
     debugMode,
+    githubDataStats,
   } = useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
@@ -798,6 +803,55 @@ export default function AppAdmin() {
               har utdatert schema-versjon.
             </BodyShort>
           </div>
+
+          {/* GitHub Data Stats */}
+          <Box padding="space-16" borderRadius="4" background="neutral-soft">
+            <VStack gap="space-8">
+              <Label size="small">
+                GitHub data-dekning{app.audit_start_year ? ` (fra ${app.audit_start_year})` : ''}
+              </Label>
+              <HStack gap="space-24" wrap>
+                <div>
+                  <Detail textColor="subtle">Totalt deployments</Detail>
+                  <BodyShort weight="semibold">{githubDataStats.total}</BodyShort>
+                </div>
+                <div>
+                  <Detail textColor="subtle">Med GitHub-data</Detail>
+                  <BodyShort weight="semibold" style={{ color: 'var(--ax-text-success)' }}>
+                    {githubDataStats.withCurrentData}
+                  </BodyShort>
+                </div>
+                {githubDataStats.withOutdatedData > 0 && (
+                  <div>
+                    <Detail textColor="subtle">Utdatert data</Detail>
+                    <BodyShort weight="semibold" style={{ color: 'var(--ax-text-warning)' }}>
+                      {githubDataStats.withOutdatedData}
+                    </BodyShort>
+                  </div>
+                )}
+                <div>
+                  <Detail textColor="subtle">Mangler data</Detail>
+                  <BodyShort
+                    weight="semibold"
+                    style={{
+                      color:
+                        githubDataStats.withoutData > 0 ? 'var(--ax-text-danger)' : 'var(--ax-text-neutral-subtle)',
+                    }}
+                  >
+                    {githubDataStats.withoutData}
+                  </BodyShort>
+                </div>
+                {githubDataStats.total > 0 && (
+                  <div>
+                    <Detail textColor="subtle">Dekning</Detail>
+                    <BodyShort weight="semibold">
+                      {Math.round((githubDataStats.withCurrentData / githubDataStats.total) * 100)}%
+                    </BodyShort>
+                  </div>
+                )}
+              </HStack>
+            </VStack>
+          </Box>
 
           <Form method="post">
             <input type="hidden" name="action" value="fetch_verification_data" />
