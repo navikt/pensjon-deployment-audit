@@ -218,3 +218,135 @@ Database schema is managed with migrations in `app/db/migrations/`. See [Migrati
 ## 🤝 Bidrag
 
 Internt Nav-verktøy. Bidrag velkomne!
+
+## 📋 Installasjonsguide for produksjon
+
+### GitHub App
+
+Applikasjonen trenger lesetilgang til repositories på GitHub for å hente PR-metadata og godkjenninger.
+
+#### 1. Opprett GitHub App
+
+1. Gå til **github.com** → **Settings** → **Developer settings** → **GitHub Apps** → **New GitHub App**
+2. Fyll inn:
+   - **GitHub App name**: `pensjon-deployment-audit` (eller tilsvarende)
+   - **Homepage URL**: URL til applikasjonen
+   - **Webhook**: Deaktiver (appen bruker polling, ikke webhooks)
+
+#### 2. Sett tilganger (Permissions)
+
+Under **Repository permissions**, gi **Read-only** tilgang til:
+
+| Tilgang | Brukes til |
+|---------|-----------|
+| **Contents** | Lese commits og sammenligne brancher |
+| **Metadata** | Lese repository-info (alltid påkrevd) |
+| **Pull requests** | Lese PR-metadata, reviews og godkjenninger |
+| **Checks** | Lese CI/CD-status for commits |
+
+Ingen andre tilganger er nødvendig. Appen skriver aldri til GitHub.
+
+#### 3. Installer appen
+
+1. Gå til **Install App** i GitHub App-innstillingene
+2. Velg organisasjonen (f.eks. `navikt`)
+3. Velg **Only select repositories** og legg til repositories som skal overvåkes
+4. Noter **Installation ID** fra URL-en etter installasjon (`/installations/<id>`)
+
+#### 4. Generer private key
+
+1. Gå til **General** → **Private keys** → **Generate a private key**
+2. Last ned `.pem`-filen
+3. Base64-encode: `base64 -i private-key.pem | tr -d '\n'`
+
+#### 5. Konfigurer environment-variabler
+
+```env
+GITHUB_APP_ID=<App ID fra GitHub App-innstillingene>
+GITHUB_APP_PRIVATE_KEY=<base64-encoded private key>
+GITHUB_APP_INSTALLATION_ID=<Installation ID>
+```
+
+> **Alternativ**: For enklere oppsett (men lavere rate limit) kan et Personal Access Token brukes med `GITHUB_TOKEN` i stedet.
+
+---
+
+### Slack App
+
+Slack-integrasjonen bruker Socket Mode, som betyr at appen kobler seg til Slack via WebSocket i stedet for å eksponere webhook-endepunkter.
+
+#### 1. Opprett Slack App
+
+1. Gå til [api.slack.com/apps](https://api.slack.com/apps) → **Create New App** → **From scratch**
+2. Gi appen et navn og velg workspace
+
+#### 2. Aktiver Socket Mode
+
+1. Gå til **Settings** → **Socket Mode** → aktiver
+2. Opprett et **App-Level Token** med scope `connections:write`
+3. Noter tokenet (starter med `xapp-`)
+
+#### 3. Sett OAuth Scopes
+
+Under **OAuth & Permissions** → **Bot Token Scopes**, legg til:
+
+| Scope | Brukes til |
+|-------|-----------|
+| `chat:write` | Sende deployment-varsler til kanaler |
+| `chat:write.public` | Sende til kanaler uten å være invitert |
+
+#### 4. Aktiver Events
+
+Under **Event Subscriptions** → aktiver og legg til:
+
+| Event | Brukes til |
+|-------|-----------|
+| `app_home_opened` | Vise Home Tab med oversikt og statistikk |
+
+#### 5. Aktiver Interactivity
+
+Under **Interactivity & Shortcuts** → aktiver interactivity. Ingen Request URL trengs da appen bruker Socket Mode.
+
+#### 6. Installer i workspace
+
+1. Gå til **Install App** → **Install to Workspace**
+2. Godkjenn tilgangene
+3. Noter **Bot User OAuth Token** (starter med `xoxb-`)
+
+#### 7. Konfigurer environment-variabler
+
+```env
+SLACK_BOT_TOKEN=xoxb-...
+SLACK_APP_TOKEN=xapp-...
+SLACK_CHANNEL_ID=C01234567  # Valgfri: standard-kanal for varsler
+```
+
+> **Tips**: Kanal-ID finner du ved å høyreklikke på kanalen i Slack → **View channel details** → kopier ID nederst.
+
+---
+
+### Nais API
+
+Applikasjonen henter deployment-data fra Nais sitt GraphQL API med polling hvert 5. minutt.
+
+```env
+NAIS_GRAPHQL_URL=https://console.nav.cloud.nais.io/graphql
+NAIS_API_KEY=<API-nøkkel for Nais>
+```
+
+> **Produksjon**: Kontakt Nais-teamet for å få utstedt en `NAIS_API_KEY` for tilgang til GraphQL-APIet.
+
+> **Lokal utvikling**: Bruk `nais alpha api proxy` for å få tilgang til Nais-APIet lokalt. Proxyen kjører på `http://localhost:4242` og håndterer autentisering automatisk.
+
+---
+
+### Nais-hemmeligheter
+
+På Nais legges GitHub- og Slack-variabler i en Kubernetes secret som refereres fra `nais.yaml`:
+
+```yaml
+envFrom:
+  - secret: nais-deployment-audit
+```
+
+Secreten må inneholde: `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_INSTALLATION_ID`, `NAIS_API_KEY`, og eventuelt `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN` og `SLACK_CHANNEL_ID`.
