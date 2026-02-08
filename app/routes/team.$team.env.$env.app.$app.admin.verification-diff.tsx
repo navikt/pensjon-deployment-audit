@@ -8,8 +8,8 @@
  * - Has downloaded GitHub data (compare snapshots exist)
  */
 
-import { Link as AkselLink, BodyShort, Box, Heading, Table, Tag, VStack } from '@navikt/ds-react'
-import { Link, useLoaderData } from 'react-router'
+import { Link as AkselLink, BodyShort, Box, Button, Heading, Table, Tag, VStack } from '@navikt/ds-react'
+import { Form, Link, useLoaderData, useNavigation } from 'react-router'
 import { getMonitoredApplicationByIdentity } from '~/db/monitored-applications.server'
 import {
   getCompareSnapshotForCommit,
@@ -18,7 +18,7 @@ import {
   getPrSnapshotsForDiff,
 } from '~/db/verification-diff.server'
 import { requireAdmin } from '~/lib/auth.server'
-import { isVerificationDebugMode } from '~/lib/verification'
+import { reverifyDeployment } from '~/lib/verification'
 import { buildCommitsBetweenFromCache } from '~/lib/verification/fetch-data.server'
 import type { CompareData, PrCommit, PrMetadata, PrReview, VerificationInput } from '~/lib/verification/types'
 import { verifyDeployment } from '~/lib/verification/verify'
@@ -40,14 +40,10 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 
   const { team, env, app } = params
 
-  if (!isVerificationDebugMode) {
-    return { diffs: [], debugModeEnabled: false }
-  }
-
   // Get the monitored app
   const monitoredApp = await getMonitoredApplicationByIdentity(team, env, app)
   if (!monitoredApp) {
-    return { diffs: [], debugModeEnabled: true, appContext: null }
+    return { diffs: [], appContext: null }
   }
 
   const appContext = {
@@ -153,22 +149,60 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     }
   }
 
-  return { diffs, debugModeEnabled: true, appContext }
+  return { diffs, appContext }
+}
+
+export async function action({ request }: Route.ActionArgs) {
+  await requireAdmin(request)
+
+  const formData = await request.formData()
+  const actionType = formData.get('action') as string
+  const deploymentId = parseInt(formData.get('deployment_id') as string, 10)
+
+  if (actionType === 'apply_reverification' && deploymentId) {
+    const result = await reverifyDeployment(deploymentId)
+    if (!result) {
+      return { error: `Deployment ${deploymentId} ble hoppet over (manuelt godkjent, legacy, eller mangler data)` }
+    }
+    if (result.changed) {
+      return {
+        applied: deploymentId,
+        message: `Oppdatert: ${result.oldStatus} → ${result.newStatus}`,
+      }
+    }
+    return { applied: deploymentId, message: 'Ingen endring nødvendig' }
+  }
+
+  if (actionType === 'apply_all') {
+    const ids = formData.getAll('deployment_ids').map((id) => parseInt(id as string, 10))
+    let applied = 0
+    let skipped = 0
+    let errors = 0
+
+    for (const id of ids) {
+      try {
+        const result = await reverifyDeployment(id)
+        if (result?.changed) {
+          applied++
+        } else {
+          skipped++
+        }
+      } catch {
+        errors++
+      }
+    }
+
+    return { appliedAll: true, applied, skipped, errors }
+  }
+
+  return null
 }
 
 export default function VerificationDiffPage() {
-  const { diffs, debugModeEnabled, appContext } = useLoaderData<typeof loader>()
-
-  if (!debugModeEnabled) {
-    return (
-      <Box paddingBlock="space-8" paddingInline={{ xs: 'space-4', md: 'space-8' }}>
-        <VStack gap="space-4">
-          <Heading size="large">Verifiseringsavvik</Heading>
-          <BodyShort>Debug-modus er ikke aktivert. Sett VERIFICATION_DEBUG=true for å bruke denne siden.</BodyShort>
-        </VStack>
-      </Box>
-    )
-  }
+  const { diffs, appContext } = useLoaderData<typeof loader>()
+  const navigation = useNavigation()
+  const submittingId = navigation.state === 'submitting' ? navigation.formData?.get('deployment_id')?.toString() : null
+  const isApplyingAll = navigation.state === 'submitting' && navigation.formData?.get('action') === 'apply_all'
 
   return (
     <Box paddingBlock="space-8" paddingInline={{ xs: 'space-4', md: 'space-8' }}>
@@ -191,57 +225,84 @@ export default function VerificationDiffPage() {
         )}
 
         {diffs.length > 0 && (
-          <Table>
-            <Table.Header>
-              <Table.Row>
-                <Table.HeaderCell>Deployment</Table.HeaderCell>
-                <Table.HeaderCell>Miljø</Table.HeaderCell>
-                <Table.HeaderCell>Dato</Table.HeaderCell>
-                <Table.HeaderCell>Gammel status</Table.HeaderCell>
-                <Table.HeaderCell>Ny status</Table.HeaderCell>
-                <Table.HeaderCell>Four eyes</Table.HeaderCell>
-              </Table.Row>
-            </Table.Header>
-            <Table.Body>
+          <VStack gap="space-4">
+            <Form method="post">
+              <input type="hidden" name="action" value="apply_all" />
               {diffs.map((diff) => (
-                <Table.Row key={diff.id}>
-                  <Table.DataCell>
-                    <AkselLink
-                      as={Link}
-                      to={
-                        appContext
-                          ? `/team/${appContext.teamSlug}/env/${appContext.environmentName}/app/${appContext.appName}/admin/verification-diff/${diff.id}`
-                          : `/deployments/${diff.id}`
-                      }
-                    >
-                      {diff.commitSha.substring(0, 7)}
-                    </AkselLink>
-                  </Table.DataCell>
-                  <Table.DataCell>{diff.environmentName}</Table.DataCell>
-                  <Table.DataCell>{new Date(diff.createdAt).toLocaleDateString('no-NO')}</Table.DataCell>
-                  <Table.DataCell>
-                    <Tag variant="neutral" size="small">
-                      {diff.oldStatus || 'null'}
-                    </Tag>
-                  </Table.DataCell>
-                  <Table.DataCell>
-                    <Tag variant="info" size="small">
-                      {diff.newStatus}
-                    </Tag>
-                  </Table.DataCell>
-                  <Table.DataCell>
-                    {diff.oldHasFourEyes !== diff.newHasFourEyes ? (
-                      <Tag variant="warning" size="small">
-                        {String(diff.oldHasFourEyes)} → {String(diff.newHasFourEyes)}
-                      </Tag>
-                    ) : (
-                      <BodyShort size="small">{String(diff.newHasFourEyes)}</BodyShort>
-                    )}
-                  </Table.DataCell>
-                </Table.Row>
+                <input key={diff.id} type="hidden" name="deployment_ids" value={diff.id} />
               ))}
-            </Table.Body>
-          </Table>
+              <Button type="submit" size="small" variant="secondary" loading={isApplyingAll}>
+                Oppdater alle ({diffs.length})
+              </Button>
+            </Form>
+
+            <Table>
+              <Table.Header>
+                <Table.Row>
+                  <Table.HeaderCell>Deployment</Table.HeaderCell>
+                  <Table.HeaderCell>Miljø</Table.HeaderCell>
+                  <Table.HeaderCell>Dato</Table.HeaderCell>
+                  <Table.HeaderCell>Gammel status</Table.HeaderCell>
+                  <Table.HeaderCell>Ny status</Table.HeaderCell>
+                  <Table.HeaderCell>Four eyes</Table.HeaderCell>
+                  <Table.HeaderCell />
+                </Table.Row>
+              </Table.Header>
+              <Table.Body>
+                {diffs.map((diff) => (
+                  <Table.Row key={diff.id}>
+                    <Table.DataCell>
+                      <AkselLink
+                        as={Link}
+                        to={
+                          appContext
+                            ? `/team/${appContext.teamSlug}/env/${appContext.environmentName}/app/${appContext.appName}/admin/verification-diff/${diff.id}`
+                            : `/deployments/${diff.id}`
+                        }
+                      >
+                        {diff.commitSha.substring(0, 7)}
+                      </AkselLink>
+                    </Table.DataCell>
+                    <Table.DataCell>{diff.environmentName}</Table.DataCell>
+                    <Table.DataCell>{new Date(diff.createdAt).toLocaleDateString('no-NO')}</Table.DataCell>
+                    <Table.DataCell>
+                      <Tag variant="neutral" size="small">
+                        {diff.oldStatus || 'null'}
+                      </Tag>
+                    </Table.DataCell>
+                    <Table.DataCell>
+                      <Tag variant="info" size="small">
+                        {diff.newStatus}
+                      </Tag>
+                    </Table.DataCell>
+                    <Table.DataCell>
+                      {diff.oldHasFourEyes !== diff.newHasFourEyes ? (
+                        <Tag variant="warning" size="small">
+                          {String(diff.oldHasFourEyes)} → {String(diff.newHasFourEyes)}
+                        </Tag>
+                      ) : (
+                        <BodyShort size="small">{String(diff.newHasFourEyes)}</BodyShort>
+                      )}
+                    </Table.DataCell>
+                    <Table.DataCell>
+                      <Form method="post">
+                        <input type="hidden" name="action" value="apply_reverification" />
+                        <input type="hidden" name="deployment_id" value={diff.id} />
+                        <Button
+                          type="submit"
+                          size="xsmall"
+                          variant="tertiary"
+                          loading={submittingId === String(diff.id)}
+                        >
+                          Oppdater
+                        </Button>
+                      </Form>
+                    </Table.DataCell>
+                  </Table.Row>
+                ))}
+              </Table.Body>
+            </Table>
+          </VStack>
         )}
       </VStack>
     </Box>

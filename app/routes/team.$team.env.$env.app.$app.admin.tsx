@@ -36,7 +36,7 @@ import { createReportJob, updateReportJobStatus } from '~/db/report-jobs.server'
 import { acquireSyncLock, getLatestSyncJob, getSyncJobById, releaseSyncLock, type SyncJob } from '~/db/sync-jobs.server'
 import { generateAuditReportPdf } from '~/lib/audit-report-pdf'
 import { requireAdmin } from '~/lib/auth.server'
-import { fetchVerificationDataForAllDeployments, isVerificationDebugMode } from '~/lib/verification'
+import { fetchVerificationDataForAllDeployments } from '~/lib/verification'
 import type { Route } from './+types/team.$team.env.$env.app.$app.admin'
 
 // Async function to process data fetch job in background
@@ -140,7 +140,6 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     readiness,
     selectedYear,
     latestFetchJob,
-    debugMode: isVerificationDebugMode,
     githubDataStats,
   }
 }
@@ -296,7 +295,6 @@ export default function AppAdmin({ loaderData, actionData }: Route.ComponentProp
     readiness,
     selectedYear,
     latestFetchJob,
-    debugMode,
     githubDataStats,
   } = loaderData
   const navigation = useNavigation()
@@ -906,25 +904,23 @@ export default function AppAdmin({ loaderData, actionData }: Route.ComponentProp
         </VStack>
       </Box>
 
-      {/* Debug: Verification Diff */}
-      {debugMode && (
-        <Box padding="space-24" borderRadius="8" background="raised" borderColor="info-subtle" borderWidth="1">
-          <VStack gap="space-16">
-            <div>
-              <Heading size="small">Debug: Verifiseringsavvik</Heading>
-              <BodyShort textColor="subtle" size="small">
-                Sammenlign gammel og ny verifiseringslogikk for å finne avvik.
-              </BodyShort>
-            </div>
-            <AkselLink
-              as={Link}
-              to={`/team/${app.team_slug}/env/${app.environment_name}/app/${app.app_name}/admin/verification-diff`}
-            >
-              Se verifiseringsavvik →
-            </AkselLink>
-          </VStack>
-        </Box>
-      )}
+      {/* Reverifisering */}
+      <Box padding="space-24" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
+        <VStack gap="space-16">
+          <div>
+            <Heading size="small">Reverifisering</Heading>
+            <BodyShort textColor="subtle" size="small">
+              Sammenlign cached data med gjeldende verifiseringslogikk. Avvik kan godkjennes enkeltvis.
+            </BodyShort>
+          </div>
+          <AkselLink
+            as={Link}
+            to={`/team/${app.team_slug}/env/${app.environment_name}/app/${app.app_name}/admin/verification-diff`}
+          >
+            Se verifiseringsavvik →
+          </AkselLink>
+        </VStack>
+      </Box>
 
       {/* Recent config changes */}
       {recentConfigChanges.length > 0 && (

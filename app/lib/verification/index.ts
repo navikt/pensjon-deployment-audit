@@ -21,7 +21,7 @@
 import { pool } from '~/db/connection.server'
 import { fetchVerificationData } from './fetch-data.server'
 import { storeVerificationResult } from './store-data.server'
-import type { VerificationInput, VerificationResult } from './types'
+import type { CompareData, PrCommit, PrMetadata, PrReview, VerificationInput, VerificationResult } from './types'
 import { verifyDeployment } from './verify'
 
 // Re-export individual modules
@@ -297,5 +297,119 @@ async function getExistingVerificationStatus(deploymentId: number): Promise<Exis
     prUrl: row.github_pr_url,
     prData: row.github_pr_data,
     unverifiedCommits: row.unverified_commits || [],
+  }
+}
+
+// =============================================================================
+// Reverification
+// =============================================================================
+
+/**
+ * Re-run verification for a single deployment using cached GitHub data,
+ * and apply the new result to the database.
+ *
+ * Returns the comparison, or null if the deployment was skipped (no data,
+ * manually_approved, or legacy).
+ */
+export async function reverifyDeployment(deploymentId: number): Promise<{
+  changed: boolean
+  oldStatus: string | null
+  newStatus: string
+  oldHasFourEyes: boolean | null
+  newHasFourEyes: boolean
+} | null> {
+  const { getPreviousDeploymentForDiff, getCompareSnapshotForCommit, getPrSnapshotsForDiff } = await import(
+    '~/db/verification-diff.server'
+  )
+  const { buildCommitsBetweenFromCache } = await import('./fetch-data.server')
+  const { getImplicitApprovalSettings } = await import('~/db/app-settings.server')
+
+  // Get deployment with app context
+  const row = await pool.query(
+    `SELECT
+       d.id, d.commit_sha, d.four_eyes_status, d.has_four_eyes,
+       d.github_pr_number, d.environment_name, d.monitored_app_id,
+       d.detected_github_owner, d.detected_github_repo_name,
+       ma.default_branch, ma.audit_start_year
+     FROM deployments d
+     JOIN monitored_applications ma ON d.monitored_app_id = ma.id
+     WHERE d.id = $1`,
+    [deploymentId],
+  )
+
+  if (row.rows.length === 0) {
+    throw new Error(`Deployment ${deploymentId} not found`)
+  }
+
+  const dep = row.rows[0]
+
+  // Skip manually approved or legacy
+  if (dep.four_eyes_status === 'manually_approved' || dep.four_eyes_status === 'legacy') {
+    return null
+  }
+
+  const implicitApprovalSettings = await getImplicitApprovalSettings(dep.monitored_app_id)
+
+  const compareSnapshot = await getCompareSnapshotForCommit(dep.commit_sha)
+  if (!compareSnapshot) return null
+
+  const compareData = compareSnapshot.data as CompareData
+  const owner = dep.detected_github_owner
+  const repo = dep.detected_github_repo_name
+  const baseBranch = dep.default_branch || 'main'
+
+  const prevRow = await getPreviousDeploymentForDiff(dep.id, dep.environment_name)
+  const previousDeployment = prevRow
+    ? { id: prevRow.id, commitSha: prevRow.commit_sha, createdAt: prevRow.created_at.toISOString() }
+    : null
+
+  const commitsBetween = await buildCommitsBetweenFromCache(owner, repo, baseBranch, compareData, {
+    cacheOnly: true,
+  })
+
+  let deployedPr: VerificationInput['deployedPr'] = null
+  if (dep.github_pr_number) {
+    const snapshotMap = await getPrSnapshotsForDiff(dep.github_pr_number)
+    if (snapshotMap.has('metadata') && snapshotMap.has('reviews') && snapshotMap.has('commits')) {
+      deployedPr = {
+        number: dep.github_pr_number,
+        url: `https://github.com/${owner}/${repo}/pull/${dep.github_pr_number}`,
+        metadata: snapshotMap.get('metadata') as PrMetadata,
+        reviews: snapshotMap.get('reviews') as PrReview[],
+        commits: snapshotMap.get('commits') as PrCommit[],
+      }
+    }
+  }
+
+  const input: VerificationInput = {
+    deploymentId: dep.id,
+    commitSha: dep.commit_sha,
+    repository: `${owner}/${repo}`,
+    environmentName: dep.environment_name,
+    baseBranch,
+    auditStartYear: dep.audit_start_year,
+    implicitApprovalSettings: implicitApprovalSettings ?? { mode: 'off' },
+    previousDeployment,
+    deployedPr,
+    commitsBetween,
+    dataFreshness: { deployedPrFetchedAt: null, commitsFetchedAt: null, schemaVersion: 1 },
+  }
+
+  const newResult = verifyDeployment(input)
+
+  const statusChanged = dep.four_eyes_status !== newResult.status
+  const fourEyesChanged = dep.has_four_eyes !== newResult.hasFourEyes
+  const changed = statusChanged || fourEyesChanged
+
+  if (changed) {
+    await storeVerificationResult(dep.id, newResult, { prSnapshotIds: [], commitSnapshotIds: [] })
+  }
+
+  return {
+    changed,
+    oldStatus: dep.four_eyes_status,
+    newStatus: newResult.status,
+    oldHasFourEyes: dep.has_four_eyes,
+    newHasFourEyes: newResult.hasFourEyes,
   }
 }
