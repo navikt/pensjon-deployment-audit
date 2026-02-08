@@ -30,9 +30,9 @@ import {
   saveAuditReport,
   updateAuditReportPdf,
 } from '~/db/audit-reports.server'
-import { pool } from '~/db/connection.server'
 import { getGitHubDataStatsForApp } from '~/db/github-data.server'
 import { getMonitoredApplicationByIdentity, updateMonitoredApplication } from '~/db/monitored-applications.server'
+import { createReportJob, updateReportJobStatus } from '~/db/report-jobs.server'
 import { acquireSyncLock, getLatestSyncJob, getSyncJobById, releaseSyncLock, type SyncJob } from '~/db/sync-jobs.server'
 import { generateAuditReportPdf } from '~/lib/audit-report-pdf'
 import { requireAdmin } from '~/lib/auth.server'
@@ -54,7 +54,7 @@ async function processFetchDataJobAsync(jobId: number, appId: number) {
 // Async function to process report generation in background
 async function processReportJobAsync(jobId: string, appId: number, year: number, generatedBy: string) {
   try {
-    await pool.query(`UPDATE report_jobs SET status = 'processing' WHERE job_id = $1`, [jobId])
+    await updateReportJobStatus(jobId, 'processing')
 
     const rawData = await getAuditReportData(appId, year)
     const reportData = buildReportData(rawData)
@@ -91,13 +91,10 @@ async function processReportJobAsync(jobId: string, appId: number, year: number,
     await updateAuditReportPdf(report.id, Buffer.from(pdfBuffer))
 
     // Update job with PDF data and mark completed
-    await pool.query(
-      `UPDATE report_jobs SET status = 'completed', pdf_data = $2, completed_at = NOW() WHERE job_id = $1`,
-      [jobId, pdfBuffer],
-    )
+    await updateReportJobStatus(jobId, 'completed', pdfBuffer)
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error'
-    await pool.query(`UPDATE report_jobs SET status = 'failed', error = $2 WHERE job_id = $1`, [jobId, errorMessage])
+    await updateReportJobStatus(jobId, 'failed', undefined, errorMessage)
     throw err
   }
 }
@@ -236,14 +233,7 @@ export async function action({ request }: Route.ActionArgs) {
     }
 
     // Create background job for PDF generation
-    const { pool } = await import('~/db/connection.server')
-    const result = await pool.query(
-      `INSERT INTO report_jobs (monitored_app_id, year, status)
-       VALUES ($1, $2, 'pending')
-       RETURNING job_id`,
-      [appId, year],
-    )
-    const jobId = result.rows[0].job_id
+    const jobId = await createReportJob(appId, year)
 
     // Start async processing (fire and forget)
     processReportJobAsync(jobId, appId, year, user.navIdent).catch((err) => {

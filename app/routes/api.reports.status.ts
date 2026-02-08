@@ -1,5 +1,5 @@
 import { data, type LoaderFunctionArgs } from 'react-router'
-import { pool } from '~/db/connection.server'
+import { getReportJobStatus } from '~/db/report-jobs.server'
 import { requireAdmin } from '~/lib/auth.server'
 
 // GET: Check status of a report generation job
@@ -13,18 +13,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
     return data({ error: 'Missing jobId' }, { status: 400 })
   }
 
-  const result = await pool.query(
-    `SELECT status, error, created_at, completed_at
-     FROM report_jobs
-     WHERE job_id = $1`,
-    [jobId],
-  )
+  const job = await getReportJobStatus(jobId)
 
-  if (result.rows.length === 0) {
+  if (!job) {
     return data({ error: 'Job not found' }, { status: 404 })
   }
-
-  const job = result.rows[0]
 
   return data({
     status: job.status,

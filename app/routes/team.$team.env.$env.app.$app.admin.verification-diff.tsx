@@ -10,8 +10,13 @@
 
 import { Link as AkselLink, BodyShort, Box, Heading, Table, Tag, VStack } from '@navikt/ds-react'
 import { Link, useLoaderData } from 'react-router'
-import { pool } from '~/db/connection.server'
 import { getMonitoredApplicationByIdentity } from '~/db/monitored-applications.server'
+import {
+  getCompareSnapshotForCommit,
+  getDeploymentsWithCompareData,
+  getPreviousDeploymentForDiff,
+  getPrSnapshotsForDiff,
+} from '~/db/verification-diff.server'
 import { requireAdmin } from '~/lib/auth.server'
 import { isVerificationDebugMode } from '~/lib/verification'
 import { buildCommitsBetweenFromCache } from '~/lib/verification/fetch-data.server'
@@ -52,78 +57,25 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   }
 
   // Find deployments for this app that have compare snapshots
-  const result = await pool.query(
-    `WITH valid_deployments AS (
-      SELECT 
-        d.id,
-        d.commit_sha,
-        d.four_eyes_status,
-        d.has_four_eyes,
-        d.github_pr_number,
-        d.environment_name,
-        d.created_at,
-        d.detected_github_owner,
-        d.detected_github_repo_name,
-        ma.default_branch,
-        ma.audit_start_year
-      FROM deployments d
-      JOIN monitored_applications ma ON d.monitored_app_id = ma.id
-      WHERE d.monitored_app_id = $1
-        AND d.commit_sha IS NOT NULL
-        AND d.detected_github_owner IS NOT NULL
-        AND d.detected_github_repo_name IS NOT NULL
-        AND d.commit_sha !~ '^refs/'
-        AND LENGTH(d.commit_sha) >= 7
-        AND (ma.audit_start_year IS NULL OR d.created_at >= (ma.audit_start_year || '-01-01')::date)
-    ),
-    deployments_with_data AS (
-      SELECT DISTINCT vd.*
-      FROM valid_deployments vd
-      WHERE EXISTS (
-        SELECT 1 FROM github_compare_snapshots gcs
-        WHERE gcs.head_sha = vd.commit_sha
-      )
-    )
-    SELECT * FROM deployments_with_data
-    ORDER BY created_at DESC
-    LIMIT 500`,
-    [monitoredApp.id],
-  )
+  const deployments = await getDeploymentsWithCompareData(monitoredApp.id)
 
   const diffs: DeploymentDiff[] = []
 
-  for (const row of result.rows) {
-    // Get previous deployment for this app/env
-    const prevResult = await pool.query(
-      `SELECT id, commit_sha, created_at
-       FROM deployments 
-       WHERE monitored_app_id = (SELECT monitored_app_id FROM deployments WHERE id = $1)
-         AND environment_name = $2
-         AND created_at < (SELECT created_at FROM deployments WHERE id = $1)
-       ORDER BY created_at DESC
-       LIMIT 1`,
-      [row.id, row.environment_name],
-    )
+  for (const row of deployments) {
+    const prevRow = await getPreviousDeploymentForDiff(row.id, row.environment_name)
 
-    const previousDeployment = prevResult.rows[0]
+    const previousDeployment = prevRow
       ? {
-          id: prevResult.rows[0].id as number,
-          commitSha: prevResult.rows[0].commit_sha as string,
-          createdAt: prevResult.rows[0].created_at.toISOString() as string,
+          id: prevRow.id,
+          commitSha: prevRow.commit_sha,
+          createdAt: prevRow.created_at.toISOString(),
         }
       : null
 
-    // Get the stored compare data
-    const compareResult = await pool.query(
-      `SELECT data, base_sha FROM github_compare_snapshots 
-       WHERE head_sha = $1 
-       ORDER BY fetched_at DESC LIMIT 1`,
-      [row.commit_sha],
-    )
+    const compareSnapshot = await getCompareSnapshotForCommit(row.commit_sha)
+    if (!compareSnapshot) continue
 
-    if (compareResult.rows.length === 0) continue
-
-    const compareData = compareResult.rows[0].data as CompareData
+    const compareData = compareSnapshot.data as CompareData
     const owner = row.detected_github_owner as string
     const repo = row.detected_github_repo_name as string
     const baseBranch = row.default_branch || 'main'
@@ -134,19 +86,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     // Get PR snapshots if available
     let deployedPr: VerificationInput['deployedPr'] = null
     if (row.github_pr_number) {
-      const prSnapshots = await pool.query(
-        `SELECT data_type, data FROM github_pr_snapshots 
-         WHERE pr_number = $1 
-         ORDER BY fetched_at DESC`,
-        [row.github_pr_number],
-      )
-
-      const snapshotMap = new Map<string, unknown>()
-      for (const snap of prSnapshots.rows) {
-        if (!snapshotMap.has(snap.data_type)) {
-          snapshotMap.set(snap.data_type, snap.data)
-        }
-      }
+      const snapshotMap = await getPrSnapshotsForDiff(row.github_pr_number)
 
       if (snapshotMap.has('metadata') && snapshotMap.has('reviews') && snapshotMap.has('commits')) {
         const metadata = snapshotMap.get('metadata') as PrMetadata
@@ -204,7 +144,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
         id: row.id,
         commitSha: row.commit_sha,
         environmentName: row.environment_name,
-        createdAt: row.created_at,
+        createdAt: row.created_at.toISOString(),
         oldStatus: row.four_eyes_status,
         newStatus: newResult.status,
         oldHasFourEyes: row.has_four_eyes,
