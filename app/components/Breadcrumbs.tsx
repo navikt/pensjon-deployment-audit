@@ -71,6 +71,11 @@ const dynamicBreadcrumbs: Array<{
     parent: '/team/:team/env/:env/app/:app/admin',
   },
   {
+    pattern: /^\/team\/([^/]+)\/env\/([^/]+)\/app\/([^/]+)\/admin\/status-history$/,
+    getLabel: () => 'Statusoverganger',
+    parent: '/team/:team/env/:env/app/:app/admin',
+  },
+  {
     pattern: /^\/team\/([^/]+)\/env\/([^/]+)\/app\/([^/]+)\/admin\/verification-diff\/(\d+)$/,
     getLabel: (_matches, pathname) => {
       const deploymentId = pathname.split('/')[8]
@@ -182,9 +187,10 @@ function buildBreadcrumbs(pathname: string, matches: ReturnType<typeof useMatche
         if (semanticMatch) {
           const [, team, env, app] = semanticMatch
           const teamPath = `/team/${team}`
+          const envPath = `/team/${team}/env/${env}`
           const appPath = `/team/${team}/env/${env}/app/${app}`
           crumbs.push({ path: teamPath, label: team })
-          crumbs.push({ path: null, label: env })
+          crumbs.push({ path: envPath, label: env })
           crumbs.push({ path: appPath, label: app })
           crumbs.push({ path: `${appPath}/admin`, label: 'Administrasjon' })
           crumbs.push({ path: `${appPath}/admin/verification-diff`, label: 'Verifiseringsavvik' })
@@ -196,9 +202,10 @@ function buildBreadcrumbs(pathname: string, matches: ReturnType<typeof useMatche
         if (semanticMatch) {
           const [, team, env, app] = semanticMatch
           const teamPath = `/team/${team}`
+          const envPath = `/team/${team}/env/${env}`
           const appPath = `/team/${team}/env/${env}/app/${app}`
           crumbs.push({ path: teamPath, label: team })
-          crumbs.push({ path: null, label: env })
+          crumbs.push({ path: envPath, label: env })
           crumbs.push({ path: appPath, label: app })
           crumbs.push({ path: `${appPath}/admin`, label: 'Administrasjon' })
         }
