@@ -938,12 +938,6 @@ export default function AppAdmin({ loaderData, actionData }: Route.ComponentProp
           </VStack>
         </Box>
       )}
-
-      {/* Build info */}
-      <HStack gap="space-16">
-        <Detail textColor="subtle">Bygget: {new Date(__BUILD_TIME__).toLocaleString('no-NO')}</Detail>
-        <Detail textColor="subtle">Versjon: {__GIT_SHA__}</Detail>
-      </HStack>
     </VStack>
   )
 }

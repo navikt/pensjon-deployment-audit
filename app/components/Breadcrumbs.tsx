@@ -263,34 +263,39 @@ export function Breadcrumbs() {
 
   return (
     <Box paddingInline={{ xs: 'space-16', md: 'space-24' }} paddingBlock="space-12" background="sunken">
-      <nav aria-label="Brødsmuler">
-        <HStack gap="space-4" align="center" wrap>
-          {crumbs.map((crumb, index) => {
-            const isLast = index === crumbs.length - 1
-            const isHome = crumb.path === '/'
-            const isClickable = crumb.path !== null
+      <HStack justify="space-between" align="center">
+        <nav aria-label="Brødsmuler">
+          <HStack gap="space-4" align="center" wrap>
+            {crumbs.map((crumb, index) => {
+              const isLast = index === crumbs.length - 1
+              const isHome = crumb.path === '/'
+              const isClickable = crumb.path !== null
 
-            return (
-              <HStack key={`${crumb.label}-${index}`} gap="space-4" align="center">
-                {index > 0 && <ChevronRightIcon aria-hidden fontSize="1rem" />}
-                {isLast ? (
-                  <Detail aria-current="page">
-                    {isHome ? <HouseIcon aria-label="Hjem" /> : crumb.label.toLowerCase()}
-                  </Detail>
-                ) : isClickable && crumb.path ? (
-                  <Link to={crumb.path} style={{ textDecoration: 'none' }}>
-                    <Detail className="breadcrumb-link">
-                      {isHome ? <HouseIcon aria-label="Hjem" fontSize="1rem" /> : crumb.label.toLowerCase()}
+              return (
+                <HStack key={`${crumb.label}-${index}`} gap="space-4" align="center">
+                  {index > 0 && <ChevronRightIcon aria-hidden fontSize="1rem" />}
+                  {isLast ? (
+                    <Detail aria-current="page">
+                      {isHome ? <HouseIcon aria-label="Hjem" /> : crumb.label.toLowerCase()}
                     </Detail>
-                  </Link>
-                ) : (
-                  <Detail textColor="subtle">{crumb.label.toLowerCase()}</Detail>
-                )}
-              </HStack>
-            )
-          })}
-        </HStack>
-      </nav>
+                  ) : isClickable && crumb.path ? (
+                    <Link to={crumb.path} style={{ textDecoration: 'none' }}>
+                      <Detail className="breadcrumb-link">
+                        {isHome ? <HouseIcon aria-label="Hjem" fontSize="1rem" /> : crumb.label.toLowerCase()}
+                      </Detail>
+                    </Link>
+                  ) : (
+                    <Detail textColor="subtle">{crumb.label.toLowerCase()}</Detail>
+                  )}
+                </HStack>
+              )
+            })}
+          </HStack>
+        </nav>
+        <Detail textColor="subtle">
+          {__GIT_SHA__} · {new Date(__BUILD_TIME__).toLocaleDateString('no-NO')}
+        </Detail>
+      </HStack>
     </Box>
   )
 }
