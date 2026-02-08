@@ -1,9 +1,10 @@
 import { CheckmarkIcon, ExclamationmarkTriangleIcon, XMarkIcon } from '@navikt/aksel-icons'
 import { Tag } from '@navikt/ds-react'
+import { type FourEyesStatus, isLegacyStatus, isPendingStatus } from '~/lib/four-eyes-status'
 
 interface DeploymentTagProps {
   github_pr_number: number | null
-  four_eyes_status: string
+  four_eyes_status: FourEyesStatus
   has_four_eyes: boolean
 }
 
@@ -18,14 +19,14 @@ export function MethodTag({
       </Tag>
     )
   }
-  if (four_eyes_status === 'legacy') {
+  if (isLegacyStatus(four_eyes_status)) {
     return (
       <Tag data-color="neutral" variant="outline" size="small">
         Legacy
       </Tag>
     )
   }
-  if (four_eyes_status === 'pending') {
+  if (isPendingStatus(four_eyes_status)) {
     return (
       <Tag data-color="neutral" variant="outline" size="small">
         Ukjent
@@ -43,6 +44,7 @@ export function StatusTag({
   four_eyes_status,
   has_four_eyes,
 }: Pick<DeploymentTagProps, 'four_eyes_status' | 'has_four_eyes'>) {
+  // Godkjent - har passert fire-øyne prinsippet
   if (has_four_eyes) {
     return (
       <Tag data-color="success" variant="outline" size="small" icon={<CheckmarkIcon aria-hidden />}>
@@ -50,13 +52,27 @@ export function StatusTag({
       </Tag>
     )
   }
+
+  // Legacy deployments
+  if (isLegacyStatus(four_eyes_status)) {
+    return (
+      <Tag data-color="neutral" variant="outline" size="small">
+        Legacy
+      </Tag>
+    )
+  }
+
+  // Venter på verifisering
+  if (isPendingStatus(four_eyes_status)) {
+    return (
+      <Tag data-color="neutral" variant="outline" size="small">
+        Venter
+      </Tag>
+    )
+  }
+
+  // Spesifikke ikke-godkjente statuser
   switch (four_eyes_status) {
-    case 'pending':
-      return (
-        <Tag data-color="neutral" variant="outline" size="small">
-          Venter
-        </Tag>
-      )
     case 'direct_push':
     case 'unverified_commits':
       return (
@@ -71,19 +87,14 @@ export function StatusTag({
         </Tag>
       )
     case 'error':
-    case 'missing':
+    case 'repository_mismatch':
       return (
         <Tag data-color="danger" variant="outline" size="small" icon={<XMarkIcon aria-hidden />}>
           Feil
         </Tag>
       )
-    case 'legacy':
-      return (
-        <Tag data-color="neutral" variant="outline" size="small">
-          Legacy
-        </Tag>
-      )
     default:
+      // Fallback for uventede statuser - vis status-tekst
       return (
         <Tag data-color="neutral" variant="outline" size="small">
           {four_eyes_status}

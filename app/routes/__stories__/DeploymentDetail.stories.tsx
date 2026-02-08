@@ -8,6 +8,13 @@ import {
 import { BodyShort, Box, Button, CopyButton, Detail, Heading, HGrid, HStack, Tag, VStack } from '@navikt/ds-react'
 import type { Meta, StoryObj } from '@storybook/react'
 import { Link } from 'react-router'
+import {
+  type FourEyesStatus,
+  getFourEyesStatusLabel,
+  isApprovedStatus,
+  isNotApprovedStatus,
+  isPendingStatus,
+} from '~/lib/four-eyes-status'
 
 type DeploymentDetail = {
   id: number
@@ -15,7 +22,7 @@ type DeploymentDetail = {
   commit_message: string
   deployer_username: string | null
   deploy_started_at: string
-  four_eyes_status: string
+  four_eyes_status: FourEyesStatus
   approval_source: string | null
   github_pr_number: number | null
   github_pr_url: string | null
@@ -29,54 +36,33 @@ type DeploymentDetail = {
   }
 }
 
-function getStatusIcon(status: string) {
-  switch (status) {
-    case 'approved':
-    case 'manually_approved':
-      return <CheckmarkCircleIcon aria-hidden />
-    case 'pending':
-      return <ClockIcon aria-hidden />
-    case 'not_approved':
-      return <XMarkOctagonIcon aria-hidden />
-    case 'error':
-      return <ExclamationmarkTriangleIcon aria-hidden />
-    default:
-      return <MinusCircleIcon aria-hidden />
+function getStatusIcon(status: FourEyesStatus) {
+  if (isApprovedStatus(status)) {
+    return <CheckmarkCircleIcon aria-hidden />
   }
+  if (isPendingStatus(status)) {
+    return <ClockIcon aria-hidden />
+  }
+  if (isNotApprovedStatus(status)) {
+    return <XMarkOctagonIcon aria-hidden />
+  }
+  if (status === 'error' || status === 'repository_mismatch') {
+    return <ExclamationmarkTriangleIcon aria-hidden />
+  }
+  return <MinusCircleIcon aria-hidden />
 }
 
-function getStatusColor(status: string): 'success' | 'warning' | 'danger' | 'neutral' | 'info' {
-  switch (status) {
-    case 'approved':
-    case 'manually_approved':
-      return 'success'
-    case 'pending':
-      return 'warning'
-    case 'not_approved':
-    case 'error':
-      return 'danger'
-    default:
-      return 'neutral'
+function getStatusColor(status: FourEyesStatus): 'success' | 'warning' | 'danger' | 'neutral' | 'info' {
+  if (isApprovedStatus(status)) {
+    return 'success'
   }
-}
-
-function getStatusLabel(status: string): string {
-  switch (status) {
-    case 'approved':
-      return 'Godkjent'
-    case 'manually_approved':
-      return 'Manuelt godkjent'
-    case 'pending':
-      return 'Venter verifisering'
-    case 'not_approved':
-      return 'Ikke godkjent'
-    case 'error':
-      return 'Feil ved verifisering'
-    case 'legacy':
-      return 'Legacy'
-    default:
-      return status
+  if (isPendingStatus(status)) {
+    return 'warning'
   }
+  if (isNotApprovedStatus(status) || status === 'error' || status === 'repository_mismatch') {
+    return 'danger'
+  }
+  return 'neutral'
 }
 
 function DeploymentDetailPage({
@@ -100,7 +86,7 @@ function DeploymentDetailPage({
           <HStack gap="space-8" align="center">
             <Heading size="medium">Deployment #{deployment.id}</Heading>
             <Tag variant="moderate" data-color={statusColor} icon={getStatusIcon(deployment.four_eyes_status)}>
-              {getStatusLabel(deployment.four_eyes_status)}
+              {getFourEyesStatusLabel(deployment.four_eyes_status)}
             </Tag>
           </HStack>
           <Detail textColor="subtle">{new Date(deployment.deploy_started_at).toLocaleString('no-NO')}</Detail>
@@ -290,7 +276,7 @@ export const NotApproved: Story = {
   args: {
     deployment: {
       ...baseDeployment,
-      four_eyes_status: 'not_approved',
+      four_eyes_status: 'unverified_commits',
       approval_source: null,
     },
     previousId: 122,
@@ -318,7 +304,7 @@ export const DirectPush: Story = {
   args: {
     deployment: {
       ...baseDeployment,
-      four_eyes_status: 'not_approved',
+      four_eyes_status: 'direct_push',
       github_pr_number: null,
       github_pr_url: null,
       github_pr_data: undefined,

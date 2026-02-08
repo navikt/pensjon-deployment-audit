@@ -3,6 +3,7 @@ import { BodyShort, Box, Button, Detail, HStack, Select, TextField, VStack } fro
 import type { Meta, StoryObj } from '@storybook/react'
 import { Form, Link } from 'react-router'
 import { MethodTag, StatusTag } from '~/components/deployment-tags'
+import type { FourEyesStatus } from '~/lib/four-eyes-status'
 import { mockDeployments } from './mock-data'
 
 type Deployment = {
@@ -13,7 +14,7 @@ type Deployment = {
   commit_sha: string | null
   github_pr_number: number | null
   github_pr_url: string | null
-  four_eyes_status: string
+  four_eyes_status: FourEyesStatus
   has_four_eyes: boolean
   detected_github_owner: string
   detected_github_repo_name: string
@@ -49,7 +50,7 @@ function DeploymentsPage({
                 <option value="">Alle</option>
                 <option value="approved">Godkjent</option>
                 <option value="manually_approved">Manuelt godkjent</option>
-                <option value="not_approved">Ikke godkjent</option>
+                <option value="direct_push">Direkte push</option>
                 <option value="pending">Venter</option>
                 <option value="error">Feil</option>
               </Select>
@@ -239,7 +240,7 @@ export const MixedStatuses: Story = {
   args: {
     deployments: [
       { ...fullDeployments[0], four_eyes_status: 'approved', has_four_eyes: true },
-      { ...fullDeployments[1], four_eyes_status: 'not_approved', has_four_eyes: false },
+      { ...fullDeployments[1], four_eyes_status: 'direct_push', has_four_eyes: false },
       { ...fullDeployments[2], four_eyes_status: 'pending', has_four_eyes: false },
       {
         ...fullDeployments[0],

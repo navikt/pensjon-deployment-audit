@@ -5,6 +5,7 @@ import { MethodTag, StatusTag } from '~/components/deployment-tags'
 import { type DeploymentFilters, getDeploymentsPaginated } from '~/db/deployments.server'
 import { getMonitoredApplicationByIdentity } from '~/db/monitored-applications.server'
 import { getUserMappings } from '~/db/user-mappings.server'
+import type { FourEyesStatus } from '~/lib/four-eyes-status'
 import { getDateRangeForPeriod, TIME_PERIOD_OPTIONS, type TimePeriod } from '~/lib/time-periods'
 import { getUserDisplayName, serializeUserMappings } from '~/lib/user-display'
 import styles from '~/styles/common.module.css'
@@ -202,10 +203,10 @@ export default function AppDeployments() {
                   <HStack gap="space-8" style={{ flexShrink: 0 }}>
                     <MethodTag
                       github_pr_number={deployment.github_pr_number}
-                      four_eyes_status={deployment.four_eyes_status}
+                      four_eyes_status={deployment.four_eyes_status as FourEyesStatus}
                     />
                     <StatusTag
-                      four_eyes_status={deployment.four_eyes_status}
+                      four_eyes_status={deployment.four_eyes_status as FourEyesStatus}
                       has_four_eyes={deployment.has_four_eyes}
                     />
                   </HStack>

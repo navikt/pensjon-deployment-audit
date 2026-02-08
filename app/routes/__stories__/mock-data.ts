@@ -143,7 +143,7 @@ export const mockDeployments = [
     id: 2,
     commit_sha: 'def456abc789',
     commit_message: 'fix: Bug fix',
-    four_eyes_status: 'not_approved' as const,
+    four_eyes_status: 'direct_push' as const,
     approval_source: null,
     deploy_started_at: '2026-02-07T15:00:00Z',
     created_at: '2026-02-07T15:00:00Z',
