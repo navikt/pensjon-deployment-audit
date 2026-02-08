@@ -31,10 +31,12 @@ export function isSlackConfigured(): boolean {
  */
 export function getSlackApp(): App | null {
   if (!isSlackConfigured()) {
+    console.log('[Slack] Not configured (missing SLACK_BOT_TOKEN or SLACK_APP_TOKEN)')
     return null
   }
 
   if (!slackApp) {
+    console.log('[Slack] Initializing Slack app...')
     slackApp = new App({
       token: process.env.SLACK_BOT_TOKEN,
       appToken: process.env.SLACK_APP_TOKEN,
@@ -44,6 +46,7 @@ export function getSlackApp(): App | null {
 
     // Register action handlers
     registerActionHandlers(slackApp)
+    console.log('[Slack] Action handlers registered')
 
     // Register event handlers
     registerEventHandlers(slackApp)
