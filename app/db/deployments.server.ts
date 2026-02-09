@@ -1195,6 +1195,56 @@ export async function getAppsWithIssues(): Promise<AppWithIssues[]> {
   return result.rows
 }
 
+export interface IssueDeployment {
+  id: number
+  app_name: string
+  team_slug: string
+  environment_name: string
+  commit_sha: string | null
+  deployer_username: string | null
+  four_eyes_status: string
+  github_pr_number: number | null
+  github_pr_data: GitHubPRData | null
+  title: string | null
+  created_at: Date
+}
+
+/**
+ * Get sample deployments with issues for each app (up to N per app).
+ * Used in Slack Home Tab to show specific deployments that need attention.
+ */
+export async function getIssueDeploymentsPerApp(
+  apps: Array<{ app_name: string; team_slug: string; environment_name: string }>,
+  limitPerApp = 3,
+): Promise<Map<string, IssueDeployment[]>> {
+  if (apps.length === 0) return new Map()
+
+  const result = await pool.query(
+    `SELECT 
+       d.id, d.commit_sha, d.deployer_username, d.four_eyes_status,
+       d.github_pr_number, d.github_pr_data, d.title, d.created_at,
+       ma.app_name, ma.team_slug, ma.environment_name
+     FROM deployments d
+     JOIN monitored_applications ma ON d.monitored_app_id = ma.id
+     WHERE ma.is_active = true
+       AND d.has_four_eyes = false
+       AND d.four_eyes_status NOT IN ('legacy', 'legacy_pending', 'pending_baseline')
+       AND (ma.audit_start_year IS NULL OR d.created_at >= make_date(ma.audit_start_year, 1, 1))
+     ORDER BY d.created_at DESC`,
+  )
+
+  const grouped = new Map<string, IssueDeployment[]>()
+  for (const row of result.rows) {
+    const key = `${row.team_slug}/${row.environment_name}/${row.app_name}`
+    const list = grouped.get(key) || []
+    if (list.length < limitPerApp) {
+      list.push(row)
+      grouped.set(key, list)
+    }
+  }
+  return grouped
+}
+
 // =============================================================================
 // Deployment Status History
 // =============================================================================

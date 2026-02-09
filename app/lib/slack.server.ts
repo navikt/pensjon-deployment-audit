@@ -17,9 +17,8 @@ import type { KnownBlock } from '@slack/types'
 import {
   claimDeploymentForSlackNotification,
   getAppsWithIssues,
-  getDeploymentsByDeployer,
   getHomeTabSummaryStats,
-  getRecentDeploymentsForHomeTab,
+  getIssueDeploymentsPerApp,
 } from '~/db/deployments.server'
 import {
   createSlackNotification,
@@ -598,15 +597,12 @@ function registerEventHandlers(app: App): void {
       // Fetch data for Home Tab
       console.log('[Slack Home Tab] Fetching data...')
 
-      const [userDeployments, recentDeployments, stats, appsWithIssues] = await Promise.all([
-        githubUsername ? getDeploymentsByDeployer(githubUsername, 5) : Promise.resolve([]),
-        getRecentDeploymentsForHomeTab(10),
-        getHomeTabSummaryStats(),
-        getAppsWithIssues(),
-      ])
+      const [stats, appsWithIssues] = await Promise.all([getHomeTabSummaryStats(), getAppsWithIssues()])
+
+      // Fetch sample issue deployments per app
+      const issueDeployments = await getIssueDeploymentsPerApp(appsWithIssues, 3)
+
       console.log('[Slack Home Tab] Data fetched:', {
-        userDeploymentsCount: userDeployments.length,
-        recentDeploymentsCount: recentDeployments.length,
         stats,
         appsWithIssuesCount: appsWithIssues.length,
       })
@@ -615,10 +611,9 @@ function registerEventHandlers(app: App): void {
       const blocks = buildHomeTabBlocks({
         slackUserId: userId,
         githubUsername,
-        userDeployments,
-        recentDeployments,
         stats,
         appsWithIssues,
+        issueDeployments,
       })
       console.log('[Slack Home Tab] Built blocks, count:', blocks.length)
 
@@ -645,34 +640,12 @@ function registerEventHandlers(app: App): void {
 function buildHomeTabBlocks({
   slackUserId,
   githubUsername,
-  userDeployments,
-  recentDeployments,
   stats,
   appsWithIssues,
+  issueDeployments,
 }: {
   slackUserId: string
   githubUsername: string | null | undefined
-  userDeployments: Array<{
-    id: number
-    app_name: string
-    environment_name: string
-    team_slug: string
-    commit_sha: string | null
-    has_four_eyes: boolean
-    four_eyes_status: string
-    created_at: Date
-  }>
-  recentDeployments: Array<{
-    id: number
-    app_name: string
-    environment_name: string
-    team_slug: string
-    commit_sha: string | null
-    deployer_username: string | null
-    has_four_eyes: boolean
-    four_eyes_status: string
-    created_at: Date
-  }>
   stats: {
     totalApps: number
     totalDeployments: number
@@ -687,6 +660,22 @@ function buildHomeTabBlocks({
     pending_verification: number
     alert_count: number
   }>
+  issueDeployments: Map<
+    string,
+    Array<{
+      id: number
+      commit_sha: string | null
+      deployer_username: string | null
+      four_eyes_status: string
+      github_pr_number: number | null
+      github_pr_data: { title?: string; creator?: { username?: string } } | null
+      title: string | null
+      created_at: Date
+      app_name: string
+      team_slug: string
+      environment_name: string
+    }>
+  >
 }): KnownBlock[] {
   const baseUrl = process.env.BASE_URL || 'https://pensjon-deployment-audit.ansatt.nav.no'
   const blocks: KnownBlock[] = []
@@ -713,64 +702,7 @@ function buildHomeTabBlocks({
 
   blocks.push({ type: 'divider' })
 
-  // Section 1: User's deployments
-  blocks.push({
-    type: 'section',
-    text: {
-      type: 'mrkdwn',
-      text: '*🚀 Dine siste deployments*',
-    },
-  })
-
-  if (!githubUsername) {
-    blocks.push({
-      type: 'context',
-      elements: [
-        {
-          type: 'mrkdwn',
-          text: '_Koble Slack-brukeren din til GitHub i admin-panelet for å se dine deployments._',
-        },
-      ],
-    })
-  } else if (userDeployments.length === 0) {
-    blocks.push({
-      type: 'context',
-      elements: [
-        {
-          type: 'mrkdwn',
-          text: '_Ingen deployments funnet._',
-        },
-      ],
-    })
-  } else {
-    for (const d of userDeployments) {
-      const statusEmoji = d.has_four_eyes ? '✅' : d.four_eyes_status === 'pending' ? '⏳' : '⚠️'
-      const shortSha = d.commit_sha?.substring(0, 7) || 'ukjent'
-      const url = `${baseUrl}/team/${d.team_slug}/env/${d.environment_name}/app/${d.app_name}/deployments/${d.id}`
-
-      blocks.push({
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: `${statusEmoji} *${d.app_name}* (${d.environment_name})\n\`${shortSha}\` • <!date^${Math.floor(new Date(d.created_at).getTime() / 1000)}^{date_short_pretty} {time}|${new Date(d.created_at).toLocaleDateString()}>`,
-        },
-        accessory: {
-          type: 'button',
-          text: {
-            type: 'plain_text',
-            text: 'Se detaljer',
-            emoji: true,
-          },
-          url,
-          action_id: `view_deployment_${d.id}`,
-        },
-      })
-    }
-  }
-
-  blocks.push({ type: 'divider' })
-
-  // Section 2: Overview stats
+  // Section 1: Overview stats
   blocks.push({
     type: 'section',
     text: {
@@ -819,7 +751,7 @@ function buildHomeTabBlocks({
 
   blocks.push({ type: 'divider' })
 
-  // Section 3: Apps with issues
+  // Section 2: Apps with issues + sample deployments
   if (appsWithIssues.length > 0) {
     blocks.push({
       type: 'section',
@@ -841,57 +773,51 @@ function buildHomeTabBlocks({
         issues.push(`🚨 ${app.alert_count} varsler`)
       }
 
-      const appUrl = `${baseUrl}/team/${app.team_slug}/env/${app.environment_name}/app/${app.app_name}`
+      const deploymentsUrl = `${baseUrl}/team/${app.team_slug}/env/${app.environment_name}/app/${app.app_name}/deployments?status=not_approved`
       blocks.push({
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: `*<${appUrl}|${app.app_name}>* (${app.environment_name})\n${issues.join('  •  ')}`,
+          text: `*<${deploymentsUrl}|${app.app_name}>* (${app.environment_name})\n${issues.join('  •  ')}`,
         },
       })
+
+      // Show sample deployments with issues for this app
+      const key = `${app.team_slug}/${app.environment_name}/${app.app_name}`
+      const deployments = issueDeployments.get(key)
+      if (deployments && deployments.length > 0) {
+        const lines = deployments.map((d) => {
+          const shortSha = d.commit_sha?.substring(0, 7) || 'ukjent'
+          const deployer = d.deployer_username || 'ukjent'
+          const prAuthor = d.github_pr_data?.creator?.username
+          const prTitle = d.github_pr_data?.title || d.title
+          const prNumber = d.github_pr_number ? `#${d.github_pr_number}` : ''
+          const statusEmoji = d.four_eyes_status === 'pending' ? '⏳' : '⚠️'
+
+          let line = `${statusEmoji} \`${shortSha}\``
+          if (prNumber && prTitle) {
+            line += ` ${prNumber} _${prTitle.substring(0, 50)}${prTitle.length > 50 ? '…' : ''}_`
+          }
+          line += ` · ${prAuthor || deployer}`
+          return line
+        })
+
+        blocks.push({
+          type: 'context',
+          elements: [
+            {
+              type: 'mrkdwn',
+              text: lines.join('\n'),
+            },
+          ],
+        })
+      }
     }
 
     blocks.push({ type: 'divider' })
   }
 
-  // Section 4: Recent activity
-  blocks.push({
-    type: 'section',
-    text: {
-      type: 'mrkdwn',
-      text: '*🕐 Siste aktivitet*',
-    },
-  })
-
-  if (recentDeployments.length === 0) {
-    blocks.push({
-      type: 'context',
-      elements: [
-        {
-          type: 'mrkdwn',
-          text: '_Ingen aktivitet._',
-        },
-      ],
-    })
-  } else {
-    const activityLines = recentDeployments.map((d) => {
-      const statusEmoji = d.has_four_eyes ? '✅' : d.four_eyes_status === 'pending' ? '⏳' : '⚠️'
-      const shortSha = d.commit_sha?.substring(0, 7) || 'ukjent'
-      const deployer = d.deployer_username || 'ukjent'
-      return `${statusEmoji} \`${shortSha}\` *${d.app_name}* (${d.environment_name}) av ${deployer}`
-    })
-
-    blocks.push({
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: activityLines.join('\n'),
-      },
-    })
-  }
-
   // Footer
-  blocks.push({ type: 'divider' })
   blocks.push({
     type: 'context',
     elements: [
