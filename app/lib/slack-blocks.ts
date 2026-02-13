@@ -235,14 +235,7 @@ export function buildDeploymentBlocks(notification: DeploymentNotification): Kno
 /**
  * Build blocks for Slack Home Tab
  */
-export function buildHomeTabBlocks({
-  slackUserId,
-  githubUsername,
-  baseUrl,
-  stats,
-  appsWithIssues,
-  issueDeployments,
-}: HomeTabInput): KnownBlock[] {
+export function buildHomeTabBlocks({ baseUrl, stats, appsWithIssues, issueDeployments }: HomeTabInput): KnownBlock[] {
   const blocks: KnownBlock[] = []
 
   // Header
@@ -253,16 +246,6 @@ export function buildHomeTabBlocks({
       text: '📊 Deployment Audit',
       emoji: true,
     },
-  })
-
-  blocks.push({
-    type: 'context',
-    elements: [
-      {
-        type: 'mrkdwn',
-        text: `Hei <@${slackUserId}>! ${githubUsername ? `(GitHub: ${githubUsername})` : ''}`,
-      },
-    ],
   })
 
   blocks.push({ type: 'divider' })
