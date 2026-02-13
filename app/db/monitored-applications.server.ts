@@ -11,6 +11,10 @@ export interface MonitoredApplication {
   test_requirement: 'none' | 'unit_tests' | 'integration_tests'
   slack_channel_id: string | null
   slack_notifications_enabled: boolean
+  reminder_enabled: boolean
+  reminder_time: string | null
+  reminder_days: string[] | null
+  reminder_last_sent_at: Date | null
   created_at: Date
   updated_at: Date
 }
@@ -105,6 +109,9 @@ export async function updateMonitoredApplication(
     test_requirement?: 'none' | 'unit_tests' | 'integration_tests'
     slack_channel_id?: string | null
     slack_notifications_enabled?: boolean
+    reminder_enabled?: boolean
+    reminder_time?: string
+    reminder_days?: string[]
   },
 ): Promise<MonitoredApplication> {
   const updates: string[] = []
@@ -139,6 +146,21 @@ export async function updateMonitoredApplication(
   if (data.slack_notifications_enabled !== undefined) {
     updates.push(`slack_notifications_enabled = $${paramCount++}`)
     values.push(data.slack_notifications_enabled)
+  }
+
+  if (data.reminder_enabled !== undefined) {
+    updates.push(`reminder_enabled = $${paramCount++}`)
+    values.push(data.reminder_enabled)
+  }
+
+  if (data.reminder_time !== undefined) {
+    updates.push(`reminder_time = $${paramCount++}`)
+    values.push(data.reminder_time)
+  }
+
+  if (data.reminder_days !== undefined) {
+    updates.push(`reminder_days = $${paramCount++}`)
+    values.push(data.reminder_days)
   }
 
   if (updates.length === 0) {

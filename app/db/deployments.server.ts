@@ -1361,3 +1361,66 @@ export async function getDeploymentsWithStatusChanges(monitoredAppId: number): P
   )
   return result.rows
 }
+
+// =============================================================================
+// Reminder queries
+// =============================================================================
+
+export interface AppReminderConfig {
+  id: number
+  team_slug: string
+  environment_name: string
+  app_name: string
+  slack_channel_id: string
+  reminder_time: string
+  reminder_days: string[]
+  reminder_last_sent_at: Date | null
+}
+
+/**
+ * Get all apps with reminders enabled and Slack configured
+ */
+export async function getAppsWithRemindersEnabled(): Promise<AppReminderConfig[]> {
+  const result = await pool.query<AppReminderConfig>(
+    `SELECT id, team_slug, environment_name, app_name, slack_channel_id,
+            reminder_time, reminder_days, reminder_last_sent_at
+     FROM monitored_applications
+     WHERE reminder_enabled = true
+       AND slack_notifications_enabled = true
+       AND slack_channel_id IS NOT NULL
+       AND is_active = true`,
+  )
+  return result.rows
+}
+
+/**
+ * Get unapproved deployments for a specific app (for reminders)
+ */
+export async function getUnapprovedDeployments(monitoredAppId: number): Promise<DeploymentWithApp[]> {
+  const result = await pool.query(
+    `SELECT d.*,
+            ma.team_slug, ma.environment_name, ma.app_name, ma.default_branch
+     FROM deployments d
+     JOIN monitored_applications ma ON d.monitored_app_id = ma.id
+     WHERE d.monitored_app_id = $1
+       AND d.four_eyes_status = ANY($2)
+     ORDER BY d.created_at DESC`,
+    [monitoredAppId, [...NOT_APPROVED_STATUSES, ...PENDING_STATUSES]],
+  )
+  return result.rows
+}
+
+/**
+ * Atomically update reminder_last_sent_at (returns true if claimed)
+ */
+export async function claimReminderSend(appId: number, minIntervalHours: number): Promise<boolean> {
+  const result = await pool.query(
+    `UPDATE monitored_applications
+     SET reminder_last_sent_at = NOW()
+     WHERE id = $1
+       AND (reminder_last_sent_at IS NULL OR reminder_last_sent_at < NOW() - INTERVAL '1 hour' * $2)
+     RETURNING id`,
+    [appId, minIntervalHours],
+  )
+  return result.rowCount !== null && result.rowCount > 0
+}

@@ -31,17 +31,20 @@ import {
   buildDeploymentBlocks,
   buildDeviationBlocks,
   buildHomeTabBlocks,
+  buildReminderBlocks,
   type DeploymentNotification,
   type DeviationNotification,
   getStatusEmoji,
+  type ReminderNotification,
 } from './slack-blocks'
 
 // Re-export types and functions from slack-blocks for backward compatibility
-export type { DeploymentNotification, DeviationNotification, HomeTabInput } from './slack-blocks'
+export type { DeploymentNotification, DeviationNotification, HomeTabInput, ReminderNotification } from './slack-blocks'
 export {
   buildDeploymentBlocks,
   buildDeviationBlocks,
   buildHomeTabBlocks,
+  buildReminderBlocks,
   getStatusEmoji,
   getStatusText,
 } from './slack-blocks'
@@ -204,6 +207,38 @@ export async function sendDeviationNotification(
     return result.ts || null
   } catch (error) {
     console.error('Failed to send deviation Slack notification:', error)
+    return null
+  }
+}
+
+/**
+ * Send a reminder notification to a Slack channel
+ */
+export async function sendReminder(notification: ReminderNotification, channelId: string): Promise<string | null> {
+  const app = getSlackApp()
+  if (!app) {
+    console.log('Slack not configured, skipping reminder')
+    return null
+  }
+
+  if (!channelId) {
+    console.log('No Slack channel configured for reminder, skipping')
+    return null
+  }
+
+  const blocks = buildReminderBlocks(notification)
+  const count = notification.deployments.length
+  const text = `🔔 ${count} deployment${count === 1 ? '' : 's'} mangler godkjenning — ${notification.appName} (${notification.environmentName})`
+
+  try {
+    const result = await app.client.chat.postMessage({
+      channel: channelId,
+      blocks: blocks as KnownBlock[],
+      text,
+    })
+    return result.ts || null
+  } catch (error) {
+    console.error('Failed to send reminder Slack notification:', error)
     return null
   }
 }

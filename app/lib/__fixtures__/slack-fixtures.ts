@@ -1,4 +1,9 @@
-import type { DeploymentNotification, DeviationNotification, HomeTabInput } from '~/lib/slack-blocks'
+import type {
+  DeploymentNotification,
+  DeviationNotification,
+  HomeTabInput,
+  ReminderNotification,
+} from '~/lib/slack-blocks'
 
 const BASE_URL = 'https://pensjon-deployment-audit.ansatt.nav.no'
 
@@ -237,3 +242,79 @@ export const deviationFixtures = {
     detailsUrl: `${BASE_URL}/team/pensjondeployer/env/prod-gcp/app/pensjon-selvbetjening/deployments/99`,
   },
 } satisfies Record<string, DeviationNotification>
+
+// =============================================================================
+// Reminder Notification Fixtures
+// =============================================================================
+
+const appUrl = `${BASE_URL}/team/pensjondeployer/env/prod-gcp/app/pensjon-pen`
+
+const reminderBase = {
+  appName: 'pensjon-pen',
+  environmentName: 'prod-gcp',
+  teamSlug: 'pensjondeployer',
+  deploymentsListUrl: `${appUrl}/deployments?status=not_approved&period=all`,
+} satisfies Omit<ReminderNotification, 'deployments'>
+
+export const reminderFixtures = {
+  singleDeployment: {
+    ...reminderBase,
+    deployments: [
+      {
+        id: 9700,
+        commitSha: 'abc1234def5678',
+        commitMessage: 'feat: legg til ny pensjonsberegning for AFP',
+        deployerName: 'Ola Nordmann',
+        status: 'unverified',
+        createdAt: '13. feb. 2026, 10:30',
+        detailsUrl: `${appUrl}/deployments/9700`,
+      },
+    ],
+  },
+
+  fewDeployments: {
+    ...reminderBase,
+    deployments: [
+      {
+        id: 9700,
+        commitSha: 'abc1234def5678',
+        commitMessage: 'feat: legg til ny pensjonsberegning for AFP',
+        deployerName: 'Ola Nordmann',
+        status: 'unverified',
+        createdAt: '13. feb. 2026, 10:30',
+        detailsUrl: `${appUrl}/deployments/9700`,
+      },
+      {
+        id: 9698,
+        commitSha: 'def5678abc1234',
+        commitMessage: 'chore: bump dependencies',
+        deployerName: 'Kari Nordmann',
+        status: 'pending_approval',
+        createdAt: '12. feb. 2026, 14:15',
+        detailsUrl: `${appUrl}/deployments/9698`,
+      },
+      {
+        id: 9695,
+        commitSha: '9876abcdef1234',
+        commitMessage: 'hotfix: fiks kritisk feil i beregning',
+        deployerName: 'Per Hansen',
+        status: 'unverified',
+        createdAt: '11. feb. 2026, 09:00',
+        detailsUrl: `${appUrl}/deployments/9695`,
+      },
+    ],
+  },
+
+  manyDeployments: {
+    ...reminderBase,
+    deployments: Array.from({ length: 12 }, (_, i) => ({
+      id: 9700 - i,
+      commitSha: `${String(i).padStart(7, 'a')}b${String(i).padStart(6, 'c')}`,
+      commitMessage: `fix: endring nummer ${i + 1}`,
+      deployerName: i % 2 === 0 ? 'Ola Nordmann' : 'Kari Nordmann',
+      status: i % 3 === 0 ? 'unverified' : 'pending_approval',
+      createdAt: `${13 - Math.floor(i / 2)}. feb. 2026, ${9 + (i % 8)}:00`,
+      detailsUrl: `${appUrl}/deployments/${9700 - i}`,
+    })),
+  },
+} satisfies Record<string, ReminderNotification>

@@ -5,6 +5,8 @@ import {
   BodyShort,
   Box,
   Button,
+  Checkbox,
+  CheckboxGroup,
   Detail,
   Heading,
   HStack,
@@ -329,6 +331,47 @@ export async function action({ request }: Route.ActionArgs) {
       slack_notifications_enabled: slackNotificationsEnabled,
     })
     return { success: 'Slack-innstillinger oppdatert!' }
+  }
+
+  if (action === 'update_reminder_config') {
+    const reminderEnabled = formData.get('reminder_enabled') === 'true'
+    const reminderTime = (formData.get('reminder_time') as string)?.trim() || '09:00'
+    const reminderDays = formData.getAll('reminder_days') as string[]
+
+    if (!/^\d{2}:\d{2}$/.test(reminderTime)) {
+      return { error: 'Ugyldig tidsformat. Bruk HH:mm (f.eks. 09:00)' }
+    }
+
+    await updateMonitoredApplication(appId, {
+      reminder_enabled: reminderEnabled,
+      reminder_time: reminderTime,
+      reminder_days: reminderDays.length > 0 ? reminderDays : ['mon', 'tue', 'wed', 'thu', 'fri'],
+    })
+    return { success: 'Purre-innstillinger oppdatert!' }
+  }
+
+  if (action === 'send_reminder') {
+    const app = await getMonitoredApplicationByIdentity(
+      formData.get('team_slug') as string,
+      formData.get('environment_name') as string,
+      formData.get('app_name') as string,
+    )
+    if (!app || !app.slack_channel_id) {
+      return { error: 'Slack-kanal er ikke konfigurert for denne appen' }
+    }
+
+    const { sendReminderForApp } = await import('~/lib/reminder-scheduler.server')
+    const sent = await sendReminderForApp(
+      app.id,
+      app.team_slug,
+      app.environment_name,
+      app.app_name,
+      app.slack_channel_id,
+    )
+    if (sent) {
+      return { success: 'Purring sendt!' }
+    }
+    return { error: 'Ingen deployments å purre på, eller purring nylig sendt.' }
   }
 
   return null
@@ -819,6 +862,76 @@ export default function AppAdmin({ loaderData, actionData }: Route.ComponentProp
               </Button>
             </VStack>
           </Form>
+        </VStack>
+      </Box>
+
+      {/* Reminder Configuration */}
+      <Box padding="space-24" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
+        <VStack gap="space-16">
+          <div>
+            <Heading size="small">Purring for ugodkjente deployments</Heading>
+            <BodyShort textColor="subtle" size="small">
+              Send automatiske påminnelser i Slack for deployments som mangler godkjenning.
+            </BodyShort>
+          </div>
+
+          <Form method="post">
+            <input type="hidden" name="action" value="update_reminder_config" />
+            <input type="hidden" name="app_id" value={app.id} />
+            <VStack gap="space-16">
+              <Switch name="reminder_enabled" value="true" defaultChecked={app.reminder_enabled}>
+                Aktiver automatisk purring
+              </Switch>
+
+              <TextField
+                label="Tidspunkt"
+                name="reminder_time"
+                defaultValue={app.reminder_time || '09:00'}
+                description="Klokkeslett for purring (HH:mm)"
+                size="small"
+                style={{ maxWidth: '150px' }}
+              />
+
+              <CheckboxGroup
+                legend="Ukedager"
+                description="Velg hvilke dager purringen skal sendes. Sendes kun på hverdager (ikke helligdager)."
+                size="small"
+                defaultValue={app.reminder_days || ['mon', 'tue', 'wed', 'thu', 'fri']}
+              >
+                <Checkbox name="reminder_days" value="mon">
+                  Mandag
+                </Checkbox>
+                <Checkbox name="reminder_days" value="tue">
+                  Tirsdag
+                </Checkbox>
+                <Checkbox name="reminder_days" value="wed">
+                  Onsdag
+                </Checkbox>
+                <Checkbox name="reminder_days" value="thu">
+                  Torsdag
+                </Checkbox>
+                <Checkbox name="reminder_days" value="fri">
+                  Fredag
+                </Checkbox>
+              </CheckboxGroup>
+
+              <Button type="submit" size="small" variant="secondary">
+                Lagre purre-innstillinger
+              </Button>
+            </VStack>
+          </Form>
+
+          <HStack gap="space-8">
+            <Form method="post">
+              <input type="hidden" name="action" value="send_reminder" />
+              <input type="hidden" name="team_slug" value={app.team_slug} />
+              <input type="hidden" name="environment_name" value={app.environment_name} />
+              <input type="hidden" name="app_name" value={app.app_name} />
+              <Button type="submit" size="small" variant="tertiary">
+                Send purring nå
+              </Button>
+            </Form>
+          </HStack>
         </VStack>
       </Box>
 

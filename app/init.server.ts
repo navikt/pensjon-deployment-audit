@@ -3,6 +3,7 @@
  * This is imported from root.tsx and runs once when the server starts
  */
 
+import { startReminderScheduler } from './lib/reminder-scheduler.server'
 import { registerShutdownHandlers } from './lib/shutdown.server'
 import { isSlackConfigured, startSlackConnection } from './lib/slack.server'
 import { startPeriodicSync } from './lib/sync.server'
@@ -32,6 +33,8 @@ export function initializeServer(): void {
     startSlackConnection().catch((err) => {
       console.error('Failed to start Slack connection:', err)
     })
+    // Start reminder scheduler alongside Slack
+    startReminderScheduler()
   } else {
     console.log('💬 Slack not configured (set SLACK_BOT_TOKEN and SLACK_APP_TOKEN to enable)')
   }

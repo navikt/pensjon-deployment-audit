@@ -1,0 +1,112 @@
+/**
+ * Norwegian public holidays calculator
+ *
+ * Computes fixed and movable Norwegian public holidays.
+ * Movable holidays are based on Easter (Gregorian algorithm).
+ */
+
+interface HolidayMap {
+  [key: string]: string
+}
+
+const holidayCache = new Map<number, HolidayMap>()
+
+/**
+ * Calculate Easter Sunday using the Anonymous Gregorian algorithm.
+ * https://en.wikipedia.org/wiki/Date_of_Easter#Anonymous_Gregorian_algorithm
+ */
+function calculateEasterSunday(year: number): Date {
+  const a = year % 19
+  const b = Math.floor(year / 100)
+  const c = year % 100
+  const d = Math.floor(b / 4)
+  const e = b % 4
+  const f = Math.floor((b + 8) / 25)
+  const g = Math.floor((b - f + 1) / 3)
+  const h = (19 * a + b - d - g + 15) % 30
+  const i = Math.floor(c / 4)
+  const k = c % 4
+  const l = (32 + 2 * e + 2 * i - h - k) % 7
+  const m = Math.floor((a + 11 * h + 22 * l) / 451)
+  const n = Math.floor((h + l - 7 * m + 114) / 31)
+  const o = (h + l - 7 * m + 114) % 31
+  return new Date(year, n - 1, o + 1)
+}
+
+function addDays(date: Date, days: number): Date {
+  const result = new Date(date)
+  result.setDate(result.getDate() + days)
+  return result
+}
+
+function formatDateKey(date: Date): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+function computeHolidays(year: number): HolidayMap {
+  const easter = calculateEasterSunday(year)
+
+  const fixed: HolidayMap = {
+    [`${year}-01-01`]: 'Første nyttårsdag',
+    [`${year}-05-01`]: 'Arbeidernes dag',
+    [`${year}-05-17`]: 'Grunnlovsdagen',
+    [`${year}-12-25`]: 'Første juledag',
+    [`${year}-12-26`]: 'Andre juledag',
+  }
+
+  const movable: HolidayMap = {
+    [formatDateKey(addDays(easter, -3))]: 'Skjærtorsdag',
+    [formatDateKey(addDays(easter, -2))]: 'Langfredag',
+    [formatDateKey(easter)]: 'Første påskedag',
+    [formatDateKey(addDays(easter, 1))]: 'Andre påskedag',
+    [formatDateKey(addDays(easter, 39))]: 'Kristi himmelfartsdag',
+    [formatDateKey(addDays(easter, 49))]: 'Første pinsedag',
+    [formatDateKey(addDays(easter, 50))]: 'Andre pinsedag',
+  }
+
+  return { ...fixed, ...movable }
+}
+
+function getHolidaysForYear(year: number): HolidayMap {
+  let holidays = holidayCache.get(year)
+  if (!holidays) {
+    holidays = computeHolidays(year)
+    holidayCache.set(year, holidays)
+  }
+  return holidays
+}
+
+/**
+ * Get all Norwegian public holidays for a given year.
+ */
+export function getPublicHolidays(year: number): Map<string, string> {
+  return new Map(Object.entries(getHolidaysForYear(year)))
+}
+
+/**
+ * Check if a date is a Norwegian public holiday.
+ */
+export function isPublicHoliday(date: Date): boolean {
+  const day = date.getDay()
+  if (day === 0 || day === 6) return true // Saturday or Sunday
+  const key = formatDateKey(date)
+  return key in getHolidaysForYear(date.getFullYear())
+}
+
+/**
+ * Check if a date is a business day (not weekend, not public holiday).
+ */
+export function isBusinessDay(date: Date): boolean {
+  return !isPublicHoliday(date)
+}
+
+/**
+ * Get the weekday key for a date (mon, tue, wed, thu, fri, sat, sun).
+ */
+export function getWeekdayKey(date: Date): string {
+  const days = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
+  return days[date.getDay()]
+}

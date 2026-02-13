@@ -112,6 +112,10 @@ export interface DeviationNotification {
 // Block Builders
 // =============================================================================
 
+function truncate(text: string, maxLength: number): string {
+  return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text
+}
+
 /**
  * Build Slack Block Kit blocks for deployment notification
  */
@@ -424,6 +428,119 @@ export function buildHomeTabBlocks({ baseUrl, stats, appsWithIssues, issueDeploy
       },
     ],
   })
+
+  return blocks
+}
+
+// =============================================================================
+// Reminder Blocks
+// =============================================================================
+
+export interface ReminderDeployment {
+  id: number
+  commitSha: string
+  commitMessage?: string
+  deployerName: string
+  status: string
+  createdAt: string
+  detailsUrl: string
+}
+
+export interface ReminderNotification {
+  appName: string
+  environmentName: string
+  teamSlug: string
+  deployments: ReminderDeployment[]
+  /** URL to the filtered deployment list */
+  deploymentsListUrl: string
+}
+
+const REMINDER_DETAIL_LIMIT = 5
+
+/**
+ * Build Slack Block Kit blocks for a reminder notification.
+ * Shows individual deployments if ≤5, otherwise a summary.
+ */
+export function buildReminderBlocks(notification: ReminderNotification): KnownBlock[] {
+  const { appName, environmentName, deployments, deploymentsListUrl } = notification
+  const count = deployments.length
+
+  const blocks: KnownBlock[] = [
+    {
+      type: 'header',
+      text: {
+        type: 'plain_text',
+        text: `🔔 ${count} deployment${count === 1 ? '' : 's'} mangler godkjenning`,
+        emoji: true,
+      },
+    },
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `*${appName}* (${environmentName})`,
+      },
+    },
+  ]
+
+  if (count <= REMINDER_DETAIL_LIMIT) {
+    for (const dep of deployments) {
+      const shortSha = dep.commitSha.substring(0, 7)
+      const title = dep.commitMessage ? truncate(dep.commitMessage, 60) : `Commit ${shortSha}`
+      const statusEmoji = getStatusEmoji(dep.status as DeploymentNotification['status'])
+
+      blocks.push(
+        { type: 'divider' },
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: `${statusEmoji} *<${dep.detailsUrl}|#${dep.id}>* ${title}\n\`${shortSha}\` — ${dep.deployerName} — ${dep.createdAt}`,
+          },
+        },
+      )
+    }
+  } else {
+    blocks.push(
+      { type: 'divider' },
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `Det er *${count} deployments* som mangler godkjenning. Gå til deployment-oversikten for å se detaljer.`,
+        },
+      },
+    )
+  }
+
+  blocks.push(
+    { type: 'divider' },
+    {
+      type: 'actions',
+      elements: [
+        {
+          type: 'button',
+          text: {
+            type: 'plain_text',
+            text: '📋 Se alle deployments',
+            emoji: true,
+          },
+          action_id: 'view_reminder_deployments',
+          url: deploymentsListUrl,
+          style: 'primary',
+        },
+      ],
+    },
+    {
+      type: 'context',
+      elements: [
+        {
+          type: 'mrkdwn',
+          text: `Team: ${notification.teamSlug} | Automatisk påminnelse`,
+        },
+      ],
+    },
+  )
 
   return blocks
 }
