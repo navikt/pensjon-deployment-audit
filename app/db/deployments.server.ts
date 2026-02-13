@@ -1,3 +1,4 @@
+import { NOT_APPROVED_STATUSES, PENDING_STATUSES } from '~/lib/four-eyes-status'
 import { pool } from './connection.server'
 
 export interface UnverifiedCommit {
@@ -232,7 +233,13 @@ export async function getDeploymentsPaginated(filters?: DeploymentFilters): Prom
 
   if (filters?.four_eyes_status) {
     if (filters.four_eyes_status === 'not_approved') {
-      whereSql += ` AND d.four_eyes_status IN ('direct_push', 'unverified_commits', 'approved_pr_with_unreviewed')`
+      whereSql += ` AND d.four_eyes_status = ANY($${paramIndex})`
+      params.push(NOT_APPROVED_STATUSES)
+      paramIndex++
+    } else if (filters.four_eyes_status === 'pending') {
+      whereSql += ` AND d.four_eyes_status = ANY($${paramIndex})`
+      params.push(PENDING_STATUSES)
+      paramIndex++
     } else {
       whereSql += ` AND d.four_eyes_status = $${paramIndex}`
       params.push(filters.four_eyes_status)
@@ -391,14 +398,14 @@ export async function getVerificationStats(monitoredAppId?: number): Promise<{
   let sql = `
     SELECT 
       COUNT(*) as total,
-      COUNT(CASE WHEN four_eyes_status = 'pending' THEN 1 END) as pending,
+      COUNT(CASE WHEN four_eyes_status = ANY($1) THEN 1 END) as pending,
       COUNT(CASE WHEN four_eyes_status = 'error' THEN 1 END) as error
     FROM deployments
   `
 
-  const params: any[] = []
+  const params: any[] = [PENDING_STATUSES]
   if (monitoredAppId) {
-    sql += ' WHERE monitored_app_id = $1'
+    sql += ' WHERE monitored_app_id = $2'
     params.push(monitoredAppId)
   }
 
@@ -625,9 +632,13 @@ function buildNavFilterConditions(
   if (filters.four_eyes_status) {
     // Handle meta-statuses that map to multiple four_eyes_status values
     if (filters.four_eyes_status === 'not_approved') {
-      conditions.push(
-        "nav_dep.four_eyes_status IN ('direct_push', 'unverified_commits', 'approved_pr_with_unreviewed')",
-      )
+      conditions.push(`nav_dep.four_eyes_status = ANY($${idx})`)
+      params.push(NOT_APPROVED_STATUSES)
+      idx++
+    } else if (filters.four_eyes_status === 'pending') {
+      conditions.push(`nav_dep.four_eyes_status = ANY($${idx})`)
+      params.push(PENDING_STATUSES)
+      idx++
     } else {
       conditions.push(`nav_dep.four_eyes_status = $${idx}`)
       params.push(filters.four_eyes_status)
@@ -751,15 +762,15 @@ export async function getAppDeploymentStats(
   let sql = `SELECT 
       COUNT(*) as total,
       SUM(CASE WHEN has_four_eyes = true THEN 1 ELSE 0 END) as with_four_eyes,
-      SUM(CASE WHEN has_four_eyes = false OR four_eyes_status IN ('legacy_pending', 'pending_baseline') THEN 1 ELSE 0 END) as without_four_eyes,
-      SUM(CASE WHEN four_eyes_status = 'pending' THEN 1 ELSE 0 END) as pending_verification,
+      SUM(CASE WHEN four_eyes_status = ANY($2) THEN 1 ELSE 0 END) as without_four_eyes,
+      SUM(CASE WHEN four_eyes_status = ANY($3) THEN 1 ELSE 0 END) as pending_verification,
       MAX(created_at) as last_deployment,
       (SELECT id FROM deployments WHERE monitored_app_id = $1 ORDER BY created_at DESC LIMIT 1) as last_deployment_id
     FROM deployments
     WHERE monitored_app_id = $1`
 
-  const params: any[] = [monitoredAppId]
-  let paramIndex = 2
+  const params: any[] = [monitoredAppId, NOT_APPROVED_STATUSES, PENDING_STATUSES]
+  let paramIndex = 4
 
   // Filter by audit start year if specified
   if (auditStartYear) {
@@ -823,13 +834,13 @@ export async function getAppDeploymentStatsBatch(
       monitored_app_id,
       COUNT(*) as total,
       SUM(CASE WHEN has_four_eyes = true THEN 1 ELSE 0 END) as with_four_eyes,
-      SUM(CASE WHEN has_four_eyes = false OR four_eyes_status IN ('legacy_pending', 'pending_baseline') THEN 1 ELSE 0 END) as without_four_eyes,
-      SUM(CASE WHEN four_eyes_status = 'pending' THEN 1 ELSE 0 END) as pending_verification,
+      SUM(CASE WHEN four_eyes_status = ANY($2) THEN 1 ELSE 0 END) as without_four_eyes,
+      SUM(CASE WHEN four_eyes_status = ANY($3) THEN 1 ELSE 0 END) as pending_verification,
       MAX(created_at) as last_deployment
     FROM deployments
     WHERE monitored_app_id = ANY($1) ${auditYearFilter}
     GROUP BY monitored_app_id`,
-    [appIds],
+    [appIds, NOT_APPROVED_STATUSES, PENDING_STATUSES],
   )
 
   // Get last deployment IDs in a separate query for simplicity
@@ -1128,7 +1139,8 @@ export async function getHomeTabSummaryStats(): Promise<{
   withoutFourEyes: number
   pendingVerification: number
 }> {
-  const result = await pool.query(`
+  const result = await pool.query(
+    `
     SELECT 
       (SELECT COUNT(*) FROM monitored_applications WHERE is_active = true) as total_apps,
       (SELECT COUNT(*) FROM deployments d 
@@ -1136,12 +1148,13 @@ export async function getHomeTabSummaryStats(): Promise<{
        WHERE ma.is_active = true) as total_deployments,
       (SELECT COUNT(*) FROM deployments d 
        JOIN monitored_applications ma ON d.monitored_app_id = ma.id 
-       WHERE ma.is_active = true AND d.has_four_eyes = false 
-       AND d.four_eyes_status NOT IN ('legacy', 'pending')) as without_four_eyes,
+       WHERE ma.is_active = true AND d.four_eyes_status = ANY($1)) as without_four_eyes,
       (SELECT COUNT(*) FROM deployments d 
        JOIN monitored_applications ma ON d.monitored_app_id = ma.id 
-       WHERE ma.is_active = true AND d.four_eyes_status = 'pending') as pending_verification
-  `)
+       WHERE ma.is_active = true AND d.four_eyes_status = ANY($2)) as pending_verification
+  `,
+    [NOT_APPROVED_STATUSES, PENDING_STATUSES],
+  )
   const row = result.rows[0]
   return {
     totalApps: parseInt(row.total_apps, 10) || 0,
@@ -1164,7 +1177,8 @@ export interface AppWithIssues {
  * Get apps that have issues (missing approval, pending verification, or repo alerts)
  */
 export async function getAppsWithIssues(): Promise<AppWithIssues[]> {
-  const result = await pool.query(`
+  const result = await pool.query(
+    `
     SELECT 
       ma.app_name,
       ma.team_slug,
@@ -1175,8 +1189,8 @@ export async function getAppsWithIssues(): Promise<AppWithIssues[]> {
     FROM monitored_applications ma
     LEFT JOIN LATERAL (
       SELECT 
-        SUM(CASE WHEN d.has_four_eyes = false AND d.four_eyes_status NOT IN ('legacy', 'pending', 'legacy_pending', 'pending_baseline') THEN 1 ELSE 0 END) as without_four_eyes,
-        SUM(CASE WHEN d.four_eyes_status = 'pending' THEN 1 ELSE 0 END) as pending_verification
+        SUM(CASE WHEN d.four_eyes_status = ANY($1) THEN 1 ELSE 0 END) as without_four_eyes,
+        SUM(CASE WHEN d.four_eyes_status = ANY($2) THEN 1 ELSE 0 END) as pending_verification
       FROM deployments d
       WHERE d.monitored_app_id = ma.id
         AND (ma.audit_start_year IS NULL OR d.created_at >= make_date(ma.audit_start_year, 1, 1))
@@ -1191,7 +1205,9 @@ export async function getAppsWithIssues(): Promise<AppWithIssues[]> {
         OR COALESCE(dep.pending_verification, 0) > 0 
         OR COALESCE(alerts.count, 0) > 0)
     ORDER BY COALESCE(dep.without_four_eyes, 0) DESC, COALESCE(alerts.count, 0) DESC
-  `)
+  `,
+    [NOT_APPROVED_STATUSES, PENDING_STATUSES],
+  )
   return result.rows
 }
 
