@@ -1,4 +1,4 @@
-import type { DeploymentNotification, HomeTabInput } from '~/lib/slack-blocks'
+import type { DeploymentNotification, DeviationNotification, HomeTabInput } from '~/lib/slack-blocks'
 
 const BASE_URL = 'https://pensjon-deployment-audit.ansatt.nav.no'
 
@@ -208,3 +208,32 @@ export const homeTabFixtures = {
     ]),
   },
 } satisfies Record<string, HomeTabInput>
+
+// =============================================================================
+// Deviation Notification Fixtures
+// =============================================================================
+
+export const deviationFixtures = {
+  standard: {
+    deploymentId: 42,
+    appName: 'pensjon-pen',
+    environmentName: 'prod-gcp',
+    teamSlug: 'pensjondeployer',
+    commitSha: 'abc1234def5678',
+    reason:
+      'Deployment inneholder endringer som ikke var godkjent gjennom standard PR-prosess. Hastefix for kritisk feil i produksjon.',
+    registeredByName: 'Kari Nordmann',
+    detailsUrl: `${BASE_URL}/team/pensjondeployer/env/prod-gcp/app/pensjon-pen/deployments/42`,
+  },
+
+  shortReason: {
+    deploymentId: 99,
+    appName: 'pensjon-selvbetjening',
+    environmentName: 'prod-gcp',
+    teamSlug: 'pensjondeployer',
+    commitSha: '9876abcdef1234',
+    reason: 'Direct push til main uten PR.',
+    registeredByName: 'Ola Nordmann',
+    detailsUrl: `${BASE_URL}/team/pensjondeployer/env/prod-gcp/app/pensjon-selvbetjening/deployments/99`,
+  },
+} satisfies Record<string, DeviationNotification>
