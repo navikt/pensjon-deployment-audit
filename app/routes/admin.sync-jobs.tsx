@@ -20,7 +20,7 @@ import {
   Tag,
   VStack,
 } from '@navikt/ds-react'
-import { Form, useSearchParams } from 'react-router'
+import { Form, Link, useSearchParams } from 'react-router'
 import {
   cleanupOldSyncJobs,
   getAllSyncJobs,
@@ -321,7 +321,15 @@ export default function AdminSyncJobs({ loaderData, actionData }: Route.Componen
       ) : (
         <div>
           {jobs.map((job) => (
-            <Box key={job.id} padding="space-16" background="raised" className={styles.stackedListItem}>
+            <Box
+              key={job.id}
+              padding="space-16"
+              background="raised"
+              className={styles.stackedListItem}
+              as={Link}
+              to={`/team/${job.team_slug}/env/${job.environment_name}/app/${job.app_name}/admin/sync-job/${job.id}`}
+              style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}
+            >
               <VStack gap="space-12">
                 {/* First row: ID, App name, Status/Type tags */}
                 <HStack gap="space-8" align="center" justify="space-between" wrap>
