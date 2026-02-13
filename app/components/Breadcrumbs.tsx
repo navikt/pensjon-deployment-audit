@@ -24,6 +24,15 @@ const dynamicBreadcrumbs: Array<{
   parent: string
   getParentLabel?: (matches: ReturnType<typeof useMatches>, pathname: string) => string
 }> = [
+  // Admin sync job detail: /admin/sync-jobs/:jobId
+  {
+    pattern: /^\/admin\/sync-jobs\/(\d+)$/,
+    getLabel: (_matches, pathname) => {
+      const jobId = pathname.split('/')[3]
+      return `Jobb #${jobId}`
+    },
+    parent: '/admin/sync-jobs',
+  },
   // Team page: /team/:team
   {
     pattern: /^\/team\/([^/]+)$/,

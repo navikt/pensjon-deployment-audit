@@ -327,7 +327,7 @@ export default function AdminSyncJobs({ loaderData, actionData }: Route.Componen
               background="raised"
               className={styles.stackedListItem}
               as={Link}
-              to={`/team/${job.team_slug}/env/${job.environment_name}/app/${job.app_name}/admin/sync-job/${job.id}`}
+              to={`/admin/sync-jobs/${job.id}`}
               style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}
             >
               <VStack gap="space-12">
