@@ -227,6 +227,10 @@ export const deviationFixtures = {
     commitSha: 'abc1234def5678',
     reason:
       'Deployment inneholder endringer som ikke var godkjent gjennom standard PR-prosess. Hastefix for kritisk feil i produksjon.',
+    breachType: 'Brudd på rutine for endringshåndtering',
+    intent: 'accidental',
+    severity: 'high',
+    followUpRole: 'delivery_lead',
     registeredByName: 'Kari Nordmann',
     detailsUrl: `${BASE_URL}/team/pensjondeployer/env/prod-gcp/app/pensjon-pen/deployments/42`,
   },
@@ -240,6 +244,22 @@ export const deviationFixtures = {
     reason: 'Direct push til main uten PR.',
     registeredByName: 'Ola Nordmann',
     detailsUrl: `${BASE_URL}/team/pensjondeployer/env/prod-gcp/app/pensjon-selvbetjening/deployments/99`,
+  },
+
+  critical: {
+    deploymentId: 150,
+    appName: 'pensjon-opptjening',
+    environmentName: 'prod-gcp',
+    teamSlug: 'pensjondeployer',
+    commitSha: 'deadbeef12345678',
+    reason:
+      'Deployment med uautorisert tilgang til personopplysninger. Mulig GDPR-brudd oppdaget i kode som ble deployet uten godkjenning.',
+    breachType: 'Brudd på personvernforordningen (GDPR)',
+    intent: 'malicious',
+    severity: 'critical',
+    followUpRole: 'section_lead',
+    registeredByName: 'Per Hansen',
+    detailsUrl: `${BASE_URL}/team/pensjondeployer/env/prod-gcp/app/pensjon-opptjening/deployments/150`,
   },
 } satisfies Record<string, DeviationNotification>
 

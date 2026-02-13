@@ -1,6 +1,14 @@
 import { join } from 'node:path'
 import { Document, Font, Link, Page, renderToBuffer, StyleSheet, Text, View } from '@react-pdf/renderer'
 import type { AuditReportData, DeviationEntry, ManualApprovalEntry } from '~/db/audit-reports.server'
+import {
+  DEVIATION_FOLLOW_UP_ROLE_LABELS,
+  DEVIATION_INTENT_LABELS,
+  DEVIATION_SEVERITY_LABELS,
+  type DeviationFollowUpRole,
+  type DeviationIntent,
+  type DeviationSeverity,
+} from '~/lib/deviation-constants'
 
 // Register fonts from local files (downloaded during Docker build)
 // In production: /app/fonts/
@@ -746,7 +754,26 @@ function AuditReportPdfDocument(props: AuditReportPdfProps) {
                     'N/A'
                   )}
                 </Text>
-                <Text style={styles.manualDetail}>Begrunnelse: {deviation.reason}</Text>
+                <Text style={styles.manualDetail}>Beskrivelse: {deviation.reason}</Text>
+                {deviation.breach_type && <Text style={styles.manualDetail}>Type brudd: {deviation.breach_type}</Text>}
+                {deviation.intent && (
+                  <Text style={styles.manualDetail}>
+                    Intensjon: {DEVIATION_INTENT_LABELS[deviation.intent as DeviationIntent] || deviation.intent}
+                  </Text>
+                )}
+                {deviation.severity && (
+                  <Text style={styles.manualDetail}>
+                    Alvorlighetsgrad:{' '}
+                    {DEVIATION_SEVERITY_LABELS[deviation.severity as DeviationSeverity] || deviation.severity}
+                  </Text>
+                )}
+                {deviation.follow_up_role && (
+                  <Text style={styles.manualDetail}>
+                    Oppfølgingsansvarlig:{' '}
+                    {DEVIATION_FOLLOW_UP_ROLE_LABELS[deviation.follow_up_role as DeviationFollowUpRole] ||
+                      deviation.follow_up_role}
+                  </Text>
+                )}
                 <Text style={styles.manualDetail}>
                   Registrert av: {deviation.registered_by_name || deviation.registered_by}
                 </Text>

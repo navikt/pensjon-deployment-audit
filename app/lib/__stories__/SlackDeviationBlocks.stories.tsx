@@ -19,8 +19,15 @@ export const Standard: Story = {
 }
 
 export const ShortReason: Story = {
-  name: '⚠️ Kort begrunnelse',
+  name: '⚠️ Minimal (kun beskrivelse)',
   args: {
     blocks: buildDeviationBlocks(deviationFixtures.shortReason),
+  },
+}
+
+export const Critical: Story = {
+  name: '🚨 Kritisk avvik',
+  args: {
+    blocks: buildDeviationBlocks(deviationFixtures.critical),
   },
 }

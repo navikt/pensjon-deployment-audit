@@ -1,9 +1,22 @@
 import { query } from './connection.server'
 
+export type { DeviationFollowUpRole, DeviationIntent, DeviationSeverity } from '~/lib/deviation-constants'
+export {
+  DEVIATION_FOLLOW_UP_ROLE_LABELS,
+  DEVIATION_INTENT_LABELS,
+  DEVIATION_SEVERITY_LABELS,
+} from '~/lib/deviation-constants'
+
+import type { DeviationFollowUpRole, DeviationIntent, DeviationSeverity } from '~/lib/deviation-constants'
+
 export interface DeploymentDeviation {
   id: number
   deployment_id: number
   reason: string
+  breach_type: string | null
+  intent: DeviationIntent | null
+  severity: DeviationSeverity | null
+  follow_up_role: DeviationFollowUpRole | null
   registered_by: string
   registered_by_name: string | null
   resolved_at: Date | null
@@ -25,16 +38,29 @@ export interface DeploymentDeviationWithContext extends DeploymentDeviation {
 export interface CreateDeviationParams {
   deployment_id: number
   reason: string
+  breach_type?: string
+  intent?: DeviationIntent
+  severity?: DeviationSeverity
+  follow_up_role?: DeviationFollowUpRole
   registered_by: string
   registered_by_name?: string
 }
 
 export async function createDeviation(params: CreateDeviationParams): Promise<DeploymentDeviation> {
   const result = await query<DeploymentDeviation>(
-    `INSERT INTO deployment_deviations (deployment_id, reason, registered_by, registered_by_name)
-     VALUES ($1, $2, $3, $4)
+    `INSERT INTO deployment_deviations (deployment_id, reason, breach_type, intent, severity, follow_up_role, registered_by, registered_by_name)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      RETURNING *`,
-    [params.deployment_id, params.reason, params.registered_by, params.registered_by_name || null],
+    [
+      params.deployment_id,
+      params.reason,
+      params.breach_type || null,
+      params.intent || null,
+      params.severity || null,
+      params.follow_up_role || null,
+      params.registered_by,
+      params.registered_by_name || null,
+    ],
   )
   return result.rows[0]
 }

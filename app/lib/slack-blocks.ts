@@ -7,6 +7,14 @@
  */
 
 import type { KnownBlock } from '@slack/types'
+import {
+  DEVIATION_FOLLOW_UP_ROLE_LABELS,
+  DEVIATION_INTENT_LABELS,
+  DEVIATION_SEVERITY_LABELS,
+  type DeviationFollowUpRole,
+  type DeviationIntent,
+  type DeviationSeverity,
+} from '~/lib/deviation-constants'
 
 // =============================================================================
 // Types
@@ -104,6 +112,10 @@ export interface DeviationNotification {
   teamSlug: string
   commitSha: string
   reason: string
+  breachType?: string
+  intent?: string
+  severity?: string
+  followUpRole?: string
   registeredByName: string
   detailsUrl: string
 }
@@ -233,7 +245,33 @@ export function buildDeploymentBlocks(notification: DeploymentNotification): Kno
 export function buildDeviationBlocks(notification: DeviationNotification): KnownBlock[] {
   const shortSha = notification.commitSha.substring(0, 7)
 
-  return [
+  const fields = [
+    { type: 'mrkdwn' as const, text: `*App:*\n${notification.appName}` },
+    { type: 'mrkdwn' as const, text: `*Miljø:*\n${notification.environmentName}` },
+    { type: 'mrkdwn' as const, text: `*Commit:*\n\`${shortSha}\`` },
+    { type: 'mrkdwn' as const, text: `*Registrert av:*\n${notification.registeredByName}` },
+  ]
+
+  if (notification.severity) {
+    fields.push({
+      type: 'mrkdwn' as const,
+      text: `*Alvorlighetsgrad:*\n${DEVIATION_SEVERITY_LABELS[notification.severity as DeviationSeverity] || notification.severity}`,
+    })
+  }
+  if (notification.intent) {
+    fields.push({
+      type: 'mrkdwn' as const,
+      text: `*Intensjon:*\n${DEVIATION_INTENT_LABELS[notification.intent as DeviationIntent] || notification.intent}`,
+    })
+  }
+  if (notification.followUpRole) {
+    fields.push({
+      type: 'mrkdwn' as const,
+      text: `*Oppfølgingsansvarlig:*\n${DEVIATION_FOLLOW_UP_ROLE_LABELS[notification.followUpRole as DeviationFollowUpRole] || notification.followUpRole}`,
+    })
+  }
+
+  const blocks: KnownBlock[] = [
     {
       type: 'header',
       text: {
@@ -244,18 +282,26 @@ export function buildDeviationBlocks(notification: DeviationNotification): Known
     },
     {
       type: 'section',
-      fields: [
-        { type: 'mrkdwn', text: `*App:*\n${notification.appName}` },
-        { type: 'mrkdwn', text: `*Miljø:*\n${notification.environmentName}` },
-        { type: 'mrkdwn', text: `*Commit:*\n\`${shortSha}\`` },
-        { type: 'mrkdwn', text: `*Registrert av:*\n${notification.registeredByName}` },
-      ],
+      fields,
     },
+  ]
+
+  if (notification.breachType) {
+    blocks.push({
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `*Type brudd:*\n${notification.breachType}`,
+      },
+    })
+  }
+
+  blocks.push(
     {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*Begrunnelse:*\n${notification.reason}`,
+        text: `*Beskrivelse:*\n${notification.reason}`,
       },
     },
     {
@@ -282,7 +328,9 @@ export function buildDeviationBlocks(notification: DeviationNotification): Known
         },
       ],
     },
-  ]
+  )
+
+  return blocks
 }
 
 /**

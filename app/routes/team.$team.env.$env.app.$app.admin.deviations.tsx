@@ -7,7 +7,12 @@
 import { ExclamationmarkTriangleIcon } from '@navikt/aksel-icons'
 import { Link as AkselLink, BodyShort, Box, Detail, Heading, HStack, Tag, ToggleGroup, VStack } from '@navikt/ds-react'
 import { Link, useLoaderData, useSearchParams } from 'react-router'
-import { getDeviationsByAppId } from '~/db/deviations.server'
+import {
+  DEVIATION_FOLLOW_UP_ROLE_LABELS,
+  DEVIATION_INTENT_LABELS,
+  DEVIATION_SEVERITY_LABELS,
+  getDeviationsByAppId,
+} from '~/db/deviations.server'
 import { getMonitoredApplicationByIdentity } from '~/db/monitored-applications.server'
 import { requireAdmin } from '~/lib/auth.server'
 import type { Route } from './+types/team.$team.env.$env.app.$app.admin.deviations'
@@ -99,6 +104,33 @@ export default function AppDeviationsPage() {
                   </HStack>
 
                   <BodyShort>{deviation.reason}</BodyShort>
+
+                  <HStack gap="space-12" wrap>
+                    {deviation.breach_type && <Detail weight="semibold">{deviation.breach_type}</Detail>}
+                    {deviation.severity && (
+                      <Tag
+                        size="xsmall"
+                        variant="moderate"
+                        data-color={
+                          deviation.severity === 'critical' || deviation.severity === 'high'
+                            ? 'danger'
+                            : deviation.severity === 'medium'
+                              ? 'warning'
+                              : 'neutral'
+                        }
+                      >
+                        {DEVIATION_SEVERITY_LABELS[deviation.severity]}
+                      </Tag>
+                    )}
+                    {deviation.intent && (
+                      <Detail textColor="subtle">Intensjon: {DEVIATION_INTENT_LABELS[deviation.intent]}</Detail>
+                    )}
+                    {deviation.follow_up_role && (
+                      <Detail textColor="subtle">
+                        Oppfølging: {DEVIATION_FOLLOW_UP_ROLE_LABELS[deviation.follow_up_role]}
+                      </Detail>
+                    )}
+                  </HStack>
 
                   <Detail textColor="subtle">
                     Registrert av {deviation.registered_by_name || deviation.registered_by}

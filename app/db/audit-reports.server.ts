@@ -67,6 +67,10 @@ export interface DeviationEntry {
   date: string
   commit_sha: string
   reason: string
+  breach_type: string | null
+  intent: string | null
+  severity: string | null
+  follow_up_role: string | null
   registered_by: string
   registered_by_name: string | null
   resolved_at: string | null
@@ -582,6 +586,10 @@ export function buildReportData(rawData: Awaited<ReturnType<typeof getAuditRepor
       date: d.created_at.toISOString(),
       commit_sha: deployment?.commit_sha || '',
       reason: d.reason,
+      breach_type: d.breach_type || null,
+      intent: d.intent || null,
+      severity: d.severity || null,
+      follow_up_role: d.follow_up_role || null,
       registered_by: d.registered_by,
       registered_by_name: d.registered_by_name || getDisplayName(d.registered_by) || null,
       resolved_at: d.resolved_at?.toISOString() || null,

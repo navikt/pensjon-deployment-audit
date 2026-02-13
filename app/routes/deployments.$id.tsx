@@ -23,6 +23,9 @@ import {
   HGrid,
   HStack,
   Modal,
+  Radio,
+  RadioGroup,
+  Select,
   Tag,
   Textarea,
   TextField,
@@ -47,7 +50,13 @@ import {
   updateDeploymentFourEyes,
   updateDeploymentLegacyData,
 } from '~/db/deployments.server'
-import { createDeviation, getDeviationsByDeploymentId } from '~/db/deviations.server'
+import {
+  createDeviation,
+  DEVIATION_FOLLOW_UP_ROLE_LABELS,
+  DEVIATION_INTENT_LABELS,
+  DEVIATION_SEVERITY_LABELS,
+  getDeviationsByDeploymentId,
+} from '~/db/deviations.server'
 import { getDeviationSlackChannel } from '~/db/global-settings.server'
 import { getMonitoredApplicationById } from '~/db/monitored-applications.server'
 import { getUserMappings } from '~/db/user-mappings.server'
@@ -335,12 +344,16 @@ export async function action({ request, params }: Route.ActionArgs) {
   if (intent === 'register_deviation') {
     const identity = await getUserIdentity(request)
     const reason = formData.get('deviation_reason') as string
+    const breachType = formData.get('deviation_breach_type') as string
+    const deviationIntent = formData.get('deviation_intent') as string
+    const severity = formData.get('deviation_severity') as string
+    const followUpRole = formData.get('deviation_follow_up_role') as string
 
     if (!identity?.navIdent) {
       return { error: 'Kunne ikke identifisere bruker. Vennligst logg inn på nytt.' }
     }
     if (!reason || reason.trim() === '') {
-      return { error: 'Begrunnelse for avvik er påkrevd' }
+      return { error: 'Beskrivelse av avvik er påkrevd' }
     }
 
     try {
@@ -354,6 +367,10 @@ export async function action({ request, params }: Route.ActionArgs) {
       await createDeviation({
         deployment_id: deploymentId,
         reason: reason.trim(),
+        breach_type: breachType?.trim() || undefined,
+        intent: (deviationIntent as 'malicious' | 'accidental' | 'unknown') || undefined,
+        severity: (severity as 'low' | 'medium' | 'high' | 'critical') || undefined,
+        follow_up_role: (followUpRole as 'product_lead' | 'delivery_lead' | 'section_lead') || undefined,
         registered_by: identity.navIdent,
         registered_by_name: identity.name,
       })
@@ -371,6 +388,10 @@ export async function action({ request, params }: Route.ActionArgs) {
             teamSlug: app?.team_slug || 'Ukjent',
             commitSha: deployment.commit_sha || 'Ukjent',
             reason: reason.trim(),
+            breachType: breachType?.trim() || undefined,
+            intent: deviationIntent || undefined,
+            severity: severity || undefined,
+            followUpRole: followUpRole || undefined,
             registeredByName: identity.name || identity.navIdent,
             detailsUrl: `${baseUrl}${appUrl}/deployments/${deploymentId}`,
           },
@@ -2275,8 +2296,38 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                         Åpen
                       </Tag>
                     )}
+                    {deviation.severity && (
+                      <Tag
+                        size="xsmall"
+                        variant="moderate"
+                        data-color={
+                          deviation.severity === 'critical' || deviation.severity === 'high'
+                            ? 'danger'
+                            : deviation.severity === 'medium'
+                              ? 'warning'
+                              : 'neutral'
+                        }
+                      >
+                        {DEVIATION_SEVERITY_LABELS[deviation.severity]}
+                      </Tag>
+                    )}
                   </HStack>
+                  {deviation.breach_type && (
+                    <BodyShort size="small" weight="semibold">
+                      {deviation.breach_type}
+                    </BodyShort>
+                  )}
                   <BodyShort>{deviation.reason}</BodyShort>
+                  <HStack gap="space-12" wrap>
+                    {deviation.intent && (
+                      <Detail textColor="subtle">Intensjon: {DEVIATION_INTENT_LABELS[deviation.intent]}</Detail>
+                    )}
+                    {deviation.follow_up_role && (
+                      <Detail textColor="subtle">
+                        Oppfølging: {DEVIATION_FOLLOW_UP_ROLE_LABELS[deviation.follow_up_role]}
+                      </Detail>
+                    )}
+                  </HStack>
                   {deviation.resolved_at && deviation.resolution_note && (
                     <BodyShort size="small" textColor="subtle">
                       Løsning: {deviation.resolution_note}
@@ -2299,13 +2350,40 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
           >
             <input type="hidden" name="intent" value="register_deviation" />
             <VStack gap="space-16">
+              <TextField
+                label="Type brudd"
+                name="deviation_breach_type"
+                description="Hvilken lov, forskrift, rutine eller regel er brutt?"
+              />
               <Textarea
-                label="Begrunnelse"
+                label="Beskrivelse"
                 name="deviation_reason"
                 value={deviationReason}
                 onChange={(e) => setDeviationReason(e.target.value)}
-                description="Beskriv avviket og hvorfor det oppstod"
+                description="Beskriv avviket, hva som skjedde og konsekvensene"
               />
+              <RadioGroup legend="Intensjon" name="deviation_intent" defaultValue="unknown">
+                {Object.entries(DEVIATION_INTENT_LABELS).map(([value, label]) => (
+                  <Radio key={value} value={value}>
+                    {label}
+                  </Radio>
+                ))}
+              </RadioGroup>
+              <RadioGroup legend="Alvorlighetsgrad" name="deviation_severity" defaultValue="medium">
+                {Object.entries(DEVIATION_SEVERITY_LABELS).map(([value, label]) => (
+                  <Radio key={value} value={value}>
+                    {label}
+                  </Radio>
+                ))}
+              </RadioGroup>
+              <Select label="Oppfølgingsansvarlig" name="deviation_follow_up_role">
+                <option value="">Velg rolle</option>
+                {Object.entries(DEVIATION_FOLLOW_UP_ROLE_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </Select>
             </VStack>
             <Modal.Footer>
               <Button type="submit" variant="danger">
