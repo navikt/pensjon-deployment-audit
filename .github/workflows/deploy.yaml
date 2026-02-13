@@ -23,6 +23,7 @@ jobs:
           team: pensjon-revisjon
           identity_provider: ${{ secrets.NAIS_WORKLOAD_IDENTITY_PROVIDER }}
           project_id: ${{ vars.NAIS_MANAGEMENT_PROJECT_ID }}
+          build_args: GITHUB_SHA=${{ github.sha }}
 
       - name: Deploy to prod-gcp
         uses: nais/deploy/actions/deploy@fa754451577294aae42872a69b888b3470478ec1

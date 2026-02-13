@@ -3,6 +3,9 @@ FROM node:24-bookworm-slim AS builder
 
 WORKDIR /app
 
+ARG GITHUB_SHA
+ENV GITHUB_SHA=${GITHUB_SHA}
+
 # Copy package files
 COPY package.json package-lock.json ./
 
