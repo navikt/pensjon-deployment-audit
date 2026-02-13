@@ -27,13 +27,7 @@ import {
   updateSlackNotification,
 } from '~/db/slack-notifications.server'
 import { getUserMappingBySlackId } from '~/db/user-mappings.server'
-import {
-  buildDeploymentBlocks,
-  buildHomeTabBlocks,
-  type DeploymentNotification,
-  getStatusEmoji,
-  getStatusText,
-} from './slack-blocks'
+import { buildDeploymentBlocks, buildHomeTabBlocks, type DeploymentNotification, getStatusEmoji } from './slack-blocks'
 
 // Re-export types and functions from slack-blocks for backward compatibility
 export type { DeploymentNotification, HomeTabInput } from './slack-blocks'
