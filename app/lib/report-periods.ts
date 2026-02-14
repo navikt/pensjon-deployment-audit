@@ -102,7 +102,7 @@ export function isPeriodCompleted(period: ReportPeriod, referenceDate: Date = ne
  * Generate a report ID incorporating the period type.
  */
 export function generateReportId(
-  periodType: ReportPeriodType,
+  _periodType: ReportPeriodType,
   periodLabel: string,
   appName: string,
   environment: string,

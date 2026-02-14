@@ -18,7 +18,7 @@ import {
   VStack,
 } from '@navikt/ds-react'
 import { useCallback, useEffect, useState } from 'react'
-import { Form, Link, useNavigation, useRevalidator, useSearchParams } from 'react-router'
+import { Form, Link, useNavigation, useRevalidator } from 'react-router'
 import {
   getAppConfigAuditLog,
   getImplicitApprovalSettings,
@@ -160,11 +160,6 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   // Check if this is a production app (audit reports only make sense for prod)
   const isProdApp = app.environment_name.startsWith('prod-')
 
-  // Get selected year from URL or default to last year
-  const url = new URL(request.url)
-  const currentYear = new Date().getFullYear()
-  const selectedYear = Number(url.searchParams.get('year')) || currentYear - 1
-
   const [implicitApprovalSettings, recentConfigChanges, auditReports, latestFetchJob, githubDataStats] =
     await Promise.all([
       getImplicitApprovalSettings(app.id),
@@ -180,7 +175,6 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     recentConfigChanges,
     auditReports,
     isProdApp,
-    selectedYear,
     latestFetchJob,
     githubDataStats,
   }
@@ -417,14 +411,12 @@ export default function AppAdmin({ loaderData, actionData }: Route.ComponentProp
     recentConfigChanges,
     auditReports,
     isProdApp,
-    selectedYear,
     latestFetchJob,
     githubDataStats,
   } = loaderData
   const navigation = useNavigation()
   const revalidator = useRevalidator()
   const isSubmitting = navigation.state === 'submitting'
-  const [, setSearchParams] = useSearchParams()
 
   // Polling state for report background job
   const [pendingJobId, setPendingJobId] = useState<string | null>(null)
