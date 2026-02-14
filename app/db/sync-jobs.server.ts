@@ -46,7 +46,7 @@ export interface SyncJob {
 
 // Get pod identifier from environment or generate one
 const POD_ID = process.env.HOSTNAME || `local-${process.pid}`
-const APP_VERSION = typeof __GIT_SHA__ !== 'undefined' ? __GIT_SHA__ : 'unknown'
+const APP_VERSION = typeof __BUILD_VERSION__ !== 'undefined' ? __BUILD_VERSION__ : 'unknown'
 
 /**
  * Release expired locks - should be called periodically

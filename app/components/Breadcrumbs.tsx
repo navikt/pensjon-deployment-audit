@@ -316,9 +316,7 @@ export function Breadcrumbs() {
             })}
           </HStack>
         </nav>
-        <Detail textColor="subtle">
-          {__GIT_SHA__} · {new Date(__BUILD_TIME__).toLocaleDateString('no-NO')}
-        </Detail>
+        <Detail textColor="subtle">{__BUILD_VERSION__}</Detail>
       </HStack>
     </Box>
   )
