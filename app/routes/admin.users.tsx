@@ -13,7 +13,6 @@ import {
   VStack,
 } from '@navikt/ds-react'
 import { useEffect, useRef, useState } from 'react'
-import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router'
 import { Form, Link, useActionData, useLoaderData, useNavigation } from 'react-router'
 import {
   deleteUserMapping,
@@ -25,15 +24,16 @@ import {
 import { requireAdmin } from '~/lib/auth.server'
 import { isGitHubBot } from '~/lib/github-bots'
 import styles from '~/styles/common.module.css'
+import type { Route } from './+types/admin.users'
 
-export async function loader({ request }: LoaderFunctionArgs) {
+export async function loader({ request }: Route.LoaderArgs) {
   await requireAdmin(request)
 
   const [mappings, unmappedUsers] = await Promise.all([getAllUserMappings(), getUnmappedUsers()])
   return { mappings, unmappedUsers }
 }
 
-export async function action({ request }: ActionFunctionArgs) {
+export async function action({ request }: Route.ActionArgs) {
   await requireAdmin(request)
 
   const formData = await request.formData()

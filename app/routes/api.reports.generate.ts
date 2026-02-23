@@ -1,14 +1,15 @@
 import { createHash } from 'node:crypto'
-import { type ActionFunctionArgs, data } from 'react-router'
+import { data } from 'react-router'
 import { buildReportData, getAuditReportData } from '~/db/audit-reports.server'
 import { createReportJob, updateReportJobStatus } from '~/db/report-jobs.server'
 import { generateAuditReportPdf } from '~/lib/audit-report-pdf'
 import { requireAdmin } from '~/lib/auth.server'
 import { logger } from '~/lib/logger.server'
 import type { ReportPeriodType } from '~/lib/report-periods'
+import type { Route } from './+types/api.reports.generate'
 
 // POST: Create a new report generation job
-export async function action({ request }: ActionFunctionArgs) {
+export async function action({ request }: Route.ActionArgs) {
   await requireAdmin(request)
 
   const formData = await request.formData()

@@ -1,6 +1,6 @@
 import { ChevronLeftIcon, ChevronRightIcon } from '@navikt/aksel-icons'
 import { BodyShort, Box, Button, Detail, Hide, HStack, Select, Show, TextField, VStack } from '@navikt/ds-react'
-import { Form, Link, type LoaderFunctionArgs, redirect, useLoaderData, useSearchParams } from 'react-router'
+import { Form, Link, redirect, useLoaderData, useSearchParams } from 'react-router'
 import { MethodTag, StatusTag } from '~/components/deployment-tags'
 import { type DeploymentFilters, getDeploymentsPaginated } from '~/db/deployments.server'
 import { getMonitoredApplicationByIdentity } from '~/db/monitored-applications.server'
@@ -15,7 +15,7 @@ export function meta({ data }: Route.MetaArgs) {
   return [{ title: data?.app ? `Deployments - ${data.app.app_name}` : 'Deployments' }]
 }
 
-export async function loader({ params, request }: LoaderFunctionArgs) {
+export async function loader({ params, request }: Route.LoaderArgs) {
   const { team, env, app: appName } = params
   if (!team || !env || !appName) {
     throw new Response('Missing route parameters', { status: 400 })

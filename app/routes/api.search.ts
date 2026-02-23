@@ -1,7 +1,7 @@
-import type { LoaderFunctionArgs } from 'react-router'
 import { searchDeployments } from '~/db/deployments.server'
+import type { Route } from './+types/api.search'
 
-export async function loader({ request }: LoaderFunctionArgs) {
+export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url)
   const query = url.searchParams.get('q') || ''
 

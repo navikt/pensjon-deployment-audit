@@ -1,8 +1,8 @@
-import type { LoaderFunctionArgs } from 'react-router'
 import { getAuditReportById } from '~/db/audit-reports.server'
 import { requireAdmin } from '~/lib/auth.server'
+import type { Route } from './+types/admin.audit-reports.$id.pdf'
 
-export async function loader({ request, params }: LoaderFunctionArgs) {
+export async function loader({ request, params }: Route.LoaderArgs) {
   await requireAdmin(request)
 
   const reportId = Number(params.id)

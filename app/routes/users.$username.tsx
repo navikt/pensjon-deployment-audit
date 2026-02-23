@@ -15,25 +15,18 @@ import {
   VStack,
 } from '@navikt/ds-react'
 import { useEffect, useRef } from 'react'
-import {
-  type ActionFunctionArgs,
-  Form,
-  Link,
-  type LoaderFunctionArgs,
-  useActionData,
-  useLoaderData,
-  useNavigation,
-} from 'react-router'
+import { Form, Link, useActionData, useLoaderData, useNavigation } from 'react-router'
 import { getDeploymentCountByDeployer, getDeploymentsByDeployer } from '~/db/deployments.server'
 import { getUserMapping, upsertUserMapping } from '~/db/user-mappings.server'
 import { getBotDescription, getBotDisplayName, isGitHubBot } from '~/lib/github-bots'
 import styles from '~/styles/common.module.css'
+import type { Route } from './+types/users.$username'
 
 export function meta({ data }: { data: { username: string } }) {
   return [{ title: `${data?.username || 'Bruker'} - Deployment Audit` }]
 }
 
-export async function loader({ params }: LoaderFunctionArgs) {
+export async function loader({ params }: Route.LoaderArgs) {
   const username = params.username
   if (!username) {
     throw new Response('Username required', { status: 400 })
@@ -60,7 +53,7 @@ export async function loader({ params }: LoaderFunctionArgs) {
   }
 }
 
-export async function action({ request }: ActionFunctionArgs) {
+export async function action({ request }: Route.ActionArgs) {
   const formData = await request.formData()
   const intent = formData.get('intent')
 

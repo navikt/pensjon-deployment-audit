@@ -1,6 +1,6 @@
 import { ChatIcon, ClockIcon } from '@navikt/aksel-icons'
 import { Link as AkselLink, Alert, BodyShort, Box, Detail, Heading, HStack, Table, Tag, VStack } from '@navikt/ds-react'
-import { type LoaderFunctionArgs, redirect, useLoaderData } from 'react-router'
+import { redirect, useLoaderData } from 'react-router'
 import { getMonitoredApplicationByIdentity } from '~/db/monitored-applications.server'
 import {
   getSlackInteractions,
@@ -8,8 +8,9 @@ import {
   getSlackNotificationUpdates,
 } from '~/db/slack-notifications.server'
 import { getUserIdentity } from '~/lib/auth.server'
+import type { Route } from './+types/team.$team.env.$env.app.$app.slack'
 
-export async function loader({ params, request }: LoaderFunctionArgs) {
+export async function loader({ params, request }: Route.LoaderArgs) {
   const { team, env, app: appName } = params
   if (!team || !env || !appName) {
     throw new Response('Missing route parameters', { status: 400 })

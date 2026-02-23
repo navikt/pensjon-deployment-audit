@@ -1,8 +1,8 @@
-import type { LoaderFunctionArgs } from 'react-router'
 import { getAllUserMappings } from '~/db/user-mappings.server'
 import { requireAdmin } from '~/lib/auth.server'
+import type { Route } from './+types/admin.users.export'
 
-export async function loader({ request }: LoaderFunctionArgs) {
+export async function loader({ request }: Route.LoaderArgs) {
   await requireAdmin(request)
 
   const mappings = await getAllUserMappings()

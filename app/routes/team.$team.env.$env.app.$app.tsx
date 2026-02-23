@@ -28,16 +28,7 @@ import {
   VStack,
 } from '@navikt/ds-react'
 import { useState } from 'react'
-import {
-  type ActionFunctionArgs,
-  Form,
-  Link,
-  type LoaderFunctionArgs,
-  useActionData,
-  useLoaderData,
-  useRouteLoaderData,
-  useSearchParams,
-} from 'react-router'
+import { Form, Link, useActionData, useLoaderData, useRouteLoaderData, useSearchParams } from 'react-router'
 import { StatCard } from '~/components/StatCard'
 import { getUnresolvedAlertsByApp, resolveRepositoryAlert } from '~/db/alerts.server'
 import { updateImplicitApprovalSettings } from '~/db/app-settings.server'
@@ -53,9 +44,10 @@ import { getMonitoredApplicationByIdentity, updateMonitoredApplication } from '~
 import { getUserIdentity } from '~/lib/auth.server'
 import { logger } from '~/lib/logger.server'
 import { getDateRangeForPeriod, TIME_PERIOD_OPTIONS, type TimePeriod } from '~/lib/time-periods'
+import type { Route } from './+types/team.$team.env.$env.app.$app'
 import type { loader as layoutLoader } from './layout'
 
-export async function loader({ params, request }: LoaderFunctionArgs) {
+export async function loader({ params, request }: Route.LoaderArgs) {
   const { team, env, app: appName } = params
   if (!team || !env || !appName) {
     throw new Response('Missing route parameters', { status: 400 })
@@ -100,7 +92,7 @@ export function meta({ data }: { data?: { app: { app_name: string } } }) {
   return [{ title: `${data?.app?.app_name ?? 'App'} - Pensjon Deployment Audit` }]
 }
 
-export async function action({ request }: ActionFunctionArgs) {
+export async function action({ request }: Route.ActionArgs) {
   const formData = await request.formData()
   const action = formData.get('action')
   const identity = await getUserIdentity(request)

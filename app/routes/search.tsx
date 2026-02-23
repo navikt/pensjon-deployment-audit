@@ -1,14 +1,14 @@
 import { MagnifyingGlassIcon } from '@navikt/aksel-icons'
 import { BodyShort, Box, Heading, Hide, HStack, Search, Show, Tag, VStack } from '@navikt/ds-react'
-import type { LoaderFunctionArgs } from 'react-router'
 import { Form, Link, useLoaderData } from 'react-router'
 import { type SearchResult, searchDeployments } from '~/db/deployments.server'
+import type { Route } from './+types/search'
 
 export function meta({ data }: { data: { query: string } }) {
   return [{ title: data?.query ? `Søk: ${data.query} - Deployment Audit` : 'Søk - Deployment Audit' }]
 }
 
-export async function loader({ request }: LoaderFunctionArgs) {
+export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url)
   const query = url.searchParams.get('q') || ''
 

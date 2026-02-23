@@ -13,13 +13,13 @@ import {
   Tag,
   VStack,
 } from '@navikt/ds-react'
-import type { LoaderFunctionArgs } from 'react-router'
 import { Link, useLoaderData } from 'react-router'
 import { getAllAuditReports } from '~/db/audit-reports.server'
 import { requireAdmin } from '~/lib/auth.server'
 import styles from '~/styles/common.module.css'
+import type { Route } from './+types/admin.audit-reports'
 
-export async function loader({ request }: LoaderFunctionArgs) {
+export async function loader({ request }: Route.LoaderArgs) {
   await requireAdmin(request)
 
   const reports = await getAllAuditReports()

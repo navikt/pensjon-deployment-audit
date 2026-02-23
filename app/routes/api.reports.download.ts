@@ -1,9 +1,10 @@
-import { data, type LoaderFunctionArgs } from 'react-router'
+import { data } from 'react-router'
 import { getReportJobWithPdf } from '~/db/report-jobs.server'
 import { requireAdmin } from '~/lib/auth.server'
+import type { Route } from './+types/api.reports.download'
 
 // GET: Download a completed report PDF
-export async function loader({ request }: LoaderFunctionArgs) {
+export async function loader({ request }: Route.LoaderArgs) {
   await requireAdmin(request)
 
   const url = new URL(request.url)
