@@ -9,7 +9,7 @@ body {
 
 .error-stack {
   width: 100%;
-  padding: 1rem;
+  padding: var(--ax-space-16);
   overflow-x: auto;
   background: var(--ax-bg-neutral-soft);
   border: 1px solid var(--ax-border-neutral-subtle);

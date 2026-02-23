@@ -2200,10 +2200,12 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
               : 'ukjent dato'}
           </BodyShort>
           {manualApproval.comment_text && (
-            <BodyShort style={{ marginTop: '0.5rem', fontStyle: 'italic' }}>"{manualApproval.comment_text}"</BodyShort>
+            <BodyShort style={{ marginTop: 'var(--ax-space-8)', fontStyle: 'italic' }}>
+              "{manualApproval.comment_text}"
+            </BodyShort>
           )}
           {manualApproval.slack_link && (
-            <BodyShort size="small" style={{ marginTop: '0.5rem' }}>
+            <BodyShort size="small" style={{ marginTop: 'var(--ax-space-8)' }}>
               <a href={manualApproval.slack_link} target="_blank" rel="noopener noreferrer">
                 Se Slack-dokumentasjon
               </a>
