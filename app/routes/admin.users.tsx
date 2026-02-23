@@ -1,4 +1,4 @@
-import { DownloadIcon, PencilIcon, PlusIcon, TrashIcon, UploadIcon } from '@navikt/aksel-icons'
+import { DownloadIcon, ExternalLinkIcon, PencilIcon, PlusIcon, TrashIcon, UploadIcon } from '@navikt/aksel-icons'
 import {
   Alert,
   BodyShort,
@@ -244,7 +244,9 @@ export default function AdminUsers() {
                 <VStack gap="space-12">
                   {/* First row: Display name heading, actions */}
                   <HStack gap="space-8" align="center" justify="space-between" wrap>
-                    <Heading size="xsmall">{mapping.display_name || mapping.github_username}</Heading>
+                    <Link to={`/users/${mapping.github_username}`} style={{ textDecoration: 'none' }}>
+                      <Heading size="xsmall">{mapping.display_name || mapping.github_username}</Heading>
+                    </Link>
                     <HStack gap="space-8">
                       <Button
                         variant="tertiary"
@@ -270,9 +272,11 @@ export default function AdminUsers() {
 
                   {/* Details row */}
                   <HStack gap="space-16" wrap>
-                    <Link to={`/users/${mapping.github_username}`}>
-                      <Detail textColor="subtle">{mapping.github_username}</Detail>
-                    </Link>
+                    <a href={`https://github.com/${mapping.github_username}`} target="_blank" rel="noopener noreferrer">
+                      <Detail textColor="subtle">
+                        GitHub: {mapping.github_username} <ExternalLinkIcon aria-hidden fontSize="0.75rem" />
+                      </Detail>
+                    </a>
                     {mapping.nav_email && <Detail textColor="subtle">{mapping.nav_email}</Detail>}
                     {mapping.nav_ident && (
                       <a
@@ -280,7 +284,9 @@ export default function AdminUsers() {
                         target="_blank"
                         rel="noopener noreferrer"
                       >
-                        <Detail textColor="subtle">Ident: {mapping.nav_ident}</Detail>
+                        <Detail textColor="subtle">
+                          Teamkatalogen: {mapping.nav_ident} <ExternalLinkIcon aria-hidden fontSize="0.75rem" />
+                        </Detail>
                       </a>
                     )}
                     {mapping.slack_member_id && (
@@ -289,7 +295,9 @@ export default function AdminUsers() {
                         target="_blank"
                         rel="noopener noreferrer"
                       >
-                        <Detail textColor="subtle">Slack: {mapping.slack_member_id}</Detail>
+                        <Detail textColor="subtle">
+                          Slack: {mapping.slack_member_id} <ExternalLinkIcon aria-hidden fontSize="0.75rem" />
+                        </Detail>
                       </a>
                     )}
                     {!mapping.nav_email && !mapping.nav_ident && !mapping.slack_member_id && (

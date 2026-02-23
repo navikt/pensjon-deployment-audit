@@ -1,4 +1,4 @@
-import { PencilIcon, PlusIcon, TrashIcon } from '@navikt/aksel-icons'
+import { ExternalLinkIcon, PencilIcon, PlusIcon, TrashIcon } from '@navikt/aksel-icons'
 import { Alert, BodyShort, Box, Button, Detail, Heading, HStack, Modal, Show, VStack } from '@navikt/ds-react'
 import type { Meta, StoryObj } from '@storybook/react'
 import { useRef, useState } from 'react'
@@ -96,7 +96,9 @@ function AdminUsersPage({ mappings, unmappedUsers }: { mappings: UserMapping[]; 
               >
                 <VStack gap="space-12">
                   <HStack gap="space-8" align="center" justify="space-between" wrap>
-                    <Heading size="xsmall">{mapping.display_name || mapping.github_username}</Heading>
+                    <Link to={`/users/${mapping.github_username}`} style={{ textDecoration: 'none' }}>
+                      <Heading size="xsmall">{mapping.display_name || mapping.github_username}</Heading>
+                    </Link>
                     <HStack gap="space-8">
                       <Button variant="tertiary" size="small" icon={<PencilIcon aria-hidden />}>
                         <Show above="sm">Rediger</Show>
@@ -116,9 +118,11 @@ function AdminUsersPage({ mappings, unmappedUsers }: { mappings: UserMapping[]; 
                   </HStack>
 
                   <HStack gap="space-16" wrap>
-                    <Link to={`/users/${mapping.github_username}`}>
-                      <Detail textColor="subtle">{mapping.github_username}</Detail>
-                    </Link>
+                    <a href={`https://github.com/${mapping.github_username}`} target="_blank" rel="noopener noreferrer">
+                      <Detail textColor="subtle">
+                        GitHub: {mapping.github_username} <ExternalLinkIcon aria-hidden fontSize="0.75rem" />
+                      </Detail>
+                    </a>
                     {mapping.nav_email && <Detail textColor="subtle">{mapping.nav_email}</Detail>}
                     {mapping.nav_ident && (
                       <a
@@ -126,7 +130,9 @@ function AdminUsersPage({ mappings, unmappedUsers }: { mappings: UserMapping[]; 
                         target="_blank"
                         rel="noopener noreferrer"
                       >
-                        <Detail textColor="subtle">Ident: {mapping.nav_ident}</Detail>
+                        <Detail textColor="subtle">
+                          Teamkatalogen: {mapping.nav_ident} <ExternalLinkIcon aria-hidden fontSize="0.75rem" />
+                        </Detail>
                       </a>
                     )}
                     {mapping.slack_member_id && (
@@ -135,7 +141,9 @@ function AdminUsersPage({ mappings, unmappedUsers }: { mappings: UserMapping[]; 
                         target="_blank"
                         rel="noopener noreferrer"
                       >
-                        <Detail textColor="subtle">Slack: {mapping.slack_member_id}</Detail>
+                        <Detail textColor="subtle">
+                          Slack: {mapping.slack_member_id} <ExternalLinkIcon aria-hidden fontSize="0.75rem" />
+                        </Detail>
                       </a>
                     )}
                     {!mapping.nav_email && !mapping.nav_ident && !mapping.slack_member_id && (
