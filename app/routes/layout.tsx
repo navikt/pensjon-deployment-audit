@@ -181,8 +181,8 @@ export default function Layout({ loaderData }: Route.ComponentProps) {
 
       <Page>
         <VStack gap="space-32">
+          <Breadcrumbs />
           <Page.Block as="main" width="2xl" gutters>
-            <Breadcrumbs />
             <Outlet />
           </Page.Block>
         </VStack>
