@@ -2,6 +2,7 @@ import type {
   DeploymentNotification,
   DeviationNotification,
   HomeTabInput,
+  NewDeploymentNotification,
   ReminderNotification,
 } from '~/lib/slack-blocks'
 
@@ -338,3 +339,67 @@ export const reminderFixtures = {
     })),
   },
 } satisfies Record<string, ReminderNotification>
+
+// =============================================================================
+// New Deployment Notification Fixtures
+// =============================================================================
+
+const deployNotifyBase = {
+  deploymentId: 42,
+  appName: 'pensjon-pen',
+  environmentName: 'prod-gcp',
+  teamSlug: 'pensjondeployer',
+  commitSha: 'abc1234def5678',
+  deployerUsername: 'o123456',
+  detailsUrl: `${BASE_URL}/team/pensjondeployer/env/prod-gcp/app/pensjon-pen/deployments/42`,
+} satisfies Partial<NewDeploymentNotification>
+
+export const newDeploymentFixtures = {
+  withPr: {
+    ...deployNotifyBase,
+    fourEyesStatus: 'verified',
+    deployMethod: 'pull_request' as const,
+    prTitle: 'feat: legg til ny pensjonsberegning for AFP',
+    prNumber: 123,
+    prUrl: 'https://github.com/navikt/pensjon-pen/pull/123',
+    prCreator: 'ola.nordmann',
+    prApprovers: ['kari.nordmann', 'per.hansen'],
+    prMerger: 'kari.nordmann',
+    branchName: 'feature/afp-beregning',
+    commitsCount: 3,
+  },
+
+  directPush: {
+    ...deployNotifyBase,
+    fourEyesStatus: 'no_pr',
+    deployMethod: 'direct_push' as const,
+  },
+
+  violation: {
+    ...deployNotifyBase,
+    fourEyesStatus: 'self_approved',
+    deployMethod: 'pull_request' as const,
+    prTitle: 'hotfix: fiks kritisk feil i beregning',
+    prNumber: 456,
+    prUrl: 'https://github.com/navikt/pensjon-pen/pull/456',
+    prCreator: 'per.hansen',
+    prApprovers: [],
+    prMerger: 'per.hansen',
+    branchName: 'hotfix/beregning',
+    commitsCount: 1,
+  },
+
+  legacy: {
+    ...deployNotifyBase,
+    fourEyesStatus: 'legacy_verified',
+    deployMethod: 'legacy' as const,
+    prTitle: 'chore: bump dependencies',
+    prNumber: 789,
+    prUrl: 'https://github.com/navikt/pensjon-pen/pull/789',
+    prCreator: 'dependabot[bot]',
+    prApprovers: ['ola.nordmann'],
+    prMerger: 'ola.nordmann',
+    branchName: 'dependabot/npm/lodash-4.17.21',
+    commitsCount: 1,
+  },
+} satisfies Record<string, NewDeploymentNotification>

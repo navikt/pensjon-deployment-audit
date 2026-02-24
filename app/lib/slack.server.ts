@@ -15,8 +15,12 @@
 import { App, type BlockAction, LogLevel } from '@slack/bolt'
 import type { KnownBlock } from '@slack/types'
 import {
+  claimDeploymentForDeployNotify,
   claimDeploymentForSlackNotification,
+  type DeploymentWithApp,
+  type GitHubPRData,
   getAppsWithIssues,
+  getDeploymentsNeedingDeployNotify,
   getHomeTabSummaryStats,
   getIssueDeploymentsPerApp,
 } from '~/db/deployments.server'
@@ -32,19 +36,28 @@ import {
   buildDeploymentBlocks,
   buildDeviationBlocks,
   buildHomeTabBlocks,
+  buildNewDeploymentBlocks,
   buildReminderBlocks,
   type DeploymentNotification,
   type DeviationNotification,
   getStatusEmoji,
+  type NewDeploymentNotification,
   type ReminderNotification,
 } from './slack-blocks'
 
 // Re-export types and functions from slack-blocks for backward compatibility
-export type { DeploymentNotification, DeviationNotification, HomeTabInput, ReminderNotification } from './slack-blocks'
+export type {
+  DeploymentNotification,
+  DeviationNotification,
+  HomeTabInput,
+  NewDeploymentNotification,
+  ReminderNotification,
+} from './slack-blocks'
 export {
   buildDeploymentBlocks,
   buildDeviationBlocks,
   buildHomeTabBlocks,
+  buildNewDeploymentBlocks,
   buildReminderBlocks,
   getStatusEmoji,
   getStatusText,
@@ -460,6 +473,154 @@ export async function notifyDeploymentIfNeeded(
 
   logger.info(`Slack notification sent for deployment ${deployment.id} to channel ${channelId}`)
   return true
+}
+
+/**
+ * Send a new deployment notification to Slack (informational, for ALL deployments).
+ * Uses atomic claim pattern to prevent duplicates across pods.
+ */
+export async function notifyNewDeploymentIfNeeded(
+  deployment: {
+    id: number
+    monitored_app_id: number
+    commit_sha: string | null
+    deployer_username: string | null
+    github_pr_number: number | null
+    github_pr_url: string | null
+    github_pr_data: GitHubPRData | null
+    four_eyes_status: string
+    title: string | null
+    branch_name: string | null
+    slack_deploy_message_ts: string | null
+    team_slug: string
+    environment_name: string
+    app_name: string
+    slack_deploy_channel_id?: string | null
+    slack_deploy_notify_enabled?: boolean
+  },
+  baseUrl: string,
+): Promise<boolean> {
+  // Skip if already notified
+  if (deployment.slack_deploy_message_ts) {
+    return false
+  }
+
+  // Skip if deploy notifications not enabled for this app
+  if (!deployment.slack_deploy_notify_enabled || !deployment.slack_deploy_channel_id) {
+    return false
+  }
+
+  const app = getSlackApp()
+  if (!app) {
+    return false
+  }
+
+  const channelId = deployment.slack_deploy_channel_id
+
+  // Determine deploy method
+  let deployMethod: NewDeploymentNotification['deployMethod'] = 'direct_push'
+  if (deployment.github_pr_number) {
+    deployMethod = 'pull_request'
+  } else if (deployment.four_eyes_status === 'legacy_verified' || deployment.four_eyes_status === 'implicit_verified') {
+    deployMethod = 'legacy'
+  }
+
+  // Extract PR metadata
+  const prData = deployment.github_pr_data
+  const approvers = prData?.reviewers?.filter((r) => r.state === 'APPROVED').map((r) => r.username) ?? []
+
+  const notification: NewDeploymentNotification = {
+    deploymentId: deployment.id,
+    appName: deployment.app_name,
+    environmentName: deployment.environment_name,
+    teamSlug: deployment.team_slug,
+    commitSha: deployment.commit_sha || 'unknown',
+    deployerUsername: deployment.deployer_username || 'ukjent',
+    detailsUrl: `${baseUrl}/team/${deployment.team_slug}/env/${deployment.environment_name}/app/${deployment.app_name}/deployments/${deployment.id}`,
+    fourEyesStatus: deployment.four_eyes_status,
+    prTitle: prData?.title || deployment.title || undefined,
+    prNumber: deployment.github_pr_number || undefined,
+    prUrl: deployment.github_pr_url || undefined,
+    prCreator: prData?.creator?.username,
+    prApprovers: approvers.length > 0 ? approvers : undefined,
+    prMerger: prData?.merged_by?.username || prData?.merger?.username,
+    branchName: prData?.head_branch || deployment.branch_name || undefined,
+    commitsCount: prData?.commits_count,
+    deployMethod,
+  }
+
+  const blocks = buildNewDeploymentBlocks(notification)
+  const text = `🚀 Ny deployment — ${notification.appName} (${notification.environmentName})`
+
+  let messageTs: string | null = null
+  try {
+    const result = await app.client.chat.postMessage({
+      channel: channelId,
+      blocks: blocks as KnownBlock[],
+      text,
+    })
+    messageTs = result.ts || null
+  } catch (error) {
+    logger.error(`Failed to send deploy notification for deployment ${deployment.id}:`, error)
+    return false
+  }
+
+  if (!messageTs) {
+    return false
+  }
+
+  // Atomically claim this deployment (prevents duplicates across pods)
+  const claimed = await claimDeploymentForDeployNotify(deployment.id, channelId, messageTs)
+
+  if (!claimed) {
+    // Another pod already claimed it — delete our duplicate message
+    try {
+      await app.client.chat.delete({
+        channel: channelId,
+        ts: messageTs,
+      })
+    } catch {
+      // Ignore deletion errors
+    }
+    return false
+  }
+
+  logger.info(`Deploy notification sent for deployment ${deployment.id} to channel ${channelId}`)
+  return true
+}
+
+/**
+ * Send pending deploy notifications for all deployments that need one.
+ * Called from the periodic sync flow after verification completes.
+ */
+export async function sendPendingDeployNotifications(baseUrl: string): Promise<number> {
+  const deployments = await getDeploymentsNeedingDeployNotify()
+  if (deployments.length === 0) {
+    return 0
+  }
+
+  let sentCount = 0
+  for (const deployment of deployments) {
+    try {
+      // The query joins monitored_applications, so these fields exist on the row
+      const row = deployment as DeploymentWithApp & {
+        slack_deploy_channel_id: string | null
+        slack_deploy_notify_enabled: boolean
+      }
+      const sent = await notifyNewDeploymentIfNeeded(row, baseUrl)
+      if (sent) {
+        sentCount++
+      }
+    } catch (error) {
+      logger.error(`Failed to send deploy notification for deployment ${deployment.id}:`, error)
+    }
+  }
+
+  if (sentCount > 0) {
+    logger.info(`📬 Sent ${sentCount} deploy notifications`)
+  }
+
+  return sentCount
 }
 
 /**

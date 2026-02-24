@@ -15,6 +15,8 @@ export interface MonitoredApplication {
   reminder_time: string | null
   reminder_days: string[] | null
   reminder_last_sent_at: Date | null
+  slack_deploy_channel_id: string | null
+  slack_deploy_notify_enabled: boolean
   created_at: Date
   updated_at: Date
 }
@@ -109,6 +111,8 @@ export async function updateMonitoredApplication(
     test_requirement?: 'none' | 'unit_tests' | 'integration_tests'
     slack_channel_id?: string | null
     slack_notifications_enabled?: boolean
+    slack_deploy_channel_id?: string | null
+    slack_deploy_notify_enabled?: boolean
     reminder_enabled?: boolean
     reminder_time?: string
     reminder_days?: string[]
@@ -146,6 +150,16 @@ export async function updateMonitoredApplication(
   if (data.slack_notifications_enabled !== undefined) {
     updates.push(`slack_notifications_enabled = $${paramCount++}`)
     values.push(data.slack_notifications_enabled)
+  }
+
+  if (data.slack_deploy_channel_id !== undefined) {
+    updates.push(`slack_deploy_channel_id = $${paramCount++}`)
+    values.push(data.slack_deploy_channel_id)
+  }
+
+  if (data.slack_deploy_notify_enabled !== undefined) {
+    updates.push(`slack_deploy_notify_enabled = $${paramCount++}`)
+    values.push(data.slack_deploy_notify_enabled)
   }
 
   if (data.reminder_enabled !== undefined) {

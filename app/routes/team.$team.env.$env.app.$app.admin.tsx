@@ -366,6 +366,21 @@ export async function action({ request }: Route.ActionArgs) {
     return { success: 'Slack-innstillinger oppdatert!' }
   }
 
+  if (action === 'update_slack_deploy_config') {
+    const slackDeployChannelId = (formData.get('slack_deploy_channel_id') as string)?.trim() || null
+    const slackDeployNotifyEnabled = formData.get('slack_deploy_notify_enabled') === 'true'
+
+    if (slackDeployChannelId && !/^(C[A-Z0-9]+|#[\w-]+)$/i.test(slackDeployChannelId)) {
+      return { error: 'Ugyldig kanal-format. Bruk kanal-ID (C01234567) eller kanalnavn (#kanal-navn)' }
+    }
+
+    await updateMonitoredApplication(appId, {
+      slack_deploy_channel_id: slackDeployChannelId,
+      slack_deploy_notify_enabled: slackDeployNotifyEnabled,
+    })
+    return { success: 'Deployment-varsler oppdatert!' }
+  }
+
   if (action === 'update_reminder_config') {
     const reminderEnabled = formData.get('reminder_enabled') === 'true'
     const reminderTime = (formData.get('reminder_time') as string)?.trim() || '09:00'
@@ -935,6 +950,44 @@ export default function AppAdmin({ loaderData, actionData }: Route.ComponentProp
 
               <Button type="submit" size="small" variant="secondary">
                 Lagre Slack-innstillinger
+              </Button>
+            </VStack>
+          </Form>
+        </VStack>
+      </Box>
+
+      {/* Deploy Notification Configuration */}
+      <Box padding="space-24" borderRadius="8" background="raised" borderColor="neutral-subtle" borderWidth="1">
+        <VStack gap="space-16">
+          <div>
+            <Heading size="small" level="2">
+              Deployment-varsler
+            </Heading>
+            <BodyShort textColor="subtle" size="small">
+              Send automatiske varsler til Slack når nye deployments oppdages. Inkluderer PR-tittel, hvem som opprettet,
+              godkjente og merget PR-en.
+            </BodyShort>
+          </div>
+
+          <Form method="post">
+            <input type="hidden" name="action" value="update_slack_deploy_config" />
+            <input type="hidden" name="app_id" value={app.id} />
+            <VStack gap="space-16">
+              <Switch name="slack_deploy_notify_enabled" value="true" defaultChecked={app.slack_deploy_notify_enabled}>
+                Aktiver deployment-varsler for denne appen
+              </Switch>
+
+              <TextField
+                label="Slack-kanal for deployment-varsler"
+                name="slack_deploy_channel_id"
+                defaultValue={app.slack_deploy_channel_id || ''}
+                description="Kanal-ID (f.eks. C01234567) eller kanalnavn (f.eks. #min-kanal). Kan være en annen kanal enn for avviksvarsler."
+                size="small"
+                style={{ maxWidth: '300px' }}
+              />
+
+              <Button type="submit" size="small" variant="secondary">
+                Lagre deployment-varsler
               </Button>
             </VStack>
           </Form>

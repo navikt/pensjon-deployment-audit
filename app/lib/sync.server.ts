@@ -1235,6 +1235,18 @@ async function runPeriodicSync(): Promise<void> {
       logger.info(`🧹 Cleaned up ${cleaned} old sync job records`)
     }
 
+    // Send deploy notifications for newly verified deployments
+    try {
+      const baseUrl = process.env.BASE_URL || 'https://pensjon-deployment-audit.ansatt.nav.no'
+      const { sendPendingDeployNotifications } = await import('~/lib/slack.server')
+      const notified = await sendPendingDeployNotifications(baseUrl)
+      if (notified > 0) {
+        logger.info(`📬 Sent ${notified} deploy notifications`)
+      }
+    } catch (error) {
+      logger.error('❌ Failed to send deploy notifications:', error)
+    }
+
     logger.info(
       `✅ Periodic sync complete: synced ${syncedCount} apps (${newDeploymentsCount} new deployments), verified ${verifiedCount} deployments, ${lockedCount} locked`,
     )

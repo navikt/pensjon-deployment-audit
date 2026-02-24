@@ -34,6 +34,7 @@ export interface Deployment {
   title: string | null
   slack_message_ts: string | null
   slack_channel_id: string | null
+  slack_deploy_message_ts: string | null
 }
 
 export interface GitHubPRData {
@@ -1105,6 +1106,56 @@ export async function getDeploymentsNeedingSlackNotification(limit = 50): Promis
      WHERE d.slack_message_ts IS NULL
        AND ma.slack_notifications_enabled = true
        AND ma.slack_channel_id IS NOT NULL
+       AND d.created_at > NOW() - INTERVAL '7 days'
+     ORDER BY d.created_at DESC
+     LIMIT $1`,
+    [limit],
+  )
+  return result.rows
+}
+
+/**
+ * Atomically claim a deployment for deploy notification.
+ * Returns the deployment only if this call successfully claimed it (no prior slack_deploy_message_ts).
+ * This ensures only one pod sends the notification even with multiple replicas.
+ */
+export async function claimDeploymentForDeployNotify(
+  deploymentId: number,
+  channelId: string,
+  messageTs: string,
+): Promise<DeploymentWithApp | null> {
+  const result = await pool.query(
+    `UPDATE deployments 
+     SET slack_deploy_message_ts = $1
+     WHERE id = $2 AND slack_deploy_message_ts IS NULL
+     RETURNING *`,
+    [messageTs, deploymentId],
+  )
+
+  if (result.rows.length === 0) {
+    return null // Already claimed by another pod
+  }
+
+  return getDeploymentById(deploymentId)
+}
+
+/**
+ * Get deployments that need deploy notification (no slack_deploy_message_ts set)
+ * for apps that have deploy notifications enabled.
+ * Only includes deployments that have been verified (four_eyes_status != 'pending').
+ */
+export async function getDeploymentsNeedingDeployNotify(limit = 50): Promise<DeploymentWithApp[]> {
+  const result = await pool.query(
+    `SELECT d.*, 
+            ma.team_slug, ma.environment_name, ma.app_name, ma.default_branch,
+            ma.slack_deploy_channel_id,
+            ma.slack_deploy_notify_enabled
+     FROM deployments d
+     JOIN monitored_applications ma ON d.monitored_app_id = ma.id
+     WHERE d.slack_deploy_message_ts IS NULL
+       AND ma.slack_deploy_notify_enabled = true
+       AND ma.slack_deploy_channel_id IS NOT NULL
+       AND d.four_eyes_status NOT IN ('pending', 'unknown')
        AND d.created_at > NOW() - INTERVAL '7 days'
      ORDER BY d.created_at DESC
      LIMIT $1`,
