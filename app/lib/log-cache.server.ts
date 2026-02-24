@@ -12,16 +12,17 @@ interface CheckToCache {
 }
 
 /**
- * Find recent deployments with failed checks whose logs haven't been cached yet.
+ * Find recent deployments with completed checks whose logs haven't been cached yet.
  * Limits to deployments from the last 7 days to stay within API quotas.
  */
-async function getUncachedFailedChecks(): Promise<CheckToCache[]> {
+async function getUncachedChecks(): Promise<CheckToCache[]> {
   const result = await pool.query<{
     id: number
     github_pr_data: {
       checks: Array<{
         id?: number
         name: string
+        status: string
         conclusion: string | null
         log_cached?: boolean
       }>
@@ -50,7 +51,7 @@ async function getUncachedFailedChecks(): Promise<CheckToCache[]> {
     for (const check of row.github_pr_data.checks) {
       if (!check.id) continue
       if (check.log_cached) continue
-      if (check.conclusion !== 'failure' && check.conclusion !== 'timed_out') continue
+      if (check.status !== 'completed') continue
 
       checks.push({
         deployment_id: row.id,
@@ -66,16 +67,16 @@ async function getUncachedFailedChecks(): Promise<CheckToCache[]> {
 }
 
 /**
- * Cache logs for failed checks to GCS.
+ * Cache logs for all completed checks to GCS.
  * Returns the number of logs successfully cached.
  */
-export async function cacheFailedCheckLogs(): Promise<number> {
+export async function cacheCheckLogs(): Promise<number> {
   if (!isGcsConfigured()) return 0
 
-  const checks = await getUncachedFailedChecks()
+  const checks = await getUncachedChecks()
   if (checks.length === 0) return 0
 
-  logger.info(`Found ${checks.length} failed check logs to cache`)
+  logger.info(`Found ${checks.length} check logs to cache`)
 
   let cached = 0
   const client = getGitHubClient()

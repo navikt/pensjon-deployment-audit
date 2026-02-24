@@ -1247,15 +1247,15 @@ async function runPeriodicSync(): Promise<void> {
       logger.error('❌ Failed to send deploy notifications:', error)
     }
 
-    // Proactively cache logs for failed checks to GCS
+    // Proactively cache logs for all checks to GCS
     try {
-      const { cacheFailedCheckLogs } = await import('~/lib/log-cache.server')
-      const cached = await cacheFailedCheckLogs()
+      const { cacheCheckLogs } = await import('~/lib/log-cache.server')
+      const cached = await cacheCheckLogs()
       if (cached > 0) {
-        logger.info(`📦 Proactively cached ${cached} failed check logs to GCS`)
+        logger.info(`📦 Cached ${cached} check logs to GCS`)
       }
     } catch (error) {
-      logger.warn(`⚠️ Proactive log caching failed (non-critical): ${error}`)
+      logger.warn(`⚠️ Log caching failed (non-critical): ${error}`)
     }
 
     logger.info(
