@@ -35,6 +35,22 @@ export async function loader({ request }: Route.LoaderArgs) {
   // Fetch from GitHub API
   try {
     const client = getGitHubClient()
+
+    // Use manual redirect to log the target hostname (helps diagnose outbound policy issues)
+    const redirectResponse = await client.request('GET /repos/{owner}/{repo}/actions/jobs/{job_id}/logs', {
+      owner,
+      repo,
+      job_id: jobIdNum,
+      request: { redirect: 'manual' },
+    })
+
+    const redirectUrl = redirectResponse.headers.location
+    if (redirectUrl) {
+      const targetHost = new URL(redirectUrl).hostname
+      logger.info(`GitHub log redirect for job ${jobId}: ${targetHost}`)
+    }
+
+    // Follow the redirect to download the actual logs
     const response = await client.actions.downloadJobLogsForWorkflowRun({
       owner,
       repo,
