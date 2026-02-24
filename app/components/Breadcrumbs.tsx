@@ -274,14 +274,10 @@ export function Breadcrumbs() {
   const location = useLocation()
   const matches = useMatches()
 
-  // Don't show breadcrumbs on home page
-  if (location.pathname === '/') {
-    return null
-  }
+  const crumbs =
+    location.pathname === '/' ? [{ path: '/', label: 'Hjem' }] : buildBreadcrumbs(location.pathname, matches)
 
-  const crumbs = buildBreadcrumbs(location.pathname, matches)
-
-  if (crumbs.length <= 1) {
+  if (crumbs.length === 0) {
     return null
   }
 
