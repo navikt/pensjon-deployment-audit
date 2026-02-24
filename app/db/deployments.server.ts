@@ -122,6 +122,7 @@ export interface GitHubPRData {
       text: string | null
       annotations_count: number
     } | null
+    log_cached?: boolean
   }>
   commits: Array<{
     sha: string

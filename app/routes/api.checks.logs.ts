@@ -1,3 +1,4 @@
+import { downloadLog, isGcsConfigured, logExists, uploadLog } from '~/lib/gcs.server'
 import { getGitHubClient } from '~/lib/github.server'
 import { logger } from '~/lib/logger.server'
 import type { Route } from './+types/api.checks.logs'
@@ -17,6 +18,21 @@ export async function loader({ request }: Route.LoaderArgs) {
     return Response.json({ error: 'job_id must be a number' }, { status: 400 })
   }
 
+  // Try GCS first (cached logs)
+  if (isGcsConfigured()) {
+    try {
+      if (await logExists(owner, repo, jobIdNum)) {
+        const logs = await downloadLog(owner, repo, jobIdNum)
+        if (logs) {
+          return Response.json({ logs, source: 'cached' })
+        }
+      }
+    } catch (error) {
+      logger.warn(`GCS read failed, falling back to GitHub: ${error}`)
+    }
+  }
+
+  // Fetch from GitHub API
   try {
     const client = getGitHubClient()
     const response = await client.actions.downloadJobLogsForWorkflowRun({
@@ -25,7 +41,16 @@ export async function loader({ request }: Route.LoaderArgs) {
       job_id: jobIdNum,
     })
 
-    return Response.json({ logs: response.data as string })
+    const logs = response.data as string
+
+    // Store to GCS in background (don't block response)
+    if (isGcsConfigured()) {
+      uploadLog(owner, repo, jobIdNum, logs).catch((err) => {
+        logger.warn(`Failed to cache log to GCS: ${err}`)
+      })
+    }
+
+    return Response.json({ logs, source: 'github' })
   } catch (error) {
     logger.warn(`Could not fetch logs for job ${jobId}: ${error}`)
 

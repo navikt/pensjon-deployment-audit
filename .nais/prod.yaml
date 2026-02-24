@@ -60,6 +60,12 @@ spec:
         databases:
           - name: pensjon-deployment-audit
             envVarPrefix: DB
+    buckets:
+      - name: pensjon-deployment-audit-logs
+        cascadingDelete: false
+        lifecycleCondition:
+          age: 365
+          withState: ANY
 
   env:
     - name: NODE_ENV
