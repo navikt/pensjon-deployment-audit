@@ -22,6 +22,7 @@ import {
   Heading,
   HGrid,
   HStack,
+  Loader,
   Modal,
   Radio,
   RadioGroup,
@@ -32,7 +33,7 @@ import {
   VStack,
 } from '@navikt/ds-react'
 import { useRef, useState } from 'react'
-import { Form, Link, useSearchParams } from 'react-router'
+import { Form, Link, useFetcher, useSearchParams } from 'react-router'
 import {
   createComment,
   deleteComment,
@@ -817,6 +818,50 @@ export function meta({ data }: Route.MetaArgs) {
   return [{ title: deployment ? `Deployment #${deployment.id} - Pensjon Deployment Audit` : 'Deployment' }]
 }
 
+function CheckLogViewer({ owner, repo, jobId }: { owner: string; repo: string; jobId: number }) {
+  const fetcher = useFetcher<{ logs?: string; error?: string }>()
+  const [showLogs, setShowLogs] = useState(false)
+
+  const loadLogs = () => {
+    setShowLogs(true)
+    if (fetcher.state === 'idle' && !fetcher.data) {
+      fetcher.load(`/api/checks/logs?owner=${owner}&repo=${repo}&job_id=${jobId}`)
+    }
+  }
+
+  if (!showLogs) {
+    return (
+      <Button variant="tertiary" size="xsmall" onClick={loadLogs}>
+        Vis logg
+      </Button>
+    )
+  }
+
+  return (
+    <VStack gap="space-4" style={{ paddingLeft: 'var(--ax-space-24)' }}>
+      <HStack gap="space-8" align="center">
+        <Detail weight="semibold">Logg</Detail>
+        <Button variant="tertiary" size="xsmall" onClick={() => setShowLogs(false)}>
+          Skjul
+        </Button>
+      </HStack>
+      {fetcher.state === 'loading' && <Loader size="small" />}
+      {fetcher.data?.error && (
+        <Alert variant="warning" size="small">
+          {fetcher.data.error}
+        </Alert>
+      )}
+      {fetcher.data?.logs && (
+        <Box background="sunken" padding="space-8" borderRadius="4" style={{ maxHeight: '400px', overflow: 'auto' }}>
+          <pre style={{ margin: 0, fontSize: '0.75rem', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+            {fetcher.data.logs}
+          </pre>
+        </Box>
+      )}
+    </VStack>
+  )
+}
+
 function getFourEyesStatus(deployment: any): {
   text: string
   variant: 'success' | 'warning' | 'error' | 'info'
@@ -1553,7 +1598,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
             <Accordion.Item>
               <Accordion.Header>GitHub Checks ({deployment.github_pr_data.checks.length})</Accordion.Header>
               <Accordion.Content>
-                <VStack gap="space-8">
+                <VStack gap="space-12">
                   {deployment.github_pr_data.checks.map((check) => {
                     const isSuccess = check.conclusion === 'success'
                     const isFailure =
@@ -1566,37 +1611,86 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                       check.conclusion === 'cancelled'
                     const isInProgress = check.status === 'in_progress' || check.status === 'queued'
 
+                    const duration =
+                      check.started_at && check.completed_at
+                        ? Math.round(
+                            (new Date(check.completed_at).getTime() - new Date(check.started_at).getTime()) / 1000,
+                          )
+                        : null
+                    const durationStr =
+                      duration !== null
+                        ? duration >= 60
+                          ? `${Math.floor(duration / 60)}m ${duration % 60}s`
+                          : `${duration}s`
+                        : null
+
                     return (
-                      <HStack key={check.html_url} gap="space-8" align="center">
-                        {isSuccess && <CheckmarkCircleIcon style={{ color: 'var(--ax-text-success)' }} />}
-                        {isFailure && <XMarkOctagonIcon style={{ color: 'var(--ax-text-danger)' }} />}
-                        {isSkipped && <MinusCircleIcon style={{ color: 'var(--ax-text-neutral-subtle)' }} />}
-                        {isInProgress && <ClockIcon style={{ color: 'var(--ax-text-warning)' }} />}
+                      <VStack key={check.html_url ?? check.name} gap="space-4">
+                        <HStack gap="space-8" align="center" wrap>
+                          {isSuccess && <CheckmarkCircleIcon style={{ color: 'var(--ax-text-success)' }} />}
+                          {isFailure && <XMarkOctagonIcon style={{ color: 'var(--ax-text-danger)' }} />}
+                          {isSkipped && <MinusCircleIcon style={{ color: 'var(--ax-text-neutral-subtle)' }} />}
+                          {isInProgress && <ClockIcon style={{ color: 'var(--ax-text-warning)' }} />}
 
-                        {check.html_url ? (
-                          <a href={check.html_url} target="_blank" rel="noopener noreferrer">
-                            {check.name}
-                          </a>
-                        ) : (
-                          <span>{check.name}</span>
+                          {check.html_url ? (
+                            <a href={check.html_url} target="_blank" rel="noopener noreferrer">
+                              {check.name}
+                            </a>
+                          ) : (
+                            <span>{check.name}</span>
+                          )}
+
+                          <Tag
+                            variant={isSuccess ? 'success' : isFailure ? 'error' : isSkipped ? 'neutral' : 'warning'}
+                            size="small"
+                          >
+                            {check.conclusion || check.status}
+                          </Tag>
+
+                          {check.app?.name && <Detail textColor="subtle">{check.app.name}</Detail>}
+
+                          {durationStr && <Detail textColor="subtle">{durationStr}</Detail>}
+
+                          {check.output?.annotations_count != null && check.output.annotations_count > 0 && (
+                            <Tag variant="warning" size="small">
+                              {check.output.annotations_count} annotation
+                              {check.output.annotations_count !== 1 ? 's' : ''}
+                            </Tag>
+                          )}
+
+                          {check.details_url && check.details_url !== check.html_url && (
+                            <a href={check.details_url} target="_blank" rel="noopener noreferrer">
+                              <Detail textColor="subtle">detaljer</Detail>
+                            </a>
+                          )}
+                        </HStack>
+
+                        {check.output?.title && (
+                          <Detail textColor="subtle" style={{ paddingLeft: 'var(--ax-space-24)' }}>
+                            {check.output.title}
+                          </Detail>
                         )}
 
-                        <Tag
-                          variant={isSuccess ? 'success' : isFailure ? 'error' : isSkipped ? 'neutral' : 'warning'}
-                          size="small"
-                        >
-                          {check.conclusion || check.status}
-                        </Tag>
-
-                        {check.completed_at && (
-                          <span style={{ color: 'var(--ax-text-neutral-subtle)' }}>
-                            {new Date(check.completed_at).toLocaleString('no-NO', {
-                              dateStyle: 'short',
-                              timeStyle: 'short',
-                            })}
-                          </span>
+                        {check.output?.summary && isFailure && (
+                          <Box
+                            paddingInline="space-24"
+                            paddingBlock="space-4"
+                            style={{ maxHeight: '200px', overflow: 'auto' }}
+                          >
+                            <pre style={{ margin: 0, fontSize: '0.75rem', whiteSpace: 'pre-wrap' }}>
+                              {check.output.summary}
+                            </pre>
+                          </Box>
                         )}
-                      </HStack>
+
+                        {check.id && (
+                          <CheckLogViewer
+                            owner={deployment.detected_github_owner}
+                            repo={deployment.detected_github_repo_name}
+                            jobId={check.id}
+                          />
+                        )}
+                      </VStack>
                     )
                   })}
                 </VStack>

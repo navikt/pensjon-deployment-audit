@@ -8,6 +8,7 @@ export default [
   route('api/reports/download', 'routes/api.reports.download.ts'),
   route('api/reports/status', 'routes/api.reports.status.ts'),
   route('api/search', 'routes/api.search.ts'),
+  route('api/checks/logs', 'routes/api.checks.logs.ts'),
 
   layout('routes/layout.tsx', [
     index('routes/home.tsx'),

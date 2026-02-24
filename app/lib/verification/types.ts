@@ -300,6 +300,21 @@ export interface PrChecks {
     conclusion: string | null
     startedAt: string | null
     completedAt: string | null
+    htmlUrl?: string | null
+    headSha?: string
+    detailsUrl?: string | null
+    externalId?: string | null
+    checkSuiteId?: number | null
+    app?: {
+      name: string
+      slug: string | null
+    } | null
+    output?: {
+      title: string | null
+      summary: string | null
+      text: string | null
+      annotationsCount: number
+    } | null
   }>
   statuses: Array<{
     context: string

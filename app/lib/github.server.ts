@@ -17,7 +17,7 @@ export function clearPrCommitsCache(): void {
  * Get GitHub client - supports both GitHub App and PAT authentication
  * GitHub App is preferred (higher rate limits, better security)
  */
-function getGitHubClient(): Octokit {
+export function getGitHubClient(): Octokit {
   if (!octokit) {
     const appId = process.env.GITHUB_APP_ID
     const privateKey = process.env.GITHUB_APP_PRIVATE_KEY
@@ -842,12 +842,24 @@ export async function getDetailedPullRequestInfo(
     // Fetch check runs details
     let checks_passed: boolean | null = null
     const checks: Array<{
+      id: number
       name: string
       status: string
       conclusion: string | null
       started_at: string | null
       completed_at: string | null
       html_url: string | null
+      head_sha: string
+      details_url: string | null
+      external_id: string | null
+      check_suite_id: number | null
+      app: { name: string; slug: string | null } | null
+      output: {
+        title: string | null
+        summary: string | null
+        text: string | null
+        annotations_count: number
+      } | null
     }> = []
 
     try {
@@ -866,12 +878,26 @@ export async function getDetailedPullRequestInfo(
         // Store detailed check info
         for (const check of checksResponse.data.check_runs) {
           checks.push({
+            id: check.id,
             name: check.name,
             status: check.status,
             conclusion: check.conclusion,
             started_at: check.started_at,
             completed_at: check.completed_at,
             html_url: check.html_url,
+            head_sha: check.head_sha,
+            details_url: check.details_url ?? null,
+            external_id: check.external_id ?? null,
+            check_suite_id: check.check_suite?.id ?? null,
+            app: check.app ? { name: check.app.name, slug: check.app.slug ?? null } : null,
+            output: check.output
+              ? {
+                  title: check.output.title,
+                  summary: check.output.summary,
+                  text: check.output.text,
+                  annotations_count: check.output.annotations_count,
+                }
+              : null,
           })
         }
       }

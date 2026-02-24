@@ -101,12 +101,27 @@ export interface GitHubPRData {
   }>
   checks_passed: boolean | null
   checks: Array<{
+    id?: number
     name: string
     status: string // 'queued', 'in_progress', 'completed'
     conclusion: string | null // 'success', 'failure', 'cancelled', 'skipped', 'timed_out', 'action_required', 'neutral'
     started_at: string | null
     completed_at: string | null
     html_url: string | null
+    head_sha?: string
+    details_url?: string | null
+    external_id?: string | null
+    check_suite_id?: number | null
+    app?: {
+      name: string
+      slug: string | null
+    } | null
+    output?: {
+      title: string | null
+      summary: string | null
+      text: string | null
+      annotations_count: number
+    } | null
   }>
   commits: Array<{
     sha: string
