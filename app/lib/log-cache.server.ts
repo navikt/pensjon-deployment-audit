@@ -15,7 +15,7 @@ interface CheckToCache {
  * Find recent deployments with completed checks whose logs haven't been cached yet.
  * Limits to deployments from the last 7 days to stay within API quotas.
  */
-async function getUncachedChecks(): Promise<CheckToCache[]> {
+async function getUncachedChecks(monitoredAppId: number): Promise<CheckToCache[]> {
   const result = await pool.query<{
     id: number
     github_pr_data: {
@@ -28,19 +28,23 @@ async function getUncachedChecks(): Promise<CheckToCache[]> {
       }>
     }
     repository_full_name: string | null
-  }>(`
+  }>(
+    `
     SELECT d.id, d.github_pr_data,
            ar.full_name as repository_full_name
     FROM deployments d
     JOIN monitored_applications ma ON d.monitored_app_id = ma.id
     LEFT JOIN application_repositories ar ON ar.monitored_app_id = ma.id
-    WHERE d.created_at >= NOW() - INTERVAL '7 days'
+    WHERE d.monitored_app_id = $1
+      AND d.created_at >= NOW() - INTERVAL '7 days'
       AND d.github_pr_data IS NOT NULL
       AND d.github_pr_data->'checks' IS NOT NULL
       AND ma.is_active = true
     ORDER BY d.created_at DESC
     LIMIT 100
-  `)
+  `,
+    [monitoredAppId],
+  )
 
   const checks: CheckToCache[] = []
   for (const row of result.rows) {
@@ -67,13 +71,13 @@ async function getUncachedChecks(): Promise<CheckToCache[]> {
 }
 
 /**
- * Cache logs for all completed checks to GCS.
+ * Cache logs for all completed checks for a specific app to GCS.
  * Returns the number of logs successfully cached.
  */
-export async function cacheCheckLogs(): Promise<number> {
+export async function cacheCheckLogs(monitoredAppId: number): Promise<number> {
   if (!isGcsConfigured()) return 0
 
-  const checks = await getUncachedChecks()
+  const checks = await getUncachedChecks(monitoredAppId)
   if (checks.length === 0) return 0
 
   logger.info(`Found ${checks.length} check logs to cache`)

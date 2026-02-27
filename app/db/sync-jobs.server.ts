@@ -5,7 +5,13 @@ import { pool } from './connection.server'
 // Sync Job Types and Statuses
 // =============================================================================
 
-export const SYNC_JOB_TYPES = ['nais_sync', 'github_verify', 'fetch_verification_data', 'reverify_app'] as const
+export const SYNC_JOB_TYPES = [
+  'nais_sync',
+  'github_verify',
+  'fetch_verification_data',
+  'reverify_app',
+  'cache_check_logs',
+] as const
 export type SyncJobType = (typeof SYNC_JOB_TYPES)[number]
 
 export const SYNC_JOB_TYPE_LABELS: Record<SyncJobType, string> = {
@@ -13,6 +19,7 @@ export const SYNC_JOB_TYPE_LABELS: Record<SyncJobType, string> = {
   github_verify: 'GitHub Verifisering',
   fetch_verification_data: 'Hent verifiseringsdata',
   reverify_app: 'Reverifisering',
+  cache_check_logs: 'Cache sjekk-logger',
 }
 
 export const SYNC_JOB_STATUSES = ['pending', 'running', 'completed', 'failed', 'cancelled'] as const

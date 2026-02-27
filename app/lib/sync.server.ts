@@ -1174,6 +1174,34 @@ export async function verifyDeploymentsWithLock(
   }
 }
 
+/**
+ * Cache check logs with distributed locking
+ * Only one pod will cache logs for a given app at a time
+ */
+async function cacheCheckLogsWithLock(
+  monitoredAppId: number,
+): Promise<{ success: boolean; result?: { cached: number }; locked?: boolean }> {
+  const lockId = await acquireSyncLock('cache_check_logs', monitoredAppId, 10)
+  if (!lockId) {
+    return { success: false, locked: true }
+  }
+
+  try {
+    await logSyncJobMessage(lockId, 'info', 'Starter caching av sjekk-logger')
+    const { cacheCheckLogs } = await import('~/lib/log-cache.server')
+    const cached = await runWithJobContext(lockId, false, () => cacheCheckLogs(monitoredAppId))
+    const result = { cached }
+    await logSyncJobMessage(lockId, 'info', 'Caching fullført', result)
+    await releaseSyncLock(lockId, 'completed', result)
+    return { success: true, result }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    await logSyncJobMessage(lockId, 'error', `Caching feilet: ${errorMessage}`)
+    await releaseSyncLock(lockId, 'failed', undefined, errorMessage)
+    throw error
+  }
+}
+
 // ============================================================================
 // Periodic sync scheduler
 // ============================================================================
@@ -1205,6 +1233,7 @@ async function runPeriodicSync(): Promise<void> {
     let syncedCount = 0
     let newDeploymentsCount = 0
     let verifiedCount = 0
+    let cachedLogsCount = 0
     let lockedCount = 0
 
     for (const app of apps) {
@@ -1223,6 +1252,13 @@ async function runPeriodicSync(): Promise<void> {
 
       if (verifyResult.success && verifyResult.result) {
         verifiedCount += verifyResult.result.verified
+      }
+
+      // Try caching check logs
+      const cacheResult = await cacheCheckLogsWithLock(app.id)
+
+      if (cacheResult.success && cacheResult.result) {
+        cachedLogsCount += cacheResult.result.cached
       }
 
       // Small delay between apps to be nice to APIs
@@ -1247,19 +1283,8 @@ async function runPeriodicSync(): Promise<void> {
       logger.error('❌ Failed to send deploy notifications:', error)
     }
 
-    // Proactively cache logs for all checks to GCS
-    try {
-      const { cacheCheckLogs } = await import('~/lib/log-cache.server')
-      const cached = await cacheCheckLogs()
-      if (cached > 0) {
-        logger.info(`📦 Cached ${cached} check logs to GCS`)
-      }
-    } catch (error) {
-      logger.warn(`⚠️ Log caching failed (non-critical): ${error}`)
-    }
-
     logger.info(
-      `✅ Periodic sync complete: synced ${syncedCount} apps (${newDeploymentsCount} new deployments), verified ${verifiedCount} deployments, ${lockedCount} locked`,
+      `✅ Periodic sync complete: synced ${syncedCount} apps (${newDeploymentsCount} new deployments), verified ${verifiedCount} deployments, cached ${cachedLogsCount} logs, ${lockedCount} locked`,
     )
   } catch (error) {
     logger.error('❌ Periodic sync error:', error)
