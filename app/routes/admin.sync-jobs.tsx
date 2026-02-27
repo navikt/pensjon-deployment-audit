@@ -27,19 +27,13 @@ import {
   getSyncJobAppNames,
   getSyncJobStats,
   releaseExpiredLocks,
+  SYNC_JOB_TYPE_LABELS,
   type SyncJobStatus,
   type SyncJobType,
 } from '~/db/sync-jobs.server'
 import { requireAdmin } from '~/lib/auth.server'
 import styles from '~/styles/common.module.css'
 import type { Route } from './+types/admin.sync-jobs'
-
-const JOB_TYPE_LABELS: Record<string, string> = {
-  nais_sync: 'NAIS Sync',
-  github_verify: 'GitHub Verifisering',
-  fetch_verification_data: 'Hent verifiseringsdata',
-  reverify_app: 'Reverifisering',
-}
 
 export function meta(_args: Route.MetaArgs) {
   return [{ title: 'Sync Jobs - Admin - Deployment Audit' }]
@@ -163,7 +157,7 @@ function StatusTag({ status }: { status: SyncJobStatus }) {
 function JobTypeTag({ type }: { type: SyncJobType }) {
   return (
     <Tag data-color="accent" variant="outline" size="small">
-      {JOB_TYPE_LABELS[type] || type}
+      {SYNC_JOB_TYPE_LABELS[type] || type}
     </Tag>
   )
 }
@@ -295,10 +289,11 @@ export default function AdminSyncJobs({ loaderData, actionData }: Route.Componen
             </Select>
             <Select label="Type" name="type" defaultValue={filters.jobType || ''} size="small">
               <option value="">Alle</option>
-              <option value="nais_sync">NAIS Sync</option>
-              <option value="github_verify">GitHub Verifisering</option>
-              <option value="fetch_verification_data">Hent verifiseringsdata</option>
-              <option value="reverify_app">Reverifisering</option>
+              {Object.entries(SYNC_JOB_TYPE_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
             </Select>
             <Select label="App" name="app" defaultValue={filters.appName || ''} size="small">
               <option value="">Alle</option>
