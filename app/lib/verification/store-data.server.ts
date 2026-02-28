@@ -115,7 +115,7 @@ async function updateDeploymentVerification(
        github_pr_data = COALESCE($4::jsonb, github_pr_data),
        updated_at = NOW()
      WHERE id = $5
-       AND manual_override IS NULL`,
+       AND four_eyes_status NOT IN ('manually_approved', 'legacy')`,
     [fourEyesValue, fourEyesStatusComment, result.deployedPr?.number || null, githubPrData, deploymentId],
   )
 
