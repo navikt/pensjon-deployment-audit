@@ -87,33 +87,23 @@ async function updateDeploymentVerification(
     deploymentId,
   ])
 
-  // Get PR info for the deployment if available
-  let githubPrData = null
-  if (result.deployedPr) {
-    githubPrData = {
-      number: result.deployedPr.number,
-      title: result.deployedPr.title,
-      url: result.deployedPr.url,
-      author: result.deployedPr.author,
-    }
-  }
-
   // Update deployment record
+  // Note: We intentionally do NOT update github_pr_data here.
+  // The rich PR data (creator, merger, reviewers, commits, checks, etc.)
+  // is populated by V1 sync and should be preserved.
   await pool.query(
     `UPDATE deployments
      SET 
        has_four_eyes = COALESCE($1, has_four_eyes),
        four_eyes_status = $2,
        github_pr_number = COALESCE($3, github_pr_number),
-       github_pr_data = COALESCE($4::jsonb, github_pr_data),
-       unverified_commits = $6::jsonb
-     WHERE id = $5
+       unverified_commits = $5::jsonb
+     WHERE id = $4
        AND four_eyes_status NOT IN ('manually_approved', 'legacy')`,
     [
       fourEyesValue,
       result.status,
       result.deployedPr?.number || null,
-      githubPrData ? JSON.stringify(githubPrData) : null,
       deploymentId,
       result.unverifiedCommits.length > 0
         ? JSON.stringify(

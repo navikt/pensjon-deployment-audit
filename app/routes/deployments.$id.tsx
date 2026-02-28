@@ -730,6 +730,7 @@ export async function action({ request, params }: Route.ActionArgs) {
         deployment.trigger_url,
         deployment.default_branch || 'main',
         deployment.monitored_app_id,
+        true, // forceRecheck: bypass stale DB cache for manual re-verification
       )
 
       if (success) {

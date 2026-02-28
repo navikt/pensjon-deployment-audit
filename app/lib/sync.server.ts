@@ -12,6 +12,7 @@ import {
   updateCommitPrVerification,
   upsertCommits,
 } from '~/db/commits.server'
+import { shouldUseCachedCommitResult } from '~/lib/commit-cache-decision'
 import { logger, runWithJobContext } from '~/lib/logger.server'
 
 /**
@@ -514,6 +515,7 @@ export async function verifyDeploymentFourEyes(
   _triggerUrl?: string | null,
   baseBranch: string = 'main',
   monitoredAppId?: number,
+  forceRecheck: boolean = false,
 ): Promise<boolean> {
   const repoParts = repository.split('/')
   if (repoParts.length !== 2) {
@@ -738,15 +740,17 @@ export async function verifyDeploymentFourEyes(
       // Check if we have cached verification in database
       const cachedCommit = await getCommit(owner, repo, commit.sha)
       if (cachedCommit && cachedCommit.pr_approved !== null) {
-        // We have a cached result
-        if (cachedCommit.pr_approved) {
+        const cacheDecision = shouldUseCachedCommitResult(
+          { pr_approved: cachedCommit.pr_approved, pr_approval_reason: cachedCommit.pr_approval_reason },
+          forceRecheck,
+        )
+
+        if (cacheDecision === 'skip_verified') {
           logger.info(
             `   💾 Commit ${commit.sha.substring(0, 7)}: cached as approved (PR #${cachedCommit.original_pr_number})`,
           )
           continue
-        } else if (cachedCommit.pr_approval_reason !== 'no_pr') {
-          // Cached as not approved - this is unverified
-          // We do NOT cover this with deployed PR because the commit has its own PR
+        } else if (cacheDecision === 'add_unverified') {
           logger.info(`   💾 Commit ${commit.sha.substring(0, 7)}: cached as NOT approved`)
           unverifiedCommits.push({
             sha: commit.sha,
@@ -759,8 +763,10 @@ export async function verifyDeploymentFourEyes(
           })
           continue
         } else {
-          // Cached as no_pr - retry with rebase matching
-          logger.info(`   🔄 Commit ${commit.sha.substring(0, 7)}: cached as no_pr, retrying with rebase matching...`)
+          // recheck — either forceRecheck=true or cached as no_pr
+          logger.info(
+            `   🔄 Commit ${commit.sha.substring(0, 7)}: ${forceRecheck ? 'force recheck' : 'cached as no_pr'}, rechecking via GitHub API...`,
+          )
         }
       }
 
