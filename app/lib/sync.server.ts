@@ -54,8 +54,9 @@ import { runVerification } from '~/lib/verification'
 function verifyFourEyesFromPrData(prData: {
   creator?: { username: string }
   reviewers?: Array<{ username: string; state: string; submitted_at: string }>
-  commits?: Array<{ sha: string; date: string; message?: string }>
+  commits?: Array<{ sha: string; date: string; message?: string; author?: { username: string } }>
   base_branch?: string
+  merged_by?: { username: string } | null
 }): { hasFourEyes: boolean; reason: string } {
   const reviewers = prData.reviewers || []
   const commits = prData.commits || []
@@ -107,6 +108,21 @@ function verifyFourEyesFromPrData(prData: {
   const approvedReviews = reviewers.filter((r) => r.state === 'APPROVED')
   if (approvedReviews.length === 0) {
     return { hasFourEyes: false, reason: 'No approved reviews found' }
+  }
+
+  // There are approvals, but they are before the last commit.
+  // Check if the merger (who saw the final state) is someone other than the
+  // commit authors — if so, the merge action validates four-eyes.
+  const mergedBy = prData.merged_by?.username
+  if (mergedBy) {
+    const mergedByLower = mergedBy.toLowerCase()
+    const commitAuthors = new Set(commits.map((c) => (c.author?.username || '').toLowerCase()).filter(Boolean))
+    if (!commitAuthors.has(mergedByLower)) {
+      return {
+        hasFourEyes: true,
+        reason: `Approved by ${approvedReviews[0].username} (before last commit), merged by ${mergedBy} who is not a commit author`,
+      }
+    }
   }
 
   return { hasFourEyes: false, reason: 'Approval was before last commit' }
@@ -694,12 +710,16 @@ export async function verifyDeploymentFourEyes(
 
     // Pre-verify the deployed commit's PR and get its commits for fast lookup
     let deployedPrCommitShas: Set<string> = new Set()
+    let deployedPrMergeCommitSha: string | null = null
     if (deployedPrNumber && deployedPrData) {
       // Use commits from deployedPrData instead of fetching again
       if (deployedPrData.commits && deployedPrData.commits.length > 0) {
         deployedPrCommitShas = new Set(deployedPrData.commits.map((c: { sha: string }) => c.sha))
         logger.info(`   📋 Deployed PR #${deployedPrNumber} has ${deployedPrCommitShas.size} commits`)
       }
+
+      // Also recognize the squash/merge commit as belonging to the deployed PR
+      deployedPrMergeCommitSha = deployedPrData.merge_commit_sha || null
 
       // Verify four-eyes using already fetched reviewers data
       const deployedPrApproval = verifyFourEyesFromPrData(deployedPrData)
@@ -730,9 +750,9 @@ export async function verifyDeploymentFourEyes(
         continue
       }
 
-      // If commit is in the deployed PR, use the deployed PR's approval status
-      // Don't check for other PRs - the commit belongs to this deployment's PR
-      if (deployedPrNumber && deployedPrCommitShas.has(commit.sha)) {
+      // If commit is in the deployed PR (by SHA match or merge commit SHA),
+      // use the deployed PR's approval status
+      if (deployedPrNumber && (deployedPrCommitShas.has(commit.sha) || commit.sha === deployedPrMergeCommitSha)) {
         const deployedPrApproval = prCache.get(deployedPrNumber)
         if (deployedPrApproval?.hasFourEyes) {
           logger.info(`   ✅ Commit ${commit.sha.substring(0, 7)}: in approved PR #${deployedPrNumber}`)
