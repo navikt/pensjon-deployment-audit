@@ -860,6 +860,17 @@ export async function getDetailedPullRequestInfo(
         text: string | null
         annotations_count: number
       } | null
+      annotations: Array<{
+        path: string | null
+        start_line: number
+        end_line: number
+        start_column: number | null
+        end_column: number | null
+        annotation_level: string
+        message: string
+        title: string | null
+        raw_details: string | null
+      }> | null
     }> = []
 
     try {
@@ -877,6 +888,31 @@ export async function getDetailedPullRequestInfo(
 
         // Store detailed check info
         for (const check of checksResponse.data.check_runs) {
+          // Fetch annotations for checks that have them
+          let annotations: (typeof checks)[number]['annotations'] = null
+          if (check.output?.annotations_count && check.output.annotations_count > 0) {
+            try {
+              const annotationsResponse = await client.checks.listAnnotations({
+                owner,
+                repo,
+                check_run_id: check.id,
+              })
+              annotations = annotationsResponse.data.map((a) => ({
+                path: a.path ?? null,
+                start_line: a.start_line,
+                end_line: a.end_line,
+                start_column: a.start_column ?? null,
+                end_column: a.end_column ?? null,
+                annotation_level: a.annotation_level ?? 'notice',
+                message: a.message ?? '',
+                title: a.title ?? null,
+                raw_details: a.raw_details ?? null,
+              }))
+            } catch (error) {
+              logger.warn(`Could not fetch annotations for check ${check.id}: ${error}`)
+            }
+          }
+
           checks.push({
             id: check.id,
             name: check.name,
@@ -898,6 +934,7 @@ export async function getDetailedPullRequestInfo(
                   annotations_count: check.output.annotations_count,
                 }
               : null,
+            annotations,
           })
         }
       }
