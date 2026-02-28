@@ -822,17 +822,16 @@ export function meta({ data }: Route.MetaArgs) {
 function CheckLogViewer({ owner, repo, jobId }: { owner: string; repo: string; jobId: number }) {
   const fetcher = useFetcher<{ logs?: string; error?: string; source?: string }>()
   const [showLogs, setShowLogs] = useState(false)
+  const [pendingDownload, setPendingDownload] = useState(false)
 
-  const loadLogs = () => {
-    setShowLogs(true)
+  const ensureLogsLoaded = () => {
     if (fetcher.state === 'idle' && !fetcher.data) {
       fetcher.load(`/api/checks/logs?owner=${owner}&repo=${repo}&job_id=${jobId}`)
     }
   }
 
-  const downloadLogs = () => {
-    if (!fetcher.data?.logs) return
-    const blob = new Blob([fetcher.data.logs], { type: 'text/plain' })
+  const triggerDownload = (logs: string) => {
+    const blob = new Blob([logs], { type: 'text/plain' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -841,39 +840,71 @@ function CheckLogViewer({ owner, repo, jobId }: { owner: string; repo: string; j
     URL.revokeObjectURL(url)
   }
 
-  if (!showLogs) {
-    return (
-      <Button variant="tertiary" size="xsmall" onClick={loadLogs}>
-        Vis logg
-      </Button>
-    )
+  const downloadLogs = () => {
+    if (fetcher.data?.logs) {
+      triggerDownload(fetcher.data.logs)
+    } else {
+      setPendingDownload(true)
+      ensureLogsLoaded()
+    }
+  }
+
+  // Auto-download when logs arrive after clicking download
+  if (pendingDownload && fetcher.data?.logs) {
+    setPendingDownload(false)
+    triggerDownload(fetcher.data.logs)
   }
 
   return (
     <VStack gap="space-4" style={{ paddingLeft: 'var(--ax-space-24)' }}>
       <HStack gap="space-8" align="center">
-        <Detail weight="semibold">Logg</Detail>
-        <Button variant="tertiary" size="xsmall" onClick={() => setShowLogs(false)}>
-          Skjul
-        </Button>
-        {fetcher.data?.logs && (
-          <Button variant="tertiary" size="xsmall" icon={<DownloadIcon aria-hidden />} onClick={downloadLogs}>
-            Last ned
+        {!showLogs ? (
+          <Button
+            variant="tertiary"
+            size="xsmall"
+            onClick={() => {
+              setShowLogs(true)
+              ensureLogsLoaded()
+            }}
+          >
+            Vis logg
+          </Button>
+        ) : (
+          <Button variant="tertiary" size="xsmall" onClick={() => setShowLogs(false)}>
+            Skjul logg
           </Button>
         )}
+        <Button
+          variant="tertiary"
+          size="xsmall"
+          icon={<DownloadIcon aria-hidden />}
+          onClick={downloadLogs}
+          loading={pendingDownload && fetcher.state === 'loading'}
+        >
+          Last ned
+        </Button>
       </HStack>
-      {fetcher.state === 'loading' && <Loader size="small" />}
-      {fetcher.data?.error && (
-        <Alert variant="warning" size="small">
-          {fetcher.data.error}
-        </Alert>
-      )}
-      {fetcher.data?.logs && (
-        <Box background="sunken" padding="space-8" borderRadius="4" style={{ maxHeight: '400px', overflow: 'auto' }}>
-          <pre style={{ margin: 0, fontSize: '0.75rem', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-            {fetcher.data.logs}
-          </pre>
-        </Box>
+      {showLogs && (
+        <>
+          {fetcher.state === 'loading' && <Loader size="small" />}
+          {fetcher.data?.error && (
+            <Alert variant="warning" size="small">
+              {fetcher.data.error}
+            </Alert>
+          )}
+          {fetcher.data?.logs && (
+            <Box
+              background="sunken"
+              padding="space-8"
+              borderRadius="4"
+              style={{ maxHeight: '400px', overflow: 'auto' }}
+            >
+              <pre style={{ margin: 0, fontSize: '0.75rem', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                {fetcher.data.logs}
+              </pre>
+            </Box>
+          )}
+        </>
       )}
     </VStack>
   )
