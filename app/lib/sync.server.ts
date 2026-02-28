@@ -32,7 +32,7 @@ import {
   updateDeploymentFourEyes,
 } from '~/db/deployments.server'
 import { getMonitoredApplication, getMonitoredApplicationById } from '~/db/monitored-applications.server'
-import { isBaseBranchMergeCommit, shouldApproveWithBaseMerge } from '~/lib/base-branch-merge'
+import { shouldApproveWithBaseMerge } from '~/lib/base-branch-merge'
 import {
   clearPrCommitsCache,
   clearPrCommitsMetadataCache,
@@ -46,10 +46,12 @@ import {
 } from '~/lib/github.server'
 import { fetchApplicationDeployments, fetchNewDeployments } from '~/lib/nais.server'
 import { runVerification } from '~/lib/verification'
+import type { PrReview } from '~/lib/verification/types'
+import { verifyFourEyesFromPrData as verifyFourEyesFromPrDataV2 } from '~/lib/verification/verify'
 
 /**
- * Verify four-eyes approval from already fetched PR data
- * This avoids duplicate API calls when we already have the PR details
+ * Verify four-eyes approval from already fetched PR data.
+ * Delegates to V2's verifyFourEyesFromPrData after mapping data format.
  */
 function verifyFourEyesFromPrData(prData: {
   creator?: { username: string }
@@ -58,74 +60,26 @@ function verifyFourEyesFromPrData(prData: {
   base_branch?: string
   merged_by?: { username: string } | null
 }): { hasFourEyes: boolean; reason: string } {
-  const reviewers = prData.reviewers || []
-  const commits = prData.commits || []
-  const baseBranch = prData.base_branch || 'main'
-
-  if (commits.length === 0) {
-    return { hasFourEyes: false, reason: 'No commits found in PR' }
-  }
-
-  // Find the last "real" commit - ignore merge commits that bring base branch into feature branch
-  // These are commits like "Merge branch 'main' into feature/..."
-  let lastRealCommit = commits[commits.length - 1]
-  let lastRealCommitIndex = commits.length - 1
-
-  // Walk backwards to find the last non-base-merge commit
-  for (let i = commits.length - 1; i >= 0; i--) {
-    const commit = commits[i]
-    if (commit.message && !isBaseBranchMergeCommit(commit.message, baseBranch)) {
-      lastRealCommit = commit
-      lastRealCommitIndex = i
-      break
-    }
-  }
-
-  const lastRealCommitDate = new Date(lastRealCommit.date)
-
-  // Find approved reviews that came after the last real commit
-  // (ignoring base-branch merge commits that were added after approval)
-  const approvedReviewsAfterLastCommit = reviewers.filter((review) => {
-    if (review.state !== 'APPROVED' || !review.submitted_at) {
-      return false
-    }
-    const reviewDate = new Date(review.submitted_at)
-    return reviewDate > lastRealCommitDate
+  return verifyFourEyesFromPrDataV2({
+    reviewers: (prData.reviewers || []).map((r) => ({
+      id: 0,
+      username: r.username,
+      state: r.state as PrReview['state'],
+      submittedAt: r.submitted_at,
+      body: null,
+    })),
+    commits: (prData.commits || []).map((c) => ({
+      sha: c.sha,
+      message: c.message || '',
+      authorUsername: c.author?.username || '',
+      authorDate: c.date,
+      committerDate: c.date,
+      isMergeCommit: false,
+      parentShas: [],
+    })),
+    baseBranch: prData.base_branch || 'main',
+    mergedBy: prData.merged_by?.username ?? null,
   })
-
-  if (approvedReviewsAfterLastCommit.length > 0) {
-    const reason =
-      lastRealCommitIndex < commits.length - 1
-        ? `Approved by ${approvedReviewsAfterLastCommit[0].username} (after ignoring ${commits.length - 1 - lastRealCommitIndex} base-merge commit(s))`
-        : `Approved by ${approvedReviewsAfterLastCommit[0].username} after last commit`
-    return {
-      hasFourEyes: true,
-      reason,
-    }
-  }
-
-  // No approved reviews after last real commit
-  const approvedReviews = reviewers.filter((r) => r.state === 'APPROVED')
-  if (approvedReviews.length === 0) {
-    return { hasFourEyes: false, reason: 'No approved reviews found' }
-  }
-
-  // There are approvals, but they are before the last commit.
-  // Check if the merger (who saw the final state) is someone other than the
-  // commit authors — if so, the merge action validates four-eyes.
-  const mergedBy = prData.merged_by?.username
-  if (mergedBy) {
-    const mergedByLower = mergedBy.toLowerCase()
-    const commitAuthors = new Set(commits.map((c) => (c.author?.username || '').toLowerCase()).filter(Boolean))
-    if (!commitAuthors.has(mergedByLower)) {
-      return {
-        hasFourEyes: true,
-        reason: `Approved by ${approvedReviews[0].username} (before last commit), merged by ${mergedBy} who is not a commit author`,
-      }
-    }
-  }
-
-  return { hasFourEyes: false, reason: 'Approval was before last commit' }
 }
 
 /**
@@ -895,7 +849,7 @@ export async function verifyDeploymentFourEyes(
           date: commit.date,
           html_url: commit.html_url,
           pr_number: prInfo.number,
-          reason: 'pr_not_approved',
+          reason: approvalResult.reason || 'pr_not_approved',
         })
       }
     }
