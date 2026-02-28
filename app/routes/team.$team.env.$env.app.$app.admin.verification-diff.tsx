@@ -131,6 +131,10 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     const normalizedOldStatus = normalizeStatus(row.four_eyes_status)
     const normalizedNewStatus = normalizeStatus(newResult.status)
 
+    // Skip manually approved deployments — they were approved by a human
+    // precisely because automated verification found unverified commits
+    if (normalizedOldStatus === 'manually_approved') continue
+
     // Check for real differences
     const statusDifferent = normalizedOldStatus !== normalizedNewStatus
     const fourEyesDifferent = row.has_four_eyes !== newResult.hasFourEyes
