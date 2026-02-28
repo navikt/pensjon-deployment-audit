@@ -5,7 +5,7 @@
  * Values are intentionally hidden for security.
  */
 
-import { BodyShort, Box, Heading, Search, Table, Tag, VStack } from '@navikt/ds-react'
+import { BodyShort, Box, Heading, Search, Table, VStack } from '@navikt/ds-react'
 import { useState } from 'react'
 import { useLoaderData } from 'react-router'
 import { requireAdmin } from '~/lib/auth.server'
@@ -18,15 +18,7 @@ export function meta(_args: Route.MetaArgs) {
 export async function loader({ request }: Route.LoaderArgs) {
   await requireAdmin(request)
 
-  const envVars = Object.keys(process.env)
-    .sort()
-    .map((name) => {
-      const value = process.env[name] ?? ''
-      return {
-        name,
-        hasValue: value.length > 0,
-      }
-    })
+  const envVars = Object.keys(process.env).sort()
 
   return { envVars, total: envVars.length }
 }
@@ -35,7 +27,7 @@ export default function EnvVarsPage() {
   const { envVars, total } = useLoaderData<typeof loader>()
   const [filter, setFilter] = useState('')
 
-  const filtered = filter ? envVars.filter((v) => v.name.toLowerCase().includes(filter.toLowerCase())) : envVars
+  const filtered = filter ? envVars.filter((v) => v.toLowerCase().includes(filter.toLowerCase())) : envVars
 
   return (
     <Box paddingBlock="space-8" paddingInline={{ xs: 'space-4', md: 'space-8' }}>
@@ -52,6 +44,7 @@ export default function EnvVarsPage() {
         <Search
           label="Filtrer miljøvariabler"
           hideLabel
+          variant="simple"
           placeholder="Søk etter variabelnavn..."
           value={filter}
           onChange={setFilter}
@@ -63,25 +56,13 @@ export default function EnvVarsPage() {
           <Table.Header>
             <Table.Row>
               <Table.HeaderCell>Navn</Table.HeaderCell>
-              <Table.HeaderCell>Status</Table.HeaderCell>
             </Table.Row>
           </Table.Header>
           <Table.Body>
             {filtered.map((v) => (
-              <Table.Row key={v.name}>
+              <Table.Row key={v}>
                 <Table.DataCell>
-                  <code style={{ fontSize: '0.875rem' }}>{v.name}</code>
-                </Table.DataCell>
-                <Table.DataCell>
-                  {v.hasValue ? (
-                    <Tag variant="success" size="small">
-                      Satt
-                    </Tag>
-                  ) : (
-                    <Tag variant="warning" size="small">
-                      Tom
-                    </Tag>
-                  )}
+                  <code style={{ fontSize: '0.875rem' }}>{v}</code>
                 </Table.DataCell>
               </Table.Row>
             ))}
