@@ -196,9 +196,18 @@ export async function cacheCheckLogs(monitoredAppId: number): Promise<CacheCheck
       await markLogCached(check.deployment_id, check.check_id)
       cached++
     } catch (error) {
-      logger.warn(
-        `Could not cache log for ${check.owner}/${check.repo} check ${check.check_name} (${check.check_id}): ${error}`,
-      )
+      const is404 = error instanceof Error && 'status' in error && (error as { status: number }).status === 404
+      if (is404) {
+        // Log not available on GitHub (expired or not generated) — mark as cached to skip future retries
+        await markLogCached(check.deployment_id, check.check_id)
+        logger.info(
+          `Log not found (404) for ${check.owner}/${check.repo} check ${check.check_name} (${check.check_id}) — marked as cached`,
+        )
+      } else {
+        logger.warn(
+          `Could not cache log for ${check.owner}/${check.repo} check ${check.check_name} (${check.check_id}): ${error}`,
+        )
+      }
     }
   }
 
@@ -216,7 +225,7 @@ async function markLogCached(deploymentId: number, checkId: number): Promise<voi
        (
          SELECT ARRAY['checks', (idx - 1)::text, 'log_cached']
          FROM jsonb_array_elements(github_pr_data->'checks') WITH ORDINALITY AS c(elem, idx)
-         WHERE (elem->>'id')::int = $2
+         WHERE (elem->>'id')::bigint = $2::bigint
          LIMIT 1
        ),
        'true'::jsonb
