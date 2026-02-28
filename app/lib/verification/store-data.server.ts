@@ -145,45 +145,4 @@ async function updateDeploymentVerification(
       })
     }
   }
-
-  // Store unverified commits if any
-  if (result.unverifiedCommits.length > 0) {
-    await storeUnverifiedCommits(deploymentId, result.unverifiedCommits)
-  }
-}
-
-/**
- * Store unverified commits for a deployment
- */
-async function storeUnverifiedCommits(
-  deploymentId: number,
-  commits: VerificationResult['unverifiedCommits'],
-): Promise<void> {
-  // First clear existing unverified commits for this deployment
-  await pool.query(`DELETE FROM unverified_commits WHERE deployment_id = $1`, [deploymentId])
-
-  // Insert new unverified commits
-  for (const commit of commits) {
-    await pool.query(
-      `INSERT INTO unverified_commits 
-         (deployment_id, commit_sha, commit_message, commit_author, commit_date, 
-          commit_url, pr_number, reason)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       ON CONFLICT (deployment_id, commit_sha) 
-       DO UPDATE SET
-         commit_message = EXCLUDED.commit_message,
-         commit_author = EXCLUDED.commit_author,
-         reason = EXCLUDED.reason`,
-      [
-        deploymentId,
-        commit.sha,
-        commit.message.substring(0, 500),
-        commit.author,
-        commit.date,
-        commit.htmlUrl,
-        commit.prNumber,
-        commit.reason,
-      ],
-    )
-  }
 }
