@@ -54,28 +54,22 @@ async function updateDeploymentVerification(
 ): Promise<void> {
   // Determine the four_eyes value for the deployment
   let fourEyesValue: boolean | null = null
-  let fourEyesStatusComment: string | null = null
 
   switch (result.status) {
     case 'approved':
       fourEyesValue = true
-      fourEyesStatusComment = `Verified via ${result.approvalDetails.method || 'PR review'}`
       break
     case 'implicitly_approved':
       fourEyesValue = true
-      fourEyesStatusComment = `Implicitly approved: ${result.approvalDetails.reason}`
       break
     case 'unverified_commits':
       fourEyesValue = false
-      fourEyesStatusComment = `${result.unverifiedCommits.length} unverified commit(s)`
       break
     case 'pending_baseline':
       fourEyesValue = null
-      fourEyesStatusComment = 'Baseline deployment - no previous to compare'
       break
     case 'no_changes':
       fourEyesValue = true
-      fourEyesStatusComment = 'No changes since previous deployment'
       break
     case 'manually_approved':
       // Don't overwrite manual approval
@@ -85,7 +79,6 @@ async function updateDeploymentVerification(
       return
     case 'error':
       fourEyesValue = null
-      fourEyesStatusComment = result.approvalDetails.reason
       break
   }
 
