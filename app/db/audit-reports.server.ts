@@ -30,6 +30,8 @@ export interface AuditDeploymentRow {
   approved_by_usernames: string[] | null
   // Extracted from github_pr_data via SQL - PR author
   pr_author: string | null
+  // JSONB column with unverified commits (if any)
+  unverified_commits: UnverifiedCommitEntry[] | null
 }
 
 export interface AuditReport {
@@ -64,6 +66,7 @@ export interface AuditReportData {
   reviewers: ReviewerEntry[]
   legacy_count: number
   deviations: DeviationEntry[]
+  unverified_commit_deployments: UnverifiedCommitDeploymentEntry[]
 }
 
 export interface DeviationEntry {
@@ -128,6 +131,30 @@ export interface ReviewerEntry {
   github_username: string
   display_name: string | null
   review_count: number
+}
+
+export interface UnverifiedCommitEntry {
+  sha: string
+  message: string
+  author: string
+  date: string
+  html_url: string
+  pr_number: number | null
+  reason: string
+}
+
+export interface UnverifiedCommitDeploymentEntry {
+  deployment_id: number
+  date: string
+  commit_sha: string
+  title: string
+  deployer: string
+  deployer_display_name?: string
+  four_eyes_status: string
+  approved_by?: string
+  approved_by_display_name?: string
+  approved_at?: string
+  commits: UnverifiedCommitEntry[]
 }
 
 export interface AuditReportSummary {
@@ -292,7 +319,9 @@ export async function getAuditReportData(
          WHERE r->>'state' = 'APPROVED'
        ) AS approved_by_usernames,
        -- Extract PR creator/author from JSON
-       d.github_pr_data->'creator'->>'username' AS pr_author
+       d.github_pr_data->'creator'->>'username' AS pr_author,
+       -- Include unverified commits JSONB for report appendix
+       d.unverified_commits
      FROM deployments d
      JOIN monitored_applications ma ON d.monitored_app_id = ma.id
      WHERE d.monitored_app_id = $1
@@ -608,6 +637,32 @@ export function buildReportData(rawData: Awaited<ReturnType<typeof getAuditRepor
     }
   })
 
+  // Build unverified commit deployments list
+  // Include deployments that have unverified_commits data, regardless of current status
+  // (they may have been manually approved since)
+  const manualApprovalByDeployment = new Map(manual_approvals.map((a) => [a.deployment_id, a]))
+  const unverifiedCommitDeployments: UnverifiedCommitDeploymentEntry[] = deployments
+    .filter((d) => d.unverified_commits && d.unverified_commits.length > 0)
+    .map((d) => {
+      const manualApproval = manualApprovalByDeployment.get(d.id)
+      const isManuallyApproved = d.four_eyes_status === 'manually_approved'
+
+      return {
+        deployment_id: d.id,
+        date: d.created_at.toISOString(),
+        commit_sha: d.commit_sha || '',
+        title: d.title || '',
+        deployer: d.deployer_username || '',
+        deployer_display_name: getDisplayName(d.deployer_username),
+        four_eyes_status: d.four_eyes_status,
+        approved_by: isManuallyApproved && manualApproval ? manualApproval.approved_by : undefined,
+        approved_by_display_name:
+          isManuallyApproved && manualApproval ? getDisplayName(manualApproval.approved_by) : undefined,
+        approved_at: isManuallyApproved && manualApproval ? manualApproval.approved_at.toISOString() : undefined,
+        commits: d.unverified_commits!,
+      }
+    })
+
   return {
     deployments: deploymentEntries,
     manual_approvals: manualApprovalEntries,
@@ -615,6 +670,7 @@ export function buildReportData(rawData: Awaited<ReturnType<typeof getAuditRepor
     reviewers,
     legacy_count: legacyCount,
     deviations: deviationEntries,
+    unverified_commit_deployments: unverifiedCommitDeployments,
   }
 }
 

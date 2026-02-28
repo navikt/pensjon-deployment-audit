@@ -1,6 +1,11 @@
 import { join } from 'node:path'
 import { Document, Font, Link, Page, renderToBuffer, StyleSheet, Text, View } from '@react-pdf/renderer'
-import type { AuditReportData, DeviationEntry, ManualApprovalEntry } from '~/db/audit-reports.server'
+import type {
+  AuditReportData,
+  DeviationEntry,
+  ManualApprovalEntry,
+  UnverifiedCommitDeploymentEntry,
+} from '~/db/audit-reports.server'
 import {
   DEVIATION_FOLLOW_UP_ROLE_LABELS,
   DEVIATION_INTENT_LABELS,
@@ -290,6 +295,17 @@ function formatDateTime(date: Date | string): string {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+const UNVERIFIED_REASON_LABELS: Record<string, string> = {
+  no_pr: 'Ingen PR funnet',
+  no_approved_reviews: 'Ingen godkjent review',
+  approval_before_last_commit: 'Godkjenning før siste commit',
+  pr_not_approved: 'PR ikke godkjent',
+}
+
+function formatUnverifiedReason(reason: string): string {
+  return UNVERIFIED_REASON_LABELS[reason] || reason
 }
 
 function AuditReportPdfDocument(props: AuditReportPdfProps) {
@@ -786,6 +802,69 @@ function AuditReportPdfDocument(props: AuditReportPdfProps) {
                 )}
               </View>
             ))}
+          </View>
+          <Text
+            style={styles.pageNumber}
+            render={({ pageNumber, totalPages }) => `Side ${pageNumber} av ${totalPages}`}
+          />
+        </Page>
+      )}
+      {reportData.unverified_commit_deployments && reportData.unverified_commit_deployments.length > 0 && (
+        <Page size="A4" style={styles.page}>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              Ikke-verifiserte commits ({reportData.unverified_commit_deployments.length} deployments)
+            </Text>
+            <Text style={{ fontSize: 9, color: '#595959', marginBottom: 10 }}>
+              Følgende deployments inneholdt commits som ikke har godkjent pull request. Deployments som er manuelt
+              godkjent i etterkant er merket med godkjenner.
+            </Text>
+            {reportData.unverified_commit_deployments.map((entry: UnverifiedCommitDeploymentEntry) => {
+              const isApproved = entry.four_eyes_status === 'manually_approved'
+              return (
+                <View key={entry.deployment_id} style={styles.manualBox} wrap={false}>
+                  <Text style={styles.manualTitle}>
+                    Deployment #{entry.deployment_id} - {formatDate(entry.date)}
+                  </Text>
+                  {entry.title && <Text style={[styles.manualDetail, { fontWeight: 600 }]}>{entry.title}</Text>}
+                  <Text style={styles.manualDetail}>
+                    Commit:{' '}
+                    {entry.commit_sha ? (
+                      <Link src={`https://github.com/${repository}/commit/${entry.commit_sha}`} style={styles.link}>
+                        {entry.commit_sha.substring(0, 7)}
+                      </Link>
+                    ) : (
+                      'N/A'
+                    )}
+                  </Text>
+                  <Text style={styles.manualDetail}>Deployer: {entry.deployer_display_name || entry.deployer}</Text>
+                  <Text style={[styles.manualDetail, { fontWeight: 600, color: isApproved ? '#006A2E' : '#BA3A26' }]}>
+                    {isApproved
+                      ? `✓ Godkjent av: ${entry.approved_by_display_name || entry.approved_by}${entry.approved_at ? ` (${formatDateTime(entry.approved_at)})` : ''}`
+                      : '✗ Ikke godkjent etter fire-øyne-prinsippet'}
+                  </Text>
+                  <Text style={[styles.manualDetail, { marginTop: 4, fontWeight: 600 }]}>
+                    Ikke-verifiserte commits ({entry.commits.length}):
+                  </Text>
+                  {entry.commits.map((commit) => (
+                    <View key={commit.sha} style={{ marginLeft: 10, marginBottom: 3 }}>
+                      <Text style={{ fontSize: 8 }}>
+                        •{' '}
+                        <Link src={commit.html_url} style={styles.link}>
+                          {commit.sha.substring(0, 7)}
+                        </Link>
+                        {' - '}
+                        {commit.message.length > 80 ? `${commit.message.substring(0, 80)}…` : commit.message}
+                      </Text>
+                      <Text style={{ fontSize: 7, color: '#666666', marginLeft: 10 }}>
+                        av {commit.author} • {formatUnverifiedReason(commit.reason)}
+                        {commit.pr_number ? ` (PR #${commit.pr_number})` : ''}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )
+            })}
           </View>
           <Text
             style={styles.pageNumber}
