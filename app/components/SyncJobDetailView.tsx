@@ -1,5 +1,17 @@
-import { Alert, BodyShort, Box, Detail, Heading, HStack, Loader, Switch, Tag, VStack } from '@navikt/ds-react'
-import { useEffect, useState } from 'react'
+import {
+  Alert,
+  BodyShort,
+  Box,
+  CopyButton,
+  Detail,
+  Heading,
+  HStack,
+  Loader,
+  Switch,
+  Tag,
+  VStack,
+} from '@navikt/ds-react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRevalidator } from 'react-router'
 import type { SyncJob, SyncJobLog } from '~/db/sync-jobs.server'
 
@@ -62,6 +74,26 @@ export function SyncJobDetailView({ job, logs, jobTypeLabel, jobStatusLabel, has
   const isRunning = job.status === 'running'
   const progress = job.result as Record<string, number> | null
   const filteredLogs = showDebug ? logs : logs.filter((l) => l.level !== 'debug')
+
+  const logsCopyText = useMemo(
+    () =>
+      filteredLogs
+        .map((l) => {
+          const time = new Date(l.created_at).toLocaleString('no-NO', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+          })
+          const details = l.details
+            ? ` ${Object.entries(l.details)
+                .map(([k, v]) => `${k}=${v}`)
+                .join(' ')}`
+            : ''
+          return `${time} [${l.level.toUpperCase()}] ${l.message}${details}`
+        })
+        .join('\n'),
+    [filteredLogs],
+  )
 
   // Auto-poll for running jobs
   useEffect(() => {
@@ -157,6 +189,9 @@ export function SyncJobDetailView({ job, logs, jobTypeLabel, jobStatusLabel, has
               Logg ({filteredLogs.length} meldinger)
             </Heading>
             <HStack gap="space-12" align="center">
+              {filteredLogs.length > 0 && (
+                <CopyButton copyText={logsCopyText} size="small" text="Kopier logg" activeText="Kopiert!" />
+              )}
               {hasDebugLogs && (
                 <Switch size="small" checked={showDebug} onChange={() => setShowDebug(!showDebug)}>
                   Vis debug
