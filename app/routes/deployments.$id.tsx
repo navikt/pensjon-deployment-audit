@@ -1219,7 +1219,12 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
         {/* Debug button - only shown in debug mode */}
         <div>
           {isDebugMode && (
-            <Button as={Link} to={`/deployments/${deployment.id}/debug-verify`} variant="tertiary" size="xsmall">
+            <Button
+              as={Link}
+              to={`${appUrl}/deployments/${deployment.id}/debug-verify`}
+              variant="tertiary"
+              size="xsmall"
+            >
               🔬 Debug verifisering
             </Button>
           )}
