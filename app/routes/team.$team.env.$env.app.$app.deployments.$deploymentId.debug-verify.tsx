@@ -14,13 +14,15 @@
 import { Alert, BodyShort, Box, Button, Heading, HStack, Switch, Tag, VStack } from '@navikt/ds-react'
 import { Link, useSearchParams } from 'react-router'
 import { getDeploymentById } from '~/db/deployments.server'
+import { getUserIdentity } from '~/lib/auth.server'
 import { logger } from '~/lib/logger.server'
 import { type DebugVerificationResult, isVerificationDebugMode, runDebugVerification } from '~/lib/verification'
 import type { Route } from './+types/team.$team.env.$env.app.$app.deployments.$deploymentId.debug-verify'
 
 export async function loader({ params, request }: Route.LoaderArgs) {
-  // Check debug mode
-  if (!isVerificationDebugMode) {
+  // Allow access if debug mode is enabled OR user is global admin
+  const user = await getUserIdentity(request)
+  if (!isVerificationDebugMode && user?.role !== 'admin') {
     throw new Response('Debug mode not enabled', { status: 403 })
   }
 

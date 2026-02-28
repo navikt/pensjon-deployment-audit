@@ -225,7 +225,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     currentUserNavIdent: currentUser?.navIdent || null,
     isCurrentUserInvolved,
     involvementReason,
-    isDebugMode: isVerificationDebugMode,
+    isDebugMode: isVerificationDebugMode || currentUser?.role === 'admin',
     isAdmin: currentUser?.role === 'admin',
     slackConfig: {
       enabled: app.slack_notifications_enabled,
