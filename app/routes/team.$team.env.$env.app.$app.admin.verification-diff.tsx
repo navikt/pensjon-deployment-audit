@@ -242,6 +242,7 @@ export default function VerificationDiffPage() {
                 action={`/team/${appContext.teamSlug}/env/${appContext.environmentName}/app/${appContext.appName}/admin`}
               >
                 <input type="hidden" name="action" value="compute_diffs" />
+                <input type="hidden" name="app_id" value={appContext.monitoredAppId} />
                 <Button type="submit" size="small" variant="secondary" loading={isComputing}>
                   {isComputing ? 'Beregner…' : 'Beregn avvik'}
                 </Button>

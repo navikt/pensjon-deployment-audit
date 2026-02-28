@@ -331,7 +331,7 @@ export async function action({ request }: Route.ActionArgs) {
 
     // Start async processing (fire and forget)
     processFetchDataJobAsync(jobId, appId).catch((err) => {
-      logger.error(`Fetch data job ${jobId} failed:`, err)
+      logger.error(`Fetch data job ${jobId} failed`, err instanceof Error ? err : new Error(String(err)))
     })
 
     return { fetchJobStarted: jobId }
@@ -371,12 +371,15 @@ export async function action({ request }: Route.ActionArgs) {
   }
 
   if (action === 'compute_diffs') {
+    if (Number.isNaN(appId)) {
+      return { error: 'Mangler app_id' }
+    }
     const jobId = await acquireSyncLock('reverify_app', appId, 10)
     if (!jobId) {
       return { error: 'En avviksberegning kjører allerede for denne appen' }
     }
     processComputeDiffsJobAsync(jobId, appId).catch((err) => {
-      logger.error(`Compute diffs job ${jobId} failed:`, err)
+      logger.error(`Compute diffs job ${jobId} failed`, err instanceof Error ? err : new Error(String(err)))
     })
     return { computeDiffsJobStarted: jobId }
   }
