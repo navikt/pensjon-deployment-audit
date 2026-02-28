@@ -3,7 +3,7 @@ import { pipeline } from 'node:stream/promises'
 import { Storage } from '@google-cloud/storage'
 import { logger } from './logger.server'
 
-const BUCKET_ENV_VAR = 'STORAGE_BUCKET_PENSJON_DEPLOYMENT_AUDIT_LOGS'
+const BUCKET_ENV_VAR = 'BUCKET_NAME_PENSJON_DEPLOYMENT_AUDIT_LOGS'
 const LOG_PREFIX = 'build-logs'
 
 let storage: Storage | null = null
@@ -75,4 +75,15 @@ export async function downloadLog(owner: string, repo: string, checkRunId: numbe
 
 export function isGcsConfigured(): boolean {
   return !!process.env[BUCKET_ENV_VAR]
+}
+
+// Log GCS bucket configuration on module load
+const bucketEnvVars = Object.keys(process.env).filter((k) => k.includes('BUCKET') || k.includes('STORAGE'))
+if (process.env[BUCKET_ENV_VAR]) {
+  logger.info(`GCS bucket configured: ${process.env[BUCKET_ENV_VAR]}`)
+} else {
+  logger.warn(
+    `GCS bucket NOT configured. Expected env var: ${BUCKET_ENV_VAR}. ` +
+      `Tilgjengelige bucket/storage-variabler: ${bucketEnvVars.length > 0 ? bucketEnvVars.join(', ') : '(ingen)'}`,
+  )
 }
