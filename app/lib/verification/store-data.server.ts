@@ -109,14 +109,20 @@ async function updateDeploymentVerification(
   await pool.query(
     `UPDATE deployments
      SET 
-       four_eyes = COALESCE($1, four_eyes),
-       four_eyes_status_comment = COALESCE($2, four_eyes_status_comment),
+       has_four_eyes = COALESCE($1, has_four_eyes),
+       four_eyes_status = $2,
        github_pr_number = COALESCE($3, github_pr_number),
        github_pr_data = COALESCE($4::jsonb, github_pr_data),
        updated_at = NOW()
      WHERE id = $5
        AND four_eyes_status NOT IN ('manually_approved', 'legacy')`,
-    [fourEyesValue, fourEyesStatusComment, result.deployedPr?.number || null, githubPrData, deploymentId],
+    [
+      fourEyesValue,
+      result.status,
+      result.deployedPr?.number || null,
+      githubPrData ? JSON.stringify(githubPrData) : null,
+      deploymentId,
+    ],
   )
 
   // Log status transition if status changed

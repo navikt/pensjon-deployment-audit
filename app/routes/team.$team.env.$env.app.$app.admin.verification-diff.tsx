@@ -18,6 +18,7 @@ import {
   getPrSnapshotsForDiff,
 } from '~/db/verification-diff.server'
 import { requireAdmin } from '~/lib/auth.server'
+import { logger } from '~/lib/logger.server'
 import { reverifyDeployment } from '~/lib/verification'
 import { buildCommitsBetweenFromCache } from '~/lib/verification/fetch-data.server'
 import type { CompareData, PrCommit, PrMetadata, PrReview, VerificationInput } from '~/lib/verification/types'
@@ -164,17 +165,27 @@ export async function action({ request }: Route.ActionArgs) {
   const deploymentId = parseInt(formData.get('deployment_id') as string, 10)
 
   if (actionType === 'apply_reverification' && deploymentId) {
-    const result = await reverifyDeployment(deploymentId)
-    if (!result) {
-      return { error: `Deployment ${deploymentId} ble hoppet over (manuelt godkjent, legacy, eller mangler data)` }
-    }
-    if (result.changed) {
+    try {
+      const result = await reverifyDeployment(deploymentId)
+      if (!result) {
+        return { error: `Deployment ${deploymentId} ble hoppet over (manuelt godkjent, legacy, eller mangler data)` }
+      }
+      if (result.changed) {
+        return {
+          applied: deploymentId,
+          message: `Oppdatert: ${result.oldStatus} → ${result.newStatus}`,
+        }
+      }
+      return { applied: deploymentId, message: 'Ingen endring nødvendig' }
+    } catch (err) {
+      logger.error(
+        `Reverification failed for deployment ${deploymentId}`,
+        err instanceof Error ? err : new Error(String(err)),
+      )
       return {
-        applied: deploymentId,
-        message: `Oppdatert: ${result.oldStatus} → ${result.newStatus}`,
+        error: `Feil ved re-verifisering av deployment ${deploymentId}: ${err instanceof Error ? err.message : String(err)}`,
       }
     }
-    return { applied: deploymentId, message: 'Ingen endring nødvendig' }
   }
 
   if (actionType === 'apply_all') {
@@ -191,7 +202,8 @@ export async function action({ request }: Route.ActionArgs) {
         } else {
           skipped++
         }
-      } catch {
+      } catch (err) {
+        logger.error(`Reverification failed for deployment ${id}`, err instanceof Error ? err : new Error(String(err)))
         errors++
       }
     }
