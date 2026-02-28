@@ -139,6 +139,11 @@ export default function VerificationDiffDeploymentPage({ loaderData }: Route.Com
                 📥 Eksporter JSON
               </Button>
             )}
+            <Link to={`/team/${params.team}/env/${params.env}/app/${params.app}/deployments/${deployment.id}`}>
+              <Button variant="secondary" size="small">
+                Gå til deployment
+              </Button>
+            </Link>
             <Link to={backUrl}>
               <Button variant="secondary" size="small">
                 ← Tilbake
