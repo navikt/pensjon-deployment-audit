@@ -4,7 +4,6 @@ import {
   getRepositoriesByAppId,
   upsertApplicationRepository,
 } from '~/db/application-repositories.server'
-import { getCommit } from '~/db/commits.server'
 import {
   type CreateDeploymentParams,
   createDeployment,
@@ -12,48 +11,12 @@ import {
   getAllDeployments,
   getDeploymentByNaisId,
   getLatestDeploymentForApp,
-  getPreviousDeployment,
   updateDeploymentFourEyes,
 } from '~/db/deployments.server'
 import { getMonitoredApplication } from '~/db/monitored-applications.server'
 import { logger, runWithJobContext } from '~/lib/logger.server'
 import { fetchApplicationDeployments, fetchNewDeployments } from '~/lib/nais.server'
 import { runVerification } from '~/lib/verification'
-import type { PrReview } from '~/lib/verification/types'
-import { verifyFourEyesFromPrData as verifyFourEyesFromPrDataV2 } from '~/lib/verification/verify'
-
-/**
- * Verify four-eyes approval from already fetched PR data.
- * Delegates to V2's verifyFourEyesFromPrData after mapping data format.
- */
-function verifyFourEyesFromPrData(prData: {
-  creator?: { username: string }
-  reviewers?: Array<{ username: string; state: string; submitted_at: string }>
-  commits?: Array<{ sha: string; date: string; message?: string; author?: { username: string } }>
-  base_branch?: string
-  merged_by?: { username: string } | null
-}): { hasFourEyes: boolean; reason: string } {
-  return verifyFourEyesFromPrDataV2({
-    reviewers: (prData.reviewers || []).map((r) => ({
-      id: 0,
-      username: r.username,
-      state: r.state as PrReview['state'],
-      submittedAt: r.submitted_at,
-      body: null,
-    })),
-    commits: (prData.commits || []).map((c) => ({
-      sha: c.sha,
-      message: c.message || '',
-      authorUsername: c.author?.username || '',
-      authorDate: c.date,
-      committerDate: c.date,
-      isMergeCommit: false,
-      parentShas: [],
-    })),
-    baseBranch: prData.base_branch || 'main',
-    mergedBy: prData.merged_by?.username ?? null,
-  })
-}
 
 /**
  * Step 1: Sync deployments from Nais API to database
