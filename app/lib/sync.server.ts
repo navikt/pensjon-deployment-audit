@@ -1189,7 +1189,32 @@ async function cacheCheckLogsWithLock(
   try {
     await logSyncJobMessage(lockId, 'info', 'Starter caching av sjekk-logger')
     const { cacheCheckLogs } = await import('~/lib/log-cache.server')
-    const cached = await runWithJobContext(lockId, false, () => cacheCheckLogs(monitoredAppId))
+    const { cached, diagnostics } = await runWithJobContext(lockId, false, () => cacheCheckLogs(monitoredAppId))
+
+    if (cached === 0) {
+      const d = diagnostics
+      if (!d.gcsConfigured) {
+        await logSyncJobMessage(lockId, 'warn', 'GCS er ikke konfigurert — kan ikke cache logger')
+      } else if (d.deploymentsLast7Days === 0) {
+        await logSyncJobMessage(lockId, 'info', 'Ingen deployments siste 7 dager')
+      } else if (d.deploymentsWithChecks === 0) {
+        await logSyncJobMessage(
+          lockId,
+          'info',
+          `${d.deploymentsLast7Days} deployments siste 7 dager, men ingen har checks i github_pr_data (${d.deploymentsWithPrData} har pr_data)`,
+        )
+      } else {
+        await logSyncJobMessage(lockId, 'info', `Ingen nye logger å cache`, {
+          deployments_med_checks: d.deploymentsWithChecks,
+          checks_totalt: d.checksTotal,
+          allerede_cachet: d.skippedAlreadyCached,
+          uten_id: d.skippedNoId,
+          uten_repo: d.skippedNoRepo,
+          ikke_fullført: d.skippedNotCompleted,
+        })
+      }
+    }
+
     const result = { cached }
     await logSyncJobMessage(lockId, 'info', 'Caching fullført', result)
     await releaseSyncLock(lockId, 'completed', result)

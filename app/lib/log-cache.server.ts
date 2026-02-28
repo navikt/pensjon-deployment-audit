@@ -11,12 +11,43 @@ interface CheckToCache {
   check_name: string
 }
 
+export interface CacheCheckLogsResult {
+  cached: number
+  diagnostics: {
+    gcsConfigured: boolean
+    deploymentsLast7Days: number
+    deploymentsWithPrData: number
+    deploymentsWithChecks: number
+    deploymentsWithRepo: number
+    checksTotal: number
+    skippedNoRepo: number
+    skippedNoId: number
+    skippedAlreadyCached: number
+    skippedNotCompleted: number
+  }
+}
+
 /**
  * Find recent deployments with completed checks whose logs haven't been cached yet.
  * Limits to deployments from the last 7 days to stay within API quotas.
  */
-async function getUncachedChecks(monitoredAppId: number): Promise<CheckToCache[]> {
-  // First check how many deployments have checks data at all
+async function getUncachedChecks(monitoredAppId: number): Promise<{
+  checks: CheckToCache[]
+  diagnostics: CacheCheckLogsResult['diagnostics']
+}> {
+  const diagnostics: CacheCheckLogsResult['diagnostics'] = {
+    gcsConfigured: true,
+    deploymentsLast7Days: 0,
+    deploymentsWithPrData: 0,
+    deploymentsWithChecks: 0,
+    deploymentsWithRepo: 0,
+    checksTotal: 0,
+    skippedNoRepo: 0,
+    skippedNoId: 0,
+    skippedAlreadyCached: 0,
+    skippedNotCompleted: 0,
+  }
+
   const statsResult = await pool.query<{
     total_deployments: string
     with_pr_data: string
@@ -41,17 +72,10 @@ async function getUncachedChecks(monitoredAppId: number): Promise<CheckToCache[]
 
   if (statsResult.rows.length > 0) {
     const s = statsResult.rows[0]
-    const total = parseInt(s.total_deployments, 10)
-    if (total > 0) {
-      const withPrData = parseInt(s.with_pr_data, 10)
-      const withChecks = parseInt(s.with_checks, 10)
-      const withRepo = parseInt(s.with_repo, 10)
-      if (withChecks === 0) {
-        logger.debug(
-          `[cacheCheckLogs] App ${monitoredAppId}: ${total} deployments siste 7 dager, ${withPrData} med pr_data, ${withChecks} med checks, ${withRepo} med repo-kobling`,
-        )
-      }
-    }
+    diagnostics.deploymentsLast7Days = parseInt(s.total_deployments, 10)
+    diagnostics.deploymentsWithPrData = parseInt(s.with_pr_data, 10)
+    diagnostics.deploymentsWithChecks = parseInt(s.with_checks, 10)
+    diagnostics.deploymentsWithRepo = parseInt(s.with_repo, 10)
   }
 
   const result = await pool.query<{
@@ -85,30 +109,27 @@ async function getUncachedChecks(monitoredAppId: number): Promise<CheckToCache[]
   )
 
   const checks: CheckToCache[] = []
-  let skippedNoRepo = 0
-  let skippedNoId = 0
-  let skippedAlreadyCached = 0
-  let skippedNotCompleted = 0
 
   for (const row of result.rows) {
     if (!row.github_pr_data?.checks || !row.repository_full_name) {
-      if (!row.repository_full_name) skippedNoRepo++
+      if (!row.repository_full_name) diagnostics.skippedNoRepo++
       continue
     }
     const [owner, repo] = row.repository_full_name.split('/')
     if (!owner || !repo) continue
 
     for (const check of row.github_pr_data.checks) {
+      diagnostics.checksTotal++
       if (!check.id) {
-        skippedNoId++
+        diagnostics.skippedNoId++
         continue
       }
       if (check.log_cached) {
-        skippedAlreadyCached++
+        diagnostics.skippedAlreadyCached++
         continue
       }
       if (check.status !== 'completed') {
-        skippedNotCompleted++
+        diagnostics.skippedNotCompleted++
         continue
       }
 
@@ -122,28 +143,34 @@ async function getUncachedChecks(monitoredAppId: number): Promise<CheckToCache[]
     }
   }
 
-  if (result.rows.length > 0 && checks.length === 0) {
-    logger.debug(
-      `[cacheCheckLogs] App ${monitoredAppId}: ${result.rows.length} deployments med checks, men ingen å cache. ` +
-        `Hoppet over: ${skippedNoRepo} uten repo, ${skippedNoId} uten id, ${skippedAlreadyCached} allerede cachet, ${skippedNotCompleted} ikke fullført`,
-    )
-  }
-
-  return checks
+  return { checks, diagnostics }
 }
 
 /**
  * Cache logs for all completed checks for a specific app to GCS.
  * Returns the number of logs successfully cached.
  */
-export async function cacheCheckLogs(monitoredAppId: number): Promise<number> {
+export async function cacheCheckLogs(monitoredAppId: number): Promise<CacheCheckLogsResult> {
   if (!isGcsConfigured()) {
-    logger.debug(`[cacheCheckLogs] GCS ikke konfigurert, hopper over app ${monitoredAppId}`)
-    return 0
+    return {
+      cached: 0,
+      diagnostics: {
+        gcsConfigured: false,
+        deploymentsLast7Days: 0,
+        deploymentsWithPrData: 0,
+        deploymentsWithChecks: 0,
+        deploymentsWithRepo: 0,
+        checksTotal: 0,
+        skippedNoRepo: 0,
+        skippedNoId: 0,
+        skippedAlreadyCached: 0,
+        skippedNotCompleted: 0,
+      },
+    }
   }
 
-  const checks = await getUncachedChecks(monitoredAppId)
-  if (checks.length === 0) return 0
+  const { checks, diagnostics } = await getUncachedChecks(monitoredAppId)
+  if (checks.length === 0) return { cached: 0, diagnostics }
 
   logger.info(`Found ${checks.length} check logs to cache`)
 
@@ -175,7 +202,7 @@ export async function cacheCheckLogs(monitoredAppId: number): Promise<number> {
     }
   }
 
-  return cached
+  return { cached, diagnostics }
 }
 
 /**
