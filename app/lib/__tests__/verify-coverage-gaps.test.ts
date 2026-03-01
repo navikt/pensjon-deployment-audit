@@ -347,8 +347,98 @@ describe('verifyDeployment - Case 6: implicit approval mode all', () => {
 })
 
 // =============================================================================
-// Deployed PR with approval_before_last_commit
+// Case 6b: implicitly_approved via mode 'dependabot_only' (integration)
 // =============================================================================
+
+describe('verifyDeployment - Case 6: implicit approval mode dependabot_only', () => {
+  it('should return implicitly_approved for dependabot PR merged by another user', () => {
+    // Dependabot PR with no reviews, merged by a human.
+    // The commit in commitsBetween does NOT match mergeCommitSha or PR commit SHAs,
+    // so it falls through to commit.pr path → no reviews → unverified.
+    // Then implicit approval (dependabot_only) kicks in.
+    const input = makeBaseInput({
+      implicitApprovalSettings: { mode: 'dependabot_only' },
+      deployedPr: {
+        number: 350,
+        url: 'https://github.com/navikt/test-app/pull/350',
+        metadata: makePrMetadata({
+          number: 350,
+          mergeCommitSha: 'squash-sha-350',
+          author: { username: 'dependabot[bot]' },
+          mergedBy: { username: 'human-dev' },
+        }),
+        reviews: [], // No reviews
+        commits: [
+          makePrCommit({
+            sha: 'dep-commit-sha',
+            authorUsername: 'dependabot[bot]',
+            authorDate: '2026-02-27T10:00:00Z',
+          }),
+        ],
+      },
+      commitsBetween: [
+        {
+          sha: 'squash-sha-350',
+          message: 'Bump axios from 1.6.0 to 1.7.0 (#350)',
+          authorUsername: 'dependabot[bot]',
+          authorDate: '2026-02-27T11:00:00Z',
+          isMergeCommit: false,
+          parentShas: [],
+          htmlUrl: '',
+          pr: null,
+        },
+      ],
+    })
+
+    const result = verifyDeployment(input)
+
+    expect(result.status).toBe('implicitly_approved')
+    expect(result.hasFourEyes).toBe(true)
+    expect(result.approvalDetails.method).toBe('implicit')
+    expect(result.approvalDetails.reason).toContain('Dependabot')
+  })
+
+  it('should NOT implicitly approve dependabot PR when merged by dependabot itself', () => {
+    const input = makeBaseInput({
+      implicitApprovalSettings: { mode: 'dependabot_only' },
+      deployedPr: {
+        number: 351,
+        url: 'https://github.com/navikt/test-app/pull/351',
+        metadata: makePrMetadata({
+          number: 351,
+          mergeCommitSha: 'squash-sha-351',
+          author: { username: 'dependabot[bot]' },
+          mergedBy: { username: 'dependabot[bot]' }, // Same as creator
+        }),
+        reviews: [],
+        commits: [
+          makePrCommit({
+            sha: 'dep-commit-sha-2',
+            authorUsername: 'dependabot[bot]',
+            authorDate: '2026-02-27T10:00:00Z',
+          }),
+        ],
+      },
+      commitsBetween: [
+        {
+          sha: 'squash-sha-351',
+          message: 'Bump axios from 1.6.0 to 1.7.0 (#351)',
+          authorUsername: 'dependabot[bot]',
+          authorDate: '2026-02-27T11:00:00Z',
+          isMergeCommit: false,
+          parentShas: [],
+          htmlUrl: '',
+          pr: null,
+        },
+      ],
+    })
+
+    const result = verifyDeployment(input)
+
+    expect(result.status).toBe('unverified_commits')
+    expect(result.hasFourEyes).toBe(false)
+  })
+})
 
 describe('verifyDeployment - deployed PR approval before last commit', () => {
   it('should propagate approval_before_last_commit reason for deployed PR commits', () => {
