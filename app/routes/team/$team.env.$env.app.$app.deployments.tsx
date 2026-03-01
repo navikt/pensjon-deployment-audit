@@ -6,6 +6,7 @@ import { type DeploymentFilters, getDeploymentsPaginated } from '~/db/deployment
 import { getMonitoredApplicationByIdentity } from '~/db/monitored-applications.server'
 import { getUserMappings } from '~/db/user-mappings.server'
 import type { FourEyesStatus } from '~/lib/four-eyes-status'
+import { requireTeamEnvAppParams } from '~/lib/route-params.server'
 import { getDateRangeForPeriod, TIME_PERIOD_OPTIONS, type TimePeriod } from '~/lib/time-periods'
 import { getUserDisplayName, serializeUserMappings } from '~/lib/user-display'
 import styles from '~/styles/common.module.css'
@@ -16,10 +17,7 @@ export function meta({ data }: Route.MetaArgs) {
 }
 
 export async function loader({ params, request }: Route.LoaderArgs) {
-  const { team, env, app: appName } = params
-  if (!team || !env || !appName) {
-    throw new Response('Missing route parameters', { status: 400 })
-  }
+  const { team, env, app: appName } = requireTeamEnvAppParams(params)
 
   const app = await getMonitoredApplicationByIdentity(team, env, appName)
   if (!app) {

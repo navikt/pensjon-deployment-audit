@@ -8,13 +8,11 @@ import {
   getSlackNotificationUpdates,
 } from '~/db/slack-notifications.server'
 import { getUserIdentity } from '~/lib/auth.server'
+import { requireTeamEnvAppParams } from '~/lib/route-params.server'
 import type { Route } from './+types/$team.env.$env.app.$app.slack'
 
 export async function loader({ params, request }: Route.LoaderArgs) {
-  const { team, env, app: appName } = params
-  if (!team || !env || !appName) {
-    throw new Response('Missing route parameters', { status: 400 })
-  }
+  const { team, env, app: appName } = requireTeamEnvAppParams(params)
 
   // Check admin access
   const identity = await getUserIdentity(request)

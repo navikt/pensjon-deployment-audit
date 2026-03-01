@@ -2,14 +2,12 @@
 // Re-exports the deployment detail page with additional app context
 
 import { getMonitoredApplicationByIdentity } from '~/db/monitored-applications.server'
+import { requireParams } from '~/lib/route-params.server'
 import { default as DeploymentDetail, action as deploymentAction, loader as deploymentLoader } from '../deployments/$id'
 import type { Route } from './+types/$team.env.$env.app.$app.deployments.$deploymentId'
 
 export async function loader({ params, request }: Route.LoaderArgs) {
-  const { team, env, app: appName, deploymentId } = params
-  if (!team || !env || !appName || !deploymentId) {
-    throw new Response('Missing route parameters', { status: 400 })
-  }
+  const { team, env, app: appName, deploymentId } = requireParams(params, ['team', 'env', 'app', 'deploymentId'])
 
   const app = await getMonitoredApplicationByIdentity(team, env, appName)
   if (!app) {

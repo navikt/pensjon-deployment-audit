@@ -43,15 +43,13 @@ import { getAppDeploymentStats } from '~/db/deployments.server'
 import { getMonitoredApplicationByIdentity, updateMonitoredApplication } from '~/db/monitored-applications.server'
 import { getUserIdentity } from '~/lib/auth.server'
 import { logger } from '~/lib/logger.server'
+import { requireTeamEnvAppParams } from '~/lib/route-params.server'
 import { getDateRangeForPeriod, TIME_PERIOD_OPTIONS, type TimePeriod } from '~/lib/time-periods'
 import type { loader as layoutLoader } from '../layout'
 import type { Route } from './+types/$team.env.$env.app.$app'
 
 export async function loader({ params, request }: Route.LoaderArgs) {
-  const { team, env, app: appName } = params
-  if (!team || !env || !appName) {
-    throw new Response('Missing route parameters', { status: 400 })
-  }
+  const { team, env, app: appName } = requireTeamEnvAppParams(params)
 
   const url = new URL(request.url)
   const period = (url.searchParams.get('period') || 'last-week') as TimePeriod

@@ -6,13 +6,11 @@ import { getAlertCountsByApp } from '~/db/alerts.server'
 import { getRepositoriesByAppId } from '~/db/application-repositories.server'
 import { getAppDeploymentStats } from '~/db/deployments.server'
 import { getApplicationsByTeamAndEnv } from '~/db/monitored-applications.server'
+import { requireTeamEnvParams } from '~/lib/route-params.server'
 import type { Route } from './+types/$team.env.$env'
 
 export async function loader({ params }: Route.LoaderArgs) {
-  const { team, env } = params
-  if (!team || !env) {
-    throw new Response('Missing team or env parameter', { status: 400 })
-  }
+  const { team, env } = requireTeamEnvParams(params)
 
   const applications = await getApplicationsByTeamAndEnv(team, env)
 
