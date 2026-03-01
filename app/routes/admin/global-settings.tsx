@@ -8,6 +8,7 @@ import { Alert, BodyShort, Box, Button, Heading, TextField, VStack } from '@navi
 import { Form, useActionData, useLoaderData } from 'react-router'
 import { ActionAlert } from '~/components/ActionAlert'
 import { getDeviationSlackChannel, updateDeviationSlackChannel } from '~/db/global-settings.server'
+import { fail, ok } from '~/lib/action-result'
 import { requireAdmin } from '~/lib/auth.server'
 import type { Route } from './+types/global-settings'
 
@@ -30,13 +31,13 @@ export async function action({ request }: Route.ActionArgs) {
     const channelId = (formData.get('channel_id') as string)?.trim() || ''
     try {
       await updateDeviationSlackChannel(channelId)
-      return { success: 'Avvikskanal oppdatert' }
+      return ok('Avvikskanal oppdatert')
     } catch (_error) {
-      return { error: 'Kunne ikke oppdatere avvikskanal' }
+      return fail('Kunne ikke oppdatere avvikskanal')
     }
   }
 
-  return { error: 'Ukjent handling' }
+  return fail('Ukjent handling')
 }
 
 export default function GlobalSettingsPage() {
