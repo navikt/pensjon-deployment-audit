@@ -9,8 +9,8 @@ import { claimReminderSend, getAppsWithRemindersEnabled, getUnapprovedDeployment
 import { getUserMapping } from '~/db/user-mappings.server'
 import { logger } from '~/lib/logger.server'
 import { getWeekdayKey, isBusinessDay } from './norwegian-holidays'
-import { sendReminder } from './slack.server'
-import type { ReminderDeployment } from './slack-blocks'
+import type { ReminderDeployment } from './slack'
+import { sendReminder } from './slack'
 
 const SCHEDULER_INTERVAL_MS = 60 * 1000 // 1 minute
 const MIN_INTERVAL_HOURS = 23 // Minimum hours between reminders per app

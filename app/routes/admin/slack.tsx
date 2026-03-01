@@ -7,7 +7,7 @@
 import { Alert, BodyShort, Box, Button, Heading, HStack, TextField, VStack } from '@navikt/ds-react'
 import { Form, useActionData, useLoaderData } from 'react-router'
 import { requireAdmin } from '~/lib/auth.server'
-import { type DeploymentNotification, isSlackConfigured, sendDeploymentNotification } from '~/lib/slack.server'
+import { type DeploymentNotification, isSlackConfigured, sendDeploymentNotification } from '~/lib/slack'
 import type { Route } from './+types/slack'
 
 export async function loader({ request }: Route.LoaderArgs) {

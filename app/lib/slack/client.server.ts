@@ -43,7 +43,7 @@ import {
   getStatusEmoji,
   type NewDeploymentNotification,
   type ReminderNotification,
-} from './slack-blocks'
+} from './blocks'
 
 // Re-export types and functions from slack-blocks for backward compatibility
 export type {
@@ -52,7 +52,7 @@ export type {
   HomeTabInput,
   NewDeploymentNotification,
   ReminderNotification,
-} from './slack-blocks'
+} from './blocks'
 export {
   buildDeploymentBlocks,
   buildDeviationBlocks,
@@ -61,7 +61,7 @@ export {
   buildReminderBlocks,
   getStatusEmoji,
   getStatusText,
-} from './slack-blocks'
+} from './blocks'
 
 // Singleton Slack app instance
 let slackApp: App | null = null

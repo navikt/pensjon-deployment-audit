@@ -4,7 +4,7 @@ import type {
   HomeTabInput,
   NewDeploymentNotification,
   ReminderNotification,
-} from '~/lib/slack-blocks'
+} from '~/lib/slack'
 
 const BASE_URL = 'https://pensjon-deployment-audit.ansatt.nav.no'
 

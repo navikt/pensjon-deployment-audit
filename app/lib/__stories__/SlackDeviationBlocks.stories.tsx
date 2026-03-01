@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react'
 import { SlackBlockPreview } from '~/components/__stories__/SlackBlockPreview'
 import { deviationFixtures } from '~/lib/__fixtures__/slack-fixtures'
-import { buildDeviationBlocks } from '~/lib/slack-blocks'
+import { buildDeviationBlocks } from '~/lib/slack'
 
 const meta: Meta<typeof SlackBlockPreview> = {
   title: 'Slack/Deviation Notification',

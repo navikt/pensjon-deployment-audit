@@ -130,7 +130,7 @@ async function runPeriodicSync(): Promise<void> {
     // Send deploy notifications for newly verified deployments
     try {
       const baseUrl = process.env.BASE_URL || 'https://pensjon-deployment-audit.ansatt.nav.no'
-      const { sendPendingDeployNotifications } = await import('~/lib/slack.server')
+      const { sendPendingDeployNotifications } = await import('~/lib/slack')
       const notified = await sendPendingDeployNotifications(baseUrl)
       if (notified > 0) {
         logger.info(`📬 Sent ${notified} deploy notifications`)

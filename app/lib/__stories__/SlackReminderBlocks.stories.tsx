@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react'
 import { SlackBlockPreview } from '~/components/__stories__/SlackBlockPreview'
 import { reminderFixtures } from '~/lib/__fixtures__/slack-fixtures'
-import { buildReminderBlocks } from '~/lib/slack-blocks'
+import { buildReminderBlocks } from '~/lib/slack'
 
 const meta: Meta<typeof SlackBlockPreview> = {
   title: 'Slack/Reminder Notification',

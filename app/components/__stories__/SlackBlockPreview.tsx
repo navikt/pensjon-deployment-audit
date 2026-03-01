@@ -1,7 +1,7 @@
 import { ExternalLinkIcon } from '@navikt/aksel-icons'
 import { Alert, BodyShort, Box, Button, Detail, HStack, VStack } from '@navikt/ds-react'
 import type { KnownBlock } from '@slack/types'
-import { buildBlockKitBuilderUrl, isUrlTooLong } from '~/lib/slack-block-kit-url'
+import { buildBlockKitBuilderUrl, isUrlTooLong } from '~/lib/slack'
 
 interface SlackBlockPreviewProps {
   blocks: KnownBlock[]

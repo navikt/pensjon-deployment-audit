@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react'
 import { SlackBlockPreview } from '~/components/__stories__/SlackBlockPreview'
 import { newDeploymentFixtures } from '~/lib/__fixtures__/slack-fixtures'
-import { buildNewDeploymentBlocks } from '~/lib/slack-blocks'
+import { buildNewDeploymentBlocks } from '~/lib/slack'
 
 const meta: Meta<typeof SlackBlockPreview> = {
   title: 'Slack/Deployment Info Notification',

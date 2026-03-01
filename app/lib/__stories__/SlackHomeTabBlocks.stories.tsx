@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react'
 import { SlackBlockPreview } from '~/components/__stories__/SlackBlockPreview'
 import { homeTabFixtures } from '~/lib/__fixtures__/slack-fixtures'
-import { buildHomeTabBlocks } from '~/lib/slack-blocks'
+import { buildHomeTabBlocks } from '~/lib/slack'
 
 const meta: Meta<typeof SlackBlockPreview> = {
   title: 'Slack/Home Tab',
