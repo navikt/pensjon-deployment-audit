@@ -1,9 +1,28 @@
 import { DownloadIcon } from '@navikt/aksel-icons'
-import { Alert, Box, Button, HStack, Loader, VStack } from '@navikt/ds-react'
+import { Alert, BodyShort, Box, Button, HStack, Loader, VStack } from '@navikt/ds-react'
 import { useState } from 'react'
 import { useFetcher } from 'react-router'
 
-export function CheckLogViewer({ owner, repo, jobId }: { owner: string; repo: string; jobId: number }) {
+interface CheckLogViewerProps {
+  owner: string
+  repo: string
+  jobId: number
+  appSlug: string | null
+  conclusion: string | null
+}
+
+function getNoLogsReason(appSlug: string | null, conclusion: string | null): string | null {
+  if (conclusion === 'skipped') {
+    return 'Sjekken ble hoppet over og har ingen logg.'
+  }
+  if (appSlug !== null && appSlug !== 'github-actions') {
+    return 'Denne sjekken er ikke en GitHub Actions-jobb og har ikke nedlastbare logger.'
+  }
+  return null
+}
+
+export function CheckLogViewer({ owner, repo, jobId, appSlug, conclusion }: CheckLogViewerProps) {
+  const noLogsReason = getNoLogsReason(appSlug, conclusion)
   const fetcher = useFetcher<{ logs?: string; error?: string; source?: string }>()
   const [showLogs, setShowLogs] = useState(false)
   const [pendingDownload, setPendingDownload] = useState(false)
@@ -37,6 +56,16 @@ export function CheckLogViewer({ owner, repo, jobId }: { owner: string; repo: st
   if (pendingDownload && fetcher.data?.logs) {
     setPendingDownload(false)
     triggerDownload(fetcher.data.logs)
+  }
+
+  if (noLogsReason) {
+    return (
+      <Box style={{ paddingLeft: 'var(--ax-space-24)' }}>
+        <BodyShort size="small" textColor="subtle">
+          {noLogsReason}
+        </BodyShort>
+      </Box>
+    )
   }
 
   return (

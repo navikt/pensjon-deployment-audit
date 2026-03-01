@@ -946,6 +946,8 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                             owner={deployment.detected_github_owner}
                             repo={deployment.detected_github_repo_name}
                             jobId={check.id}
+                            appSlug={check.app?.slug ?? null}
+                            conclusion={check.conclusion}
                           />
                         )}
 
