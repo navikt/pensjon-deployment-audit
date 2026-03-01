@@ -62,3 +62,42 @@ The verification system checks that all deployments follow the four-eyes princip
 ### Documentation Requirement
 
 When modifying verification logic in `app/lib/verification/verify.ts`, always update [`docs/verification.md`](docs/verification.md) to reflect the changes. This documentation is used by developers, managers, and auditors to understand the verification system.
+
+## Shared Route Utilities
+
+### Form Validators (`app/lib/form-validators.ts`)
+
+Shared validation functions used across route actions:
+
+- `isValidEmail(email)` — validates email format
+- `isValidNavIdent(ident)` — validates NAV ident format (letter + 6 digits)
+- `isValidSlackChannel(channel)` — validates Slack channel ID or `#name` format
+
+### Route Parameters (`app/lib/route-params.server.ts`)
+
+Helpers for extracting and validating route parameters:
+
+- `requireParams(params, keys)` — generic: throws 400 if any key is missing
+- `requireTeamEnvParams(params)` — returns `{ team, env }`
+- `requireTeamEnvAppParams(params)` — returns `{ team, env, app }`
+
+### Action Results (`app/lib/action-result.ts`)
+
+Standardized action response helpers:
+
+- `ok(message)` — returns `{ success: message }`
+- `fail(message)` — returns `{ error: message }`
+- Use with `<ActionAlert data={actionData} />` component for consistent feedback UI
+
+### ActionAlert Component (`app/components/ActionAlert.tsx`)
+
+Renders success/error alerts from action data. Replaces the common pattern:
+
+```tsx
+// Before (duplicated in 12+ routes)
+{actionData?.success && <Alert variant="success">{actionData.success}</Alert>}
+{actionData?.error && <Alert variant="error">{actionData.error}</Alert>}
+
+// After
+<ActionAlert data={actionData} />
+```
