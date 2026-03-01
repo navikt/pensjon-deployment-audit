@@ -28,63 +28,73 @@ import {
  * This is a pure function - no side effects, no database/API calls.
  */
 export function verifyDeployment(input: VerificationInput): VerificationResult {
-  const now = new Date()
-
   // Case 1: No previous deployment (first deployment)
   if (!input.previousDeployment) {
-    return {
-      hasFourEyes: false,
-      status: 'pending_baseline',
-      deployedPr: input.deployedPr
-        ? {
-            number: input.deployedPr.number,
-            url: input.deployedPr.url,
-            title: input.deployedPr.metadata.title,
-            author: input.deployedPr.metadata.author.username,
-          }
-        : null,
-      unverifiedCommits: [],
-      approvalDetails: {
-        method: 'pending_baseline',
-        approvers: [],
-        reason: 'First deployment - no previous deployment to compare against',
-      },
-      verifiedAt: now,
-      schemaVersion: input.dataFreshness.schemaVersion,
-    }
+    return handlePendingBaseline(input)
   }
 
   // Case 2: No commits between deployments (same commit)
   if (input.commitsBetween.length === 0) {
-    return {
-      hasFourEyes: true,
-      status: 'no_changes',
-      deployedPr: input.deployedPr
-        ? {
-            number: input.deployedPr.number,
-            url: input.deployedPr.url,
-            title: input.deployedPr.metadata.title,
-            author: input.deployedPr.metadata.author.username,
-          }
-        : null,
-      unverifiedCommits: [],
-      approvalDetails: {
-        method: 'no_changes',
-        approvers: [],
-        reason: 'No new commits since previous deployment',
-      },
-      verifiedAt: now,
-      schemaVersion: input.dataFreshness.schemaVersion,
-    }
+    return handleNoChanges(input)
   }
 
-  // Case 3: Verify each commit
+  // Case 3: Verify each commit individually
+  const unverifiedCommits = findUnverifiedCommits(input)
+
+  // Case 4: All commits verified
+  if (unverifiedCommits.length === 0) {
+    return handleAllCommitsVerified(input)
+  }
+
+  // Case 5: Check if base branch merge explains the unverified commits
+  if (input.deployedPr) {
+    const baseMergeResult = handleBaseBranchMerge(input, unverifiedCommits)
+    if (baseMergeResult) return baseMergeResult
+  }
+
+  // Case 6: Check implicit approval
+  if (input.deployedPr && input.implicitApprovalSettings.mode !== 'off') {
+    const implicitResult = handleImplicitApproval(input)
+    if (implicitResult) return implicitResult
+  }
+
+  // Case 7: Unverified commits remain
+  return handleUnverifiedCommits(input, unverifiedCommits)
+}
+
+// =============================================================================
+// Case Handlers
+// =============================================================================
+
+function handlePendingBaseline(input: VerificationInput): VerificationResult {
+  return buildResult(input, {
+    hasFourEyes: false,
+    status: 'pending_baseline',
+    approvalDetails: {
+      method: 'pending_baseline',
+      approvers: [],
+      reason: 'First deployment - no previous deployment to compare against',
+    },
+  })
+}
+
+function handleNoChanges(input: VerificationInput): VerificationResult {
+  return buildResult(input, {
+    hasFourEyes: true,
+    status: 'no_changes',
+    approvalDetails: {
+      method: 'no_changes',
+      approvers: [],
+      reason: 'No new commits since previous deployment',
+    },
+  })
+}
+
+function findUnverifiedCommits(input: VerificationInput): UnverifiedCommit[] {
   const unverifiedCommits: UnverifiedCommit[] = []
   const deployedPrCommitShas = new Set(input.deployedPr?.commits.map((c) => c.sha) ?? [])
-  // Also recognize the squash/merge commit as belonging to the deployed PR
   const deployedPrMergeCommitSha = input.deployedPr?.metadata.mergeCommitSha ?? null
 
-  // Check deployed PR approval status
   let deployedPrApproval: { hasFourEyes: boolean; reason: string } | null = null
   if (input.deployedPr) {
     deployedPrApproval = verifyFourEyesFromPrData({
@@ -96,7 +106,6 @@ export function verifyDeployment(input: VerificationInput): VerificationResult {
   }
 
   for (const commit of input.commitsBetween) {
-    // Skip merge commits
     if (commit.isMergeCommit) {
       continue
     }
@@ -104,10 +113,8 @@ export function verifyDeployment(input: VerificationInput): VerificationResult {
     // Check if commit is in deployed PR (by SHA match or merge commit SHA)
     if (input.deployedPr && (deployedPrCommitShas.has(commit.sha) || commit.sha === deployedPrMergeCommitSha)) {
       if (deployedPrApproval?.hasFourEyes) {
-        // Commit is in an approved PR - verified
         continue
       }
-      // Commit is in an unapproved deployed PR
       unverifiedCommits.push({
         sha: commit.sha,
         message: commit.message.split('\n')[0],
@@ -129,11 +136,9 @@ export function verifyDeployment(input: VerificationInput): VerificationResult {
       })
 
       if (prApproval.hasFourEyes) {
-        // Commit's PR is approved - verified
         continue
       }
 
-      // Commit's PR is not approved
       unverifiedCommits.push({
         sha: commit.sha,
         message: commit.message.split('\n')[0],
@@ -158,97 +163,97 @@ export function verifyDeployment(input: VerificationInput): VerificationResult {
     })
   }
 
-  // Case 4: All commits verified
-  if (unverifiedCommits.length === 0) {
-    return {
-      hasFourEyes: true,
-      status: 'approved',
-      deployedPr: input.deployedPr
-        ? {
-            number: input.deployedPr.number,
-            url: input.deployedPr.url,
-            title: input.deployedPr.metadata.title,
-            author: input.deployedPr.metadata.author.username,
-          }
-        : null,
-      unverifiedCommits: [],
-      approvalDetails: {
-        method: 'pr_review',
-        approvers: extractApprovers(input.deployedPr?.reviews ?? []),
-        reason: `All ${input.commitsBetween.length} commit(s) verified via PR review`,
-      },
-      verifiedAt: now,
-      schemaVersion: input.dataFreshness.schemaVersion,
-    }
-  }
+  return unverifiedCommits
+}
 
-  // Case 5: Check base branch merge approval
-  if (input.deployedPr && unverifiedCommits.length > 0) {
-    const baseMergeResult = shouldApproveWithBaseMerge(
-      input.deployedPr.reviews,
-      unverifiedCommits,
-      input.deployedPr.commits,
-      input.deployedPr.metadata.baseBranch,
-    )
+function handleAllCommitsVerified(input: VerificationInput): VerificationResult {
+  return buildResult(input, {
+    hasFourEyes: true,
+    status: 'approved',
+    approvalDetails: {
+      method: 'pr_review',
+      approvers: extractApprovers(input.deployedPr?.reviews ?? []),
+      reason: `All ${input.commitsBetween.length} commit(s) verified via PR review`,
+    },
+  })
+}
 
-    if (baseMergeResult.approved) {
-      return {
-        hasFourEyes: true,
-        status: 'approved',
-        deployedPr: {
-          number: input.deployedPr.number,
-          url: input.deployedPr.url,
-          title: input.deployedPr.metadata.title,
-          author: input.deployedPr.metadata.author.username,
-        },
-        unverifiedCommits: [],
-        approvalDetails: {
-          method: 'base_merge',
-          approvers: extractApprovers(input.deployedPr.reviews),
-          reason: baseMergeResult.reason,
-        },
-        verifiedAt: now,
-        schemaVersion: input.dataFreshness.schemaVersion,
-      }
-    }
-  }
+function handleBaseBranchMerge(
+  input: VerificationInput,
+  unverifiedCommits: UnverifiedCommit[],
+): VerificationResult | null {
+  if (!input.deployedPr || unverifiedCommits.length === 0) return null
 
-  // Case 6: Check implicit approval
-  if (input.deployedPr && input.implicitApprovalSettings.mode !== 'off') {
-    const implicitResult = checkImplicitApproval({
-      settings: input.implicitApprovalSettings,
-      prCreator: input.deployedPr.metadata.author.username,
-      lastCommitAuthor: getLastCommitAuthor(input.deployedPr.commits),
-      mergedBy: input.deployedPr.metadata.mergedBy?.username ?? '',
-      allCommitAuthors: input.deployedPr.commits.map((c) => c.authorUsername),
-    })
+  const baseMergeResult = shouldApproveWithBaseMerge(
+    input.deployedPr.reviews,
+    unverifiedCommits,
+    input.deployedPr.commits,
+    input.deployedPr.metadata.baseBranch,
+  )
 
-    if (implicitResult.qualifies) {
-      return {
-        hasFourEyes: true,
-        status: 'implicitly_approved',
-        deployedPr: {
-          number: input.deployedPr.number,
-          url: input.deployedPr.url,
-          title: input.deployedPr.metadata.title,
-          author: input.deployedPr.metadata.author.username,
-        },
-        unverifiedCommits: [],
-        approvalDetails: {
-          method: 'implicit',
-          approvers: input.deployedPr.metadata.mergedBy ? [input.deployedPr.metadata.mergedBy.username] : [],
-          reason: implicitResult.reason ?? 'Implicit approval',
-        },
-        verifiedAt: now,
-        schemaVersion: input.dataFreshness.schemaVersion,
-      }
-    }
-  }
+  if (!baseMergeResult.approved) return null
 
-  // Case 7: Unverified commits remain
-  return {
+  return buildResult(input, {
+    hasFourEyes: true,
+    status: 'approved',
+    approvalDetails: {
+      method: 'base_merge',
+      approvers: extractApprovers(input.deployedPr.reviews),
+      reason: baseMergeResult.reason,
+    },
+  })
+}
+
+function handleImplicitApproval(input: VerificationInput): VerificationResult | null {
+  if (!input.deployedPr) return null
+
+  const implicitResult = checkImplicitApproval({
+    settings: input.implicitApprovalSettings,
+    prCreator: input.deployedPr.metadata.author.username,
+    lastCommitAuthor: getLastCommitAuthor(input.deployedPr.commits),
+    mergedBy: input.deployedPr.metadata.mergedBy?.username ?? '',
+    allCommitAuthors: input.deployedPr.commits.map((c) => c.authorUsername),
+  })
+
+  if (!implicitResult.qualifies) return null
+
+  return buildResult(input, {
+    hasFourEyes: true,
+    status: 'implicitly_approved',
+    approvalDetails: {
+      method: 'implicit',
+      approvers: input.deployedPr.metadata.mergedBy ? [input.deployedPr.metadata.mergedBy.username] : [],
+      reason: implicitResult.reason ?? 'Implicit approval',
+    },
+  })
+}
+
+function handleUnverifiedCommits(input: VerificationInput, unverifiedCommits: UnverifiedCommit[]): VerificationResult {
+  return buildResult(input, {
     hasFourEyes: false,
     status: 'unverified_commits',
+    unverifiedCommits,
+    approvalDetails: {
+      method: null,
+      approvers: [],
+      reason: `${unverifiedCommits.length} commit(s) not verified`,
+    },
+  })
+}
+
+// =============================================================================
+// Result Builder
+// =============================================================================
+
+function buildResult(
+  input: VerificationInput,
+  fields: Pick<VerificationResult, 'hasFourEyes' | 'status' | 'approvalDetails'> & {
+    unverifiedCommits?: UnverifiedCommit[]
+  },
+): VerificationResult {
+  return {
+    hasFourEyes: fields.hasFourEyes,
+    status: fields.status,
     deployedPr: input.deployedPr
       ? {
           number: input.deployedPr.number,
@@ -257,13 +262,9 @@ export function verifyDeployment(input: VerificationInput): VerificationResult {
           author: input.deployedPr.metadata.author.username,
         }
       : null,
-    unverifiedCommits,
-    approvalDetails: {
-      method: null,
-      approvers: [],
-      reason: `${unverifiedCommits.length} commit(s) not verified`,
-    },
-    verifiedAt: now,
+    unverifiedCommits: fields.unverifiedCommits ?? [],
+    approvalDetails: fields.approvalDetails,
+    verifiedAt: new Date(),
     schemaVersion: input.dataFreshness.schemaVersion,
   }
 }
