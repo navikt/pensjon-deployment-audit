@@ -1,4 +1,4 @@
-# Pensjon Deployment Audit
+# Deployment Audit
 
 En applikasjon for å overvåke deployments på Nav sin Nais-plattform og verifisere at alle har hatt "to sett av øyne" (four-eyes principle).
 
@@ -44,7 +44,7 @@ Fyll inn (velg enten GitHub App eller PAT):
 
 **GitHub App (anbefalt):**
 ```env
-DATABASE_URL=postgresql://username:password@localhost:5432/pensjon_deployment_audit
+DATABASE_URL=postgresql://username:password@localhost:5432/deployment_audit
 GITHUB_APP_ID=123456
 GITHUB_APP_PRIVATE_KEY=<base64-encoded-private-key>
 GITHUB_APP_INSTALLATION_ID=12345678
@@ -53,7 +53,7 @@ NAIS_GRAPHQL_URL=http://localhost:4242/graphql
 
 **Personal Access Token (fallback):**
 ```env
-DATABASE_URL=postgresql://username:password@localhost:5432/pensjon_deployment_audit
+DATABASE_URL=postgresql://username:password@localhost:5432/deployment_audit
 GITHUB_TOKEN=your_github_token
 NAIS_GRAPHQL_URL=http://localhost:4242/graphql
 ```
@@ -86,8 +86,8 @@ npm run dev
 Applikasjonen bruker distroless Node.js 24 image for produksjon:
 
 ```bash
-docker build -t pensjon-deployment-audit .
-docker run -e DATABASE_URL=... -e GITHUB_APP_ID=... -e GITHUB_APP_PRIVATE_KEY=... -e GITHUB_APP_INSTALLATION_ID=... -p 3000:3000 pensjon-deployment-audit
+docker build -t deployment-audit .
+docker run -e DATABASE_URL=... -e GITHUB_APP_ID=... -e GITHUB_APP_PRIVATE_KEY=... -e GITHUB_APP_INSTALLATION_ID=... -p 3000:3000 deployment-audit
 ```
 
 Database migrations kjøres automatisk ved oppstart.
@@ -239,7 +239,7 @@ Applikasjonen trenger lesetilgang til repositories på GitHub for å hente PR-me
 
 1. Gå til **github.com** → **Settings** → **Developer settings** → **GitHub Apps** → **New GitHub App**
 2. Fyll inn:
-   - **GitHub App name**: `pensjon-deployment-audit` (eller tilsvarende)
+   - **GitHub App name**: `deployment-audit` (eller tilsvarende)
    - **Homepage URL**: URL til applikasjonen
    - **Webhook**: Deaktiver (appen bruker polling, ikke webhooks)
 

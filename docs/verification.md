@@ -2,7 +2,7 @@
 
 > **Målgruppe**: Utviklere, ledere og internrevisjon/kontrollere.
 >
-> **Formål**: Dokumentere hvordan Pensjon Deployment Audit automatisk verifiserer at alle deployments til Nav sin Nais-plattform har hatt minst to personer involvert i kodeendringen (fire-øyne-prinsippet).
+> **Formål**: Dokumentere hvordan Deployment Audit automatisk verifiserer at alle deployments til Nav sin Nais-plattform har hatt minst to personer involvert i kodeendringen (fire-øyne-prinsippet).
 
 ## Innholdsfortegnelse
 
