@@ -63,6 +63,38 @@ The verification system checks that all deployments follow the four-eyes princip
 
 When modifying verification logic in `app/lib/verification/verify.ts`, always update [`docs/verification.md`](docs/verification.md) to reflect the changes. This documentation is used by developers, managers, and auditors to understand the verification system.
 
+## Module Structure
+
+### GitHub API (`app/lib/github/`)
+
+Split into focused modules:
+
+- `client.server.ts` — Octokit client, GitHub App/PAT auth, rate limit logging
+- `pr.server.ts` — PR lookup, reviews, four-eyes verification, rebase matching
+- `git.server.ts` — Commit comparisons, branch checking
+- `legacy.server.ts` — Legacy deployment GitHub lookups
+- `index.ts` — Re-exports all public API
+
+### Deployments DB (`app/db/deployments/`)
+
+Submodules extracted from the main deployments file:
+
+- `stats.server.ts` — App deployment statistics and batch queries
+- `notifications.server.ts` — Slack notifications and reminder queries
+- `home.server.ts` — Home tab summary and issue queries
+- `status-history.server.ts` — Status transition logging and history
+
+All re-exported from `app/db/deployments.server.ts` (barrel file).
+
+### Route Action Extraction Pattern
+
+Large route files split their action handlers into `*.actions.server.ts` files:
+
+- `routes/deployments/$id.actions.server.ts` — 12 deployment detail actions
+- `routes/team/$team.env.$env.app.$app.admin.actions.server.ts` — App admin actions
+
+The route re-exports: `export { action } from './$id.actions.server'`
+
 ## Shared Route Utilities
 
 ### Form Validators (`app/lib/form-validators.ts`)
