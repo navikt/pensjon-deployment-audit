@@ -23,12 +23,7 @@ import {
   savePrSnapshotsBatch,
 } from '~/db/github-data.server'
 import { heartbeatSyncJob, isSyncJobCancelled, logSyncJobMessage, updateSyncJobProgress } from '~/db/sync-jobs.server'
-import {
-  getCommitsBetween,
-  getDetailedPullRequestInfo,
-  getPullRequestForCommit,
-  isCommitOnBranch,
-} from '~/lib/github.server'
+import { getCommitsBetween, getDetailedPullRequestInfo, getPullRequestForCommit, isCommitOnBranch } from '~/lib/github'
 import { logger } from '~/lib/logger.server'
 import type { RepositoryStatus } from './types'
 import {

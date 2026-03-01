@@ -64,7 +64,7 @@ import {
   DEVIATION_INTENT_LABELS,
   DEVIATION_SEVERITY_LABELS,
 } from '~/lib/deviation-constants'
-import { lookupLegacyByCommit, lookupLegacyByPR } from '~/lib/github.server'
+import { lookupLegacyByCommit, lookupLegacyByPR } from '~/lib/github'
 import { logger } from '~/lib/logger.server'
 import { notifyDeploymentIfNeeded, sendDeviationNotification } from '~/lib/slack.server'
 import { getDateRangeForPeriod, type TimePeriod } from '~/lib/time-periods'

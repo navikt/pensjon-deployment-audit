@@ -1,6 +1,6 @@
 import { pool } from '~/db/connection.server'
 import { isGcsConfigured, logExists, uploadLog } from '~/lib/gcs.server'
-import { getGitHubClient } from '~/lib/github.server'
+import { getGitHubClient } from '~/lib/github'
 import { logger } from '~/lib/logger.server'
 
 interface CheckToCache {

@@ -1,5 +1,5 @@
 import { downloadLog, isGcsConfigured, logExists, uploadLog } from '~/lib/gcs.server'
-import { getGitHubClient } from '~/lib/github.server'
+import { getGitHubClient } from '~/lib/github'
 import { logger } from '~/lib/logger.server'
 import type { Route } from './+types/checks.logs'
 
