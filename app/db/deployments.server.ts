@@ -1,5 +1,6 @@
 import { NOT_APPROVED_STATUSES, PENDING_STATUSES } from '~/lib/four-eyes-status'
 import { pool } from './connection.server'
+import { logStatusTransition } from './deployments/status-history.server'
 
 export interface UnverifiedCommit {
   sha: string
@@ -781,146 +782,6 @@ export interface AppDeploymentStats {
   four_eyes_percentage: number
 }
 
-export async function getAppDeploymentStats(
-  monitoredAppId: number,
-  startDate?: Date,
-  endDate?: Date,
-  auditStartYear?: number | null,
-): Promise<AppDeploymentStats> {
-  let sql = `SELECT 
-      COUNT(*) as total,
-      SUM(CASE WHEN has_four_eyes = true THEN 1 ELSE 0 END) as with_four_eyes,
-      SUM(CASE WHEN four_eyes_status = ANY($2) THEN 1 ELSE 0 END) as without_four_eyes,
-      SUM(CASE WHEN four_eyes_status = ANY($3) THEN 1 ELSE 0 END) as pending_verification,
-      MAX(created_at) as last_deployment,
-      (SELECT id FROM deployments WHERE monitored_app_id = $1 ORDER BY created_at DESC LIMIT 1) as last_deployment_id
-    FROM deployments
-    WHERE monitored_app_id = $1`
-
-  const params: any[] = [monitoredAppId, NOT_APPROVED_STATUSES, PENDING_STATUSES]
-  let paramIndex = 4
-
-  // Filter by audit start year if specified
-  if (auditStartYear) {
-    sql += ` AND EXTRACT(YEAR FROM created_at) >= $${paramIndex}`
-    params.push(auditStartYear)
-    paramIndex++
-  }
-
-  if (startDate) {
-    sql += ` AND created_at >= $${paramIndex}`
-    params.push(startDate)
-    paramIndex++
-  }
-
-  if (endDate) {
-    sql += ` AND created_at <= $${paramIndex}`
-    params.push(endDate)
-  }
-
-  const result = await pool.query(sql, params)
-
-  const row = result.rows[0]
-  const total = parseInt(row.total, 10) || 0
-  const withFourEyes = parseInt(row.with_four_eyes, 10) || 0
-  const percentage = total > 0 ? Math.round((withFourEyes / total) * 100) : 0
-
-  return {
-    total,
-    with_four_eyes: withFourEyes,
-    without_four_eyes: parseInt(row.without_four_eyes, 10) || 0,
-    pending_verification: parseInt(row.pending_verification, 10) || 0,
-    last_deployment: row.last_deployment ? new Date(row.last_deployment) : null,
-    last_deployment_id: row.last_deployment_id ? parseInt(row.last_deployment_id, 10) : null,
-    four_eyes_percentage: percentage,
-  }
-}
-
-/**
- * Get deployment stats for multiple apps in a single query
- * Returns a Map of appId -> AppDeploymentStats
- */
-export async function getAppDeploymentStatsBatch(
-  apps: Array<{ id: number; audit_start_year?: number | null }>,
-): Promise<Map<number, AppDeploymentStats>> {
-  if (apps.length === 0) {
-    return new Map()
-  }
-
-  const appIds = apps.map((a) => a.id)
-
-  // Build the audit year filter as a CASE expression
-  const auditYearCases = apps
-    .filter((a) => a.audit_start_year)
-    .map((a) => `WHEN monitored_app_id = ${a.id} THEN EXTRACT(YEAR FROM created_at) >= ${a.audit_start_year}`)
-    .join(' ')
-
-  const auditYearFilter = auditYearCases ? `AND (CASE ${auditYearCases} ELSE true END)` : ''
-
-  const result = await pool.query(
-    `SELECT 
-      monitored_app_id,
-      COUNT(*) as total,
-      SUM(CASE WHEN has_four_eyes = true THEN 1 ELSE 0 END) as with_four_eyes,
-      SUM(CASE WHEN four_eyes_status = ANY($2) THEN 1 ELSE 0 END) as without_four_eyes,
-      SUM(CASE WHEN four_eyes_status = ANY($3) THEN 1 ELSE 0 END) as pending_verification,
-      MAX(created_at) as last_deployment
-    FROM deployments
-    WHERE monitored_app_id = ANY($1) ${auditYearFilter}
-    GROUP BY monitored_app_id`,
-    [appIds, NOT_APPROVED_STATUSES, PENDING_STATUSES],
-  )
-
-  // Get last deployment IDs in a separate query for simplicity
-  const lastDeploymentResult = await pool.query(
-    `SELECT DISTINCT ON (monitored_app_id) monitored_app_id, id
-     FROM deployments
-     WHERE monitored_app_id = ANY($1)
-     ORDER BY monitored_app_id, created_at DESC`,
-    [appIds],
-  )
-
-  const lastDeploymentIds = new Map<number, number>()
-  for (const row of lastDeploymentResult.rows) {
-    lastDeploymentIds.set(row.monitored_app_id, row.id)
-  }
-
-  const statsMap = new Map<number, AppDeploymentStats>()
-
-  // Initialize with empty stats for all apps
-  for (const app of apps) {
-    statsMap.set(app.id, {
-      total: 0,
-      with_four_eyes: 0,
-      without_four_eyes: 0,
-      pending_verification: 0,
-      last_deployment: null,
-      last_deployment_id: lastDeploymentIds.get(app.id) || null,
-      four_eyes_percentage: 0,
-    })
-  }
-
-  // Fill in actual stats
-  for (const row of result.rows) {
-    const appId = row.monitored_app_id
-    const total = parseInt(row.total, 10) || 0
-    const withFourEyes = parseInt(row.with_four_eyes, 10) || 0
-    const percentage = total > 0 ? Math.round((withFourEyes / total) * 100) : 0
-
-    statsMap.set(appId, {
-      total,
-      with_four_eyes: withFourEyes,
-      without_four_eyes: parseInt(row.without_four_eyes, 10) || 0,
-      pending_verification: parseInt(row.pending_verification, 10) || 0,
-      last_deployment: row.last_deployment ? new Date(row.last_deployment) : null,
-      last_deployment_id: lastDeploymentIds.get(appId) || null,
-      four_eyes_percentage: percentage,
-    })
-  }
-
-  return statsMap
-}
-
 /**
  * Get deployment count for a specific deployer
  */
@@ -1092,160 +953,6 @@ export async function searchDeployments(query: string, limit = 10): Promise<Sear
   return results
 }
 
-/**
- * Atomically claim a deployment for Slack notification.
- * Returns the deployment only if this call successfully claimed it (no prior slack_message_ts).
- * This ensures only one pod sends the notification even with multiple replicas.
- */
-export async function claimDeploymentForSlackNotification(
-  deploymentId: number,
-  channelId: string,
-  messageTs: string,
-): Promise<DeploymentWithApp | null> {
-  const result = await pool.query(
-    `UPDATE deployments 
-     SET slack_message_ts = $1, slack_channel_id = $2
-     WHERE id = $3 AND slack_message_ts IS NULL
-     RETURNING *`,
-    [messageTs, channelId, deploymentId],
-  )
-
-  if (result.rows.length === 0) {
-    return null // Already claimed by another pod
-  }
-
-  // Get the full deployment with app info
-  return getDeploymentById(deploymentId)
-}
-
-/**
- * Get deployments that need Slack notification (no slack_message_ts set)
- * for apps that have Slack notifications enabled
- */
-export async function getDeploymentsNeedingSlackNotification(limit = 50): Promise<DeploymentWithApp[]> {
-  const result = await pool.query(
-    `SELECT d.*, 
-            ma.team_slug, ma.environment_name, ma.app_name, ma.default_branch,
-            ma.slack_channel_id as app_slack_channel_id,
-            ma.slack_notifications_enabled
-     FROM deployments d
-     JOIN monitored_applications ma ON d.monitored_app_id = ma.id
-     WHERE d.slack_message_ts IS NULL
-       AND ma.slack_notifications_enabled = true
-       AND ma.slack_channel_id IS NOT NULL
-       AND ma.slack_notifications_enabled_at IS NOT NULL
-       AND d.created_at >= ma.slack_notifications_enabled_at
-       AND d.created_at > NOW() - INTERVAL '7 days'
-     ORDER BY d.created_at DESC
-     LIMIT $1`,
-    [limit],
-  )
-  return result.rows
-}
-
-/**
- * Atomically claim a deployment for deploy notification.
- * Returns the deployment only if this call successfully claimed it (no prior slack_deploy_message_ts).
- * This ensures only one pod sends the notification even with multiple replicas.
- */
-export async function claimDeploymentForDeployNotify(
-  deploymentId: number,
-  _channelId: string,
-  messageTs: string,
-): Promise<DeploymentWithApp | null> {
-  const result = await pool.query(
-    `UPDATE deployments 
-     SET slack_deploy_message_ts = $1
-     WHERE id = $2 AND slack_deploy_message_ts IS NULL
-     RETURNING *`,
-    [messageTs, deploymentId],
-  )
-
-  if (result.rows.length === 0) {
-    return null // Already claimed by another pod
-  }
-
-  return getDeploymentById(deploymentId)
-}
-
-/**
- * Get deployments that need deploy notification (no slack_deploy_message_ts set)
- * for apps that have deploy notifications enabled.
- * Only includes deployments that have been verified (four_eyes_status != 'pending').
- */
-export async function getDeploymentsNeedingDeployNotify(limit = 50): Promise<DeploymentWithApp[]> {
-  const result = await pool.query(
-    `SELECT d.*, 
-            ma.team_slug, ma.environment_name, ma.app_name, ma.default_branch,
-            ma.slack_deploy_channel_id,
-            ma.slack_deploy_notify_enabled
-     FROM deployments d
-     JOIN monitored_applications ma ON d.monitored_app_id = ma.id
-     WHERE d.slack_deploy_message_ts IS NULL
-       AND ma.slack_deploy_notify_enabled = true
-       AND ma.slack_deploy_channel_id IS NOT NULL
-       AND ma.slack_deploy_notify_enabled_at IS NOT NULL
-       AND d.created_at >= ma.slack_deploy_notify_enabled_at
-       AND d.four_eyes_status NOT IN ('pending', 'unknown')
-       AND d.created_at > NOW() - INTERVAL '7 days'
-     ORDER BY d.created_at DESC
-     LIMIT $1`,
-    [limit],
-  )
-  return result.rows
-}
-
-/**
- * Get recent deployments for Slack Home Tab
- */
-export async function getRecentDeploymentsForHomeTab(limit = 10): Promise<DeploymentWithApp[]> {
-  const result = await pool.query(
-    `SELECT d.*, 
-            ma.team_slug, ma.environment_name, ma.app_name
-     FROM deployments d
-     JOIN monitored_applications ma ON d.monitored_app_id = ma.id
-     WHERE ma.is_active = true
-     ORDER BY d.created_at DESC
-     LIMIT $1`,
-    [limit],
-  )
-  return result.rows
-}
-
-/**
- * Get summary stats for Slack Home Tab
- */
-export async function getHomeTabSummaryStats(): Promise<{
-  totalApps: number
-  totalDeployments: number
-  withoutFourEyes: number
-  pendingVerification: number
-}> {
-  const result = await pool.query(
-    `
-    SELECT 
-      (SELECT COUNT(*) FROM monitored_applications WHERE is_active = true) as total_apps,
-      (SELECT COUNT(*) FROM deployments d 
-       JOIN monitored_applications ma ON d.monitored_app_id = ma.id 
-       WHERE ma.is_active = true) as total_deployments,
-      (SELECT COUNT(*) FROM deployments d 
-       JOIN monitored_applications ma ON d.monitored_app_id = ma.id 
-       WHERE ma.is_active = true AND d.four_eyes_status = ANY($1)) as without_four_eyes,
-      (SELECT COUNT(*) FROM deployments d 
-       JOIN monitored_applications ma ON d.monitored_app_id = ma.id 
-       WHERE ma.is_active = true AND d.four_eyes_status = ANY($2)) as pending_verification
-  `,
-    [NOT_APPROVED_STATUSES, PENDING_STATUSES],
-  )
-  const row = result.rows[0]
-  return {
-    totalApps: parseInt(row.total_apps, 10) || 0,
-    totalDeployments: parseInt(row.total_deployments, 10) || 0,
-    withoutFourEyes: parseInt(row.without_four_eyes, 10) || 0,
-    pendingVerification: parseInt(row.pending_verification, 10) || 0,
-  }
-}
-
 export interface AppWithIssues {
   app_name: string
   team_slug: string
@@ -1253,44 +960,6 @@ export interface AppWithIssues {
   without_four_eyes: number
   pending_verification: number
   alert_count: number
-}
-
-/**
- * Get apps that have issues (missing approval, pending verification, or repo alerts)
- */
-export async function getAppsWithIssues(): Promise<AppWithIssues[]> {
-  const result = await pool.query(
-    `
-    SELECT 
-      ma.app_name,
-      ma.team_slug,
-      ma.environment_name,
-      COALESCE(dep.without_four_eyes, 0)::integer as without_four_eyes,
-      COALESCE(dep.pending_verification, 0)::integer as pending_verification,
-      COALESCE(alerts.count, 0)::integer as alert_count
-    FROM monitored_applications ma
-    LEFT JOIN LATERAL (
-      SELECT 
-        SUM(CASE WHEN d.four_eyes_status = ANY($1) THEN 1 ELSE 0 END) as without_four_eyes,
-        SUM(CASE WHEN d.four_eyes_status = ANY($2) THEN 1 ELSE 0 END) as pending_verification
-      FROM deployments d
-      WHERE d.monitored_app_id = ma.id
-        AND (ma.audit_start_year IS NULL OR d.created_at >= make_date(ma.audit_start_year, 1, 1))
-    ) dep ON true
-    LEFT JOIN LATERAL (
-      SELECT COUNT(*) as count
-      FROM repository_alerts ra
-      WHERE ra.monitored_app_id = ma.id AND ra.resolved_at IS NULL
-    ) alerts ON true
-    WHERE ma.is_active = true
-      AND (COALESCE(dep.without_four_eyes, 0) > 0 
-        OR COALESCE(dep.pending_verification, 0) > 0 
-        OR COALESCE(alerts.count, 0) > 0)
-    ORDER BY COALESCE(dep.without_four_eyes, 0) DESC, COALESCE(alerts.count, 0) DESC
-  `,
-    [NOT_APPROVED_STATUSES, PENDING_STATUSES],
-  )
-  return result.rows
 }
 
 export interface IssueDeployment {
@@ -1305,42 +974,6 @@ export interface IssueDeployment {
   github_pr_data: GitHubPRData | null
   title: string | null
   created_at: Date
-}
-
-/**
- * Get sample deployments with issues for each app (up to N per app).
- * Used in Slack Home Tab to show specific deployments that need attention.
- */
-export async function getIssueDeploymentsPerApp(
-  apps: Array<{ app_name: string; team_slug: string; environment_name: string }>,
-  limitPerApp = 3,
-): Promise<Map<string, IssueDeployment[]>> {
-  if (apps.length === 0) return new Map()
-
-  const result = await pool.query(
-    `SELECT 
-       d.id, d.commit_sha, d.deployer_username, d.four_eyes_status,
-       d.github_pr_number, d.github_pr_data, d.title, d.created_at,
-       ma.app_name, ma.team_slug, ma.environment_name
-     FROM deployments d
-     JOIN monitored_applications ma ON d.monitored_app_id = ma.id
-     WHERE ma.is_active = true
-       AND d.has_four_eyes = false
-       AND d.four_eyes_status NOT IN ('legacy', 'legacy_pending', 'pending_baseline')
-       AND (ma.audit_start_year IS NULL OR d.created_at >= make_date(ma.audit_start_year, 1, 1))
-     ORDER BY d.created_at DESC`,
-  )
-
-  const grouped = new Map<string, IssueDeployment[]>()
-  for (const row of result.rows) {
-    const key = `${row.team_slug}/${row.environment_name}/${row.app_name}`
-    const list = grouped.get(key) || []
-    if (list.length < limitPerApp) {
-      list.push(row)
-      grouped.set(key, list)
-    }
-  }
-  return grouped
 }
 
 // =============================================================================
@@ -1360,90 +993,6 @@ export interface StatusTransition {
   created_at: Date
 }
 
-export async function logStatusTransition(
-  deploymentId: number,
-  data: {
-    fromStatus: string | null
-    toStatus: string
-    fromHasFourEyes: boolean | null
-    toHasFourEyes: boolean
-    changeSource: string
-    changedBy?: string
-    details?: Record<string, unknown>
-  },
-): Promise<void> {
-  await pool.query(
-    `INSERT INTO deployment_status_history 
-       (deployment_id, from_status, to_status, from_has_four_eyes, to_has_four_eyes, 
-        changed_by, change_source, details)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-    [
-      deploymentId,
-      data.fromStatus,
-      data.toStatus,
-      data.fromHasFourEyes,
-      data.toHasFourEyes,
-      data.changedBy || null,
-      data.changeSource,
-      data.details ? JSON.stringify(data.details) : null,
-    ],
-  )
-}
-
-export async function getStatusHistory(deploymentId: number): Promise<StatusTransition[]> {
-  const result = await pool.query(
-    `SELECT * FROM deployment_status_history
-     WHERE deployment_id = $1
-     ORDER BY created_at ASC`,
-    [deploymentId],
-  )
-  return result.rows
-}
-
-export async function getDeploymentsWithStatusChanges(monitoredAppId: number): Promise<
-  Array<{
-    deployment_id: number
-    created_at: Date
-    commit_sha: string | null
-    four_eyes_status: string
-    has_four_eyes: boolean
-    github_pr_number: number | null
-    title: string | null
-    transition_count: number
-    latest_change: Date
-    latest_from_status: string | null
-    latest_to_status: string
-    latest_change_source: string
-  }>
-> {
-  const result = await pool.query(
-    `SELECT 
-       d.id as deployment_id,
-       d.created_at,
-       d.commit_sha,
-       d.four_eyes_status,
-       d.has_four_eyes,
-       d.github_pr_number,
-       d.title,
-       COUNT(h.id)::int as transition_count,
-       MAX(h.created_at) as latest_change,
-       (SELECT from_status FROM deployment_status_history 
-        WHERE deployment_id = d.id ORDER BY created_at DESC LIMIT 1) as latest_from_status,
-       (SELECT to_status FROM deployment_status_history 
-        WHERE deployment_id = d.id ORDER BY created_at DESC LIMIT 1) as latest_to_status,
-       (SELECT change_source FROM deployment_status_history 
-        WHERE deployment_id = d.id ORDER BY created_at DESC LIMIT 1) as latest_change_source
-     FROM deployments d
-     INNER JOIN deployment_status_history h ON h.deployment_id = d.id
-     WHERE d.monitored_app_id = $1
-     GROUP BY d.id
-     HAVING COUNT(h.id) > 1
-     ORDER BY MAX(h.created_at) DESC`,
-    [monitoredAppId],
-  )
-  return result.rows
-}
-
 // =============================================================================
 // Reminder queries
 // =============================================================================
@@ -1459,50 +1008,25 @@ export interface AppReminderConfig {
   reminder_last_sent_at: Date | null
 }
 
-/**
- * Get all apps with reminders enabled and Slack configured
- */
-export async function getAppsWithRemindersEnabled(): Promise<AppReminderConfig[]> {
-  const result = await pool.query<AppReminderConfig>(
-    `SELECT id, team_slug, environment_name, app_name, slack_channel_id,
-            reminder_time, reminder_days, reminder_last_sent_at
-     FROM monitored_applications
-     WHERE reminder_enabled = true
-       AND slack_notifications_enabled = true
-       AND slack_channel_id IS NOT NULL
-       AND is_active = true`,
-  )
-  return result.rows
-}
-
-/**
- * Get unapproved deployments for a specific app (for reminders)
- */
-export async function getUnapprovedDeployments(monitoredAppId: number): Promise<DeploymentWithApp[]> {
-  const result = await pool.query(
-    `SELECT d.*,
-            ma.team_slug, ma.environment_name, ma.app_name, ma.default_branch
-     FROM deployments d
-     JOIN monitored_applications ma ON d.monitored_app_id = ma.id
-     WHERE d.monitored_app_id = $1
-       AND d.four_eyes_status = ANY($2)
-     ORDER BY d.created_at DESC`,
-    [monitoredAppId, [...NOT_APPROVED_STATUSES, ...PENDING_STATUSES]],
-  )
-  return result.rows
-}
-
-/**
- * Atomically update reminder_last_sent_at (returns true if claimed)
- */
-export async function claimReminderSend(appId: number, minIntervalHours: number): Promise<boolean> {
-  const result = await pool.query(
-    `UPDATE monitored_applications
-     SET reminder_last_sent_at = NOW()
-     WHERE id = $1
-       AND (reminder_last_sent_at IS NULL OR reminder_last_sent_at < NOW() - INTERVAL '1 hour' * $2)
-     RETURNING id`,
-    [appId, minIntervalHours],
-  )
-  return result.rowCount !== null && result.rowCount > 0
-}
+export {
+  getAppsWithIssues,
+  getHomeTabSummaryStats,
+  getIssueDeploymentsPerApp,
+  getRecentDeploymentsForHomeTab,
+} from './deployments/home.server'
+export {
+  claimDeploymentForDeployNotify,
+  claimDeploymentForSlackNotification,
+  claimReminderSend,
+  getAppsWithRemindersEnabled,
+  getDeploymentsNeedingDeployNotify,
+  getDeploymentsNeedingSlackNotification,
+  getUnapprovedDeployments,
+} from './deployments/notifications.server'
+// Re-exports from submodules
+export { getAppDeploymentStats, getAppDeploymentStatsBatch } from './deployments/stats.server'
+export {
+  getDeploymentsWithStatusChanges,
+  getStatusHistory,
+  logStatusTransition,
+} from './deployments/status-history.server'
