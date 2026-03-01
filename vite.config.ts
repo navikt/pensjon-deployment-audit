@@ -30,4 +30,13 @@ export default defineConfig({
   define: {
     __BUILD_VERSION__: JSON.stringify(getBuildVersion()),
   },
+  test: {
+    coverage: {
+      provider: 'v8',
+      include: ['app/lib/**/*.ts'],
+      exclude: ['app/lib/**/__tests__/**', 'app/lib/**/__fixtures__/**'],
+      reporter: ['text', 'html'],
+      reportsDirectory: './coverage',
+    },
+  },
 });
