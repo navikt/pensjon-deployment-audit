@@ -26,39 +26,43 @@ import {
 /**
  * Verify a deployment based on the provided input data.
  * This is a pure function - no side effects, no database/API calls.
+ *
+ * Decision steps:
+ * 1. No previous deployment → pending_baseline
+ * 2. No commits between deployments → no_changes
+ * 3. Check each commit against PR data
+ * 4. All verified → approved
+ * 5. Base branch merge explains unverified → approved (base_merge)
+ * 6. Implicit approval qualifies → implicitly_approved
+ * 7. Otherwise → unverified_commits
+ *
+ * @see {@link file://docs/verification.md} for full documentation
  */
 export function verifyDeployment(input: VerificationInput): VerificationResult {
-  // Case 1: No previous deployment (first deployment)
   if (!input.previousDeployment) {
     return handlePendingBaseline(input)
   }
 
-  // Case 2: No commits between deployments (same commit)
   if (input.commitsBetween.length === 0) {
     return handleNoChanges(input)
   }
 
-  // Case 3: Verify each commit individually
   const unverifiedCommits = findUnverifiedCommits(input)
 
-  // Case 4: All commits verified
   if (unverifiedCommits.length === 0) {
     return handleAllCommitsVerified(input)
   }
 
-  // Case 5: Check if base branch merge explains the unverified commits
   if (input.deployedPr) {
     const baseMergeResult = handleBaseBranchMerge(input, unverifiedCommits)
     if (baseMergeResult) return baseMergeResult
   }
 
-  // Case 6: Check implicit approval
   if (input.deployedPr && input.implicitApprovalSettings.mode !== 'off') {
     const implicitResult = handleImplicitApproval(input)
     if (implicitResult) return implicitResult
   }
 
-  // Case 7: Unverified commits remain
   return handleUnverifiedCommits(input, unverifiedCommits)
 }
 

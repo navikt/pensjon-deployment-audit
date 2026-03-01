@@ -215,6 +215,16 @@ Database schema is managed with migrations in `app/db/migrations/`. See [Migrati
 - **deployment_comments**: Kommentarer, Slack-lenker, og manuelle godkjenninger
 - **tertial_boards/goals**: Tertialmål
 
+## 📋 Verifiseringslogikk
+
+For detaljert dokumentasjon av hvordan fire-øyne-prinsippet verifiseres, se [docs/verification.md](docs/verification.md). Dokumentet dekker:
+
+- Beslutningsflyt med flytdiagram
+- Alle mulige verifikasjonsresultater og hva de betyr
+- PR-verifisering i detalj (reviews, tidspunkt, base branch merge)
+- Implisitt godkjenning (moduser og regler)
+- Kodereferanser for sporbarhet
+
 ## 🤝 Bidrag
 
 Internt Nav-verktøy. Bidrag velkomne!
