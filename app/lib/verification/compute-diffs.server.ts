@@ -120,6 +120,7 @@ export async function computeVerificationDiffs(
         repository: `${owner}/${repo}`,
         environmentName: row.environment_name,
         baseBranch,
+        repositoryStatus: 'active',
         auditStartYear: row.audit_start_year,
         implicitApprovalSettings: implicitApprovalSettings ?? { mode: 'off' },
         previousDeployment,

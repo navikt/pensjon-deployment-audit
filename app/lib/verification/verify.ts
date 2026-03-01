@@ -28,6 +28,7 @@ import {
  * This is a pure function - no side effects, no database/API calls.
  *
  * Decision steps:
+ * 0. Repository not active → unauthorized_repository
  * 1. No previous deployment → pending_baseline
  * 2. No commits between deployments → no_changes
  * 3. Check each commit against PR data
@@ -39,6 +40,10 @@ import {
  * @see {@link file://docs/verification.md} for full documentation
  */
 export function verifyDeployment(input: VerificationInput): VerificationResult {
+  if (input.repositoryStatus !== 'active') {
+    return handleUnauthorizedRepository(input)
+  }
+
   if (!input.previousDeployment) {
     return handlePendingBaseline(input)
   }
@@ -69,6 +74,18 @@ export function verifyDeployment(input: VerificationInput): VerificationResult {
 // =============================================================================
 // Case Handlers
 // =============================================================================
+
+function handleUnauthorizedRepository(input: VerificationInput): VerificationResult {
+  return buildResult(input, {
+    hasFourEyes: false,
+    status: 'unauthorized_repository',
+    approvalDetails: {
+      method: null,
+      approvers: [],
+      reason: `Repository status: ${input.repositoryStatus}`,
+    },
+  })
+}
 
 function handlePendingBaseline(input: VerificationInput): VerificationResult {
   return buildResult(input, {

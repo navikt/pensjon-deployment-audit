@@ -55,6 +55,7 @@ function makeBaseInput(overrides: Partial<VerificationInput> = {}): Verification
     repository: 'navikt/pensjon-pen',
     environmentName: 'prod-fss',
     baseBranch: 'main',
+    repositoryStatus: 'active',
     auditStartYear: 2025,
     implicitApprovalSettings: { mode: 'off' },
     previousDeployment: {

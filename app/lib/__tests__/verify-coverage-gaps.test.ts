@@ -76,6 +76,7 @@ function makeBaseInput(overrides: Partial<VerificationInput> = {}): Verification
     repository: 'navikt/test-app',
     environmentName: 'prod-fss',
     baseBranch: 'main',
+    repositoryStatus: 'active',
     auditStartYear: 2025,
     implicitApprovalSettings: { mode: 'off' },
     previousDeployment: {
@@ -652,5 +653,71 @@ describe('verifyFourEyesFromPrData - Security: date manipulation', () => {
     // After fix: should detect that committerDate is after approval
     expect(result.hasFourEyes).toBe(false)
     expect(result.reason).toBe('approval_before_last_commit')
+  })
+})
+
+// =============================================================================
+// Repository Status Validation
+// =============================================================================
+
+describe('verifyDeployment - Repository status validation', () => {
+  it('should return unauthorized_repository when repo status is pending_approval', () => {
+    const input = makeBaseInput({
+      repositoryStatus: 'pending_approval',
+      previousDeployment: null,
+    })
+
+    const result = verifyDeployment(input)
+
+    expect(result.status).toBe('unauthorized_repository')
+    expect(result.hasFourEyes).toBe(false)
+    expect(result.approvalDetails.reason).toContain('pending_approval')
+  })
+
+  it('should return unauthorized_repository when repo status is historical', () => {
+    const input = makeBaseInput({
+      repositoryStatus: 'historical',
+      commitsBetween: [
+        {
+          sha: 'abc123',
+          message: 'feat: some change',
+          authorUsername: 'dev-a',
+          authorDate: '2026-02-27T12:00:00Z',
+          isMergeCommit: false,
+          parentShas: [],
+          htmlUrl: '',
+          pr: null,
+        },
+      ],
+    })
+
+    const result = verifyDeployment(input)
+
+    expect(result.status).toBe('unauthorized_repository')
+    expect(result.hasFourEyes).toBe(false)
+    expect(result.approvalDetails.reason).toContain('historical')
+  })
+
+  it('should return unauthorized_repository when repo status is unknown', () => {
+    const input = makeBaseInput({
+      repositoryStatus: 'unknown',
+    })
+
+    const result = verifyDeployment(input)
+
+    expect(result.status).toBe('unauthorized_repository')
+    expect(result.hasFourEyes).toBe(false)
+  })
+
+  it('should proceed with normal verification when repo status is active', () => {
+    const input = makeBaseInput({
+      repositoryStatus: 'active',
+      previousDeployment: null,
+    })
+
+    const result = verifyDeployment(input)
+
+    // Should proceed to normal logic (pending_baseline since no previous deployment)
+    expect(result.status).toBe('pending_baseline')
   })
 })

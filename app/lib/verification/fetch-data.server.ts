@@ -11,6 +11,7 @@
  * - Handles GitHub retention (404/410) gracefully
  */
 
+import { findRepositoryForApp } from '~/db/application-repositories.server'
 import { pool } from '~/db/connection.server'
 import {
   getAllLatestPrSnapshots,
@@ -24,6 +25,7 @@ import {
 import { heartbeatSyncJob, isSyncJobCancelled, logSyncJobMessage, updateSyncJobProgress } from '~/db/sync-jobs.server'
 import { getCommitsBetween, getDetailedPullRequestInfo, getPullRequestForCommit } from '~/lib/github.server'
 import { logger } from '~/lib/logger.server'
+import type { RepositoryStatus } from './types'
 import {
   type CompareData,
   CURRENT_SCHEMA_VERSION,
@@ -66,6 +68,12 @@ export async function fetchVerificationData(
   // Get app settings
   const appSettings = await getAppSettings(monitoredAppId)
 
+  // Check repository status
+  const repoCheck = await findRepositoryForApp(monitoredAppId, owner, repo)
+  const repositoryStatus: RepositoryStatus = repoCheck.repository
+    ? (repoCheck.repository.status as RepositoryStatus)
+    : 'unknown'
+
   // Get previous deployment
   const previousDeployment = await getPreviousDeployment(
     deploymentId,
@@ -98,6 +106,7 @@ export async function fetchVerificationData(
     repository,
     environmentName,
     baseBranch,
+    repositoryStatus,
     auditStartYear: appSettings.auditStartYear,
     implicitApprovalSettings: appSettings.implicitApprovalSettings,
     previousDeployment,

@@ -83,6 +83,7 @@ export const VERIFICATION_STATUSES = [
   'pending_baseline',
   'no_changes',
   'manually_approved',
+  'unauthorized_repository',
   'legacy',
   'error',
 ] as const
@@ -98,9 +99,24 @@ export const VERIFICATION_STATUS_LABELS: Record<VerificationStatus, string> = {
   pending_baseline: 'Første deployment',
   no_changes: 'Ingen endringer',
   manually_approved: 'Manuelt godkjent',
+  unauthorized_repository: 'Ikke godkjent repo',
   legacy: 'Legacy',
   error: 'Feil',
 }
+
+// =============================================================================
+// Repository Status
+// =============================================================================
+
+/**
+ * Status of the repository relative to the monitored application.
+ * - active: The repo is the current, approved source
+ * - historical: The repo was previously used but has been superseded
+ * - pending_approval: The repo was detected but not yet approved
+ * - unknown: No repository record exists for this deployment's repo
+ */
+export const REPOSITORY_STATUSES = ['active', 'historical', 'pending_approval', 'unknown'] as const
+export type RepositoryStatus = (typeof REPOSITORY_STATUSES)[number]
 
 // =============================================================================
 // Unverified Commit Reasons
@@ -420,6 +436,9 @@ export interface VerificationInput {
   repository: string
   environmentName: string
   baseBranch: string
+
+  // Repository status (active, historical, pending_approval, unknown)
+  repositoryStatus: RepositoryStatus
 
   // App settings
   auditStartYear: number | null

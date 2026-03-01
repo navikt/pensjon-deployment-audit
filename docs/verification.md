@@ -62,7 +62,11 @@ Når et deployment skal verifiseres, går systemet gjennom følgende beslutnings
 
 ```mermaid
 flowchart TD
-    Start([Deployment mottas]) --> C1{Finnes forrige\ndeployment?}
+    Start([Deployment mottas]) --> C0{Er repositoryet\ngodkjent?}
+
+    C0 -- Nei --> R0[🔴 Ikke godkjent repo\nRepo er pending/historisk/ukjent]
+
+    C0 -- Ja --> C1{Finnes forrige\ndeployment?}
 
     C1 -- Nei --> R1[🟡 Første deployment\nIngen baseline å sammenligne mot]
 
@@ -90,6 +94,7 @@ flowchart TD
 
     C7 -- Nei --> R7[🔴 Uverifiserte commits]
 
+    style R0 fill:#f8d7da,stroke:#721c24
     style R1 fill:#fff3cd,stroke:#856404
     style R2 fill:#d4edda,stroke:#155724
     style R3 fill:#d4edda,stroke:#155724
@@ -99,6 +104,12 @@ flowchart TD
 ```
 
 ### Steg-for-steg forklaring
+
+#### Steg 0: Er repositoryet godkjent?
+
+Før noen annen verifisering sjekkes om deploymentets repository er registrert og godkjent (`active`) for applikasjonen. Hvis repositoryet har status `pending_approval`, `historical`, eller ikke er registrert i det hele tatt (`unknown`), avvises verifiseringen umiddelbart med status **`unauthorized_repository`**. Dette forhindrer at deployments fra uautoriserte kilder kan bli markert som godkjent.
+
+> 📁 Se `handleUnauthorizedRepository` i [`verify.ts`](../app/lib/verification/verify.ts) og `findRepositoryForApp` i [`application-repositories.server.ts`](../app/db/application-repositories.server.ts)
 
 #### Steg 1: Finnes forrige deployment?
 
@@ -153,6 +164,7 @@ Hvert deployment får én av følgende statuser etter verifisering:
 | `no_changes` | Ingen endringer | ✅ Ja | Ingen nye commits siden forrige deployment |
 | `pending_baseline` | Første deployment | ⚠️ Nei | Første deployment — brukes som referansepunkt |
 | `unverified_commits` | Uverifiserte commits | ❌ Nei | Én eller flere commits mangler godkjent PR-review |
+| `unauthorized_repository` | Ikke godkjent repo | ❌ Nei | Deploymentets repo er ikke godkjent for applikasjonen |
 | `manually_approved` | Manuelt godkjent | ✅ Ja | Manuelt godkjent av administrator i applikasjonen |
 | `legacy` | Legacy | ⚠️ N/A | Deployment fra før audit-systemet ble aktivert |
 | `error` | Feil | ❌ Nei | Teknisk feil under verifisering |
