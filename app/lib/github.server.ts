@@ -1191,7 +1191,7 @@ export async function isCommitOnBranch(
     const status = response.data.status
     return status === 'identical' || status === 'ahead'
   } catch (error) {
-    logger.warn(`⚠️ Failed to check if ${commitSha.substring(0, 7)} is on ${branch} in ${owner}/${repo}:`, error)
+    logger.warn(`⚠️ Failed to check if ${commitSha.substring(0, 7)} is on ${branch} in ${owner}/${repo}:`, error as Record<string, unknown>)
     return null
   }
 }

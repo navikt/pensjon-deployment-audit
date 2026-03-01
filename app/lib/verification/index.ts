@@ -397,6 +397,8 @@ export async function reverifyDeployment(deploymentId: number): Promise<{
     deployedPr,
     commitsBetween,
     dataFreshness: { deployedPrFetchedAt: null, commitsFetchedAt: null, schemaVersion: 1 },
+    repositoryStatus: 'active',
+    commitOnBaseBranch: null,
   }
 
   const newResult = verifyDeployment(input)
