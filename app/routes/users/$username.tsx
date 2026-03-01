@@ -18,6 +18,7 @@ import { useEffect, useRef } from 'react'
 import { Form, Link, useActionData, useLoaderData, useNavigation } from 'react-router'
 import { getDeploymentCountByDeployer, getDeploymentsByDeployer } from '~/db/deployments.server'
 import { getUserMapping, upsertUserMapping } from '~/db/user-mappings.server'
+import { isValidEmail, isValidNavIdent } from '~/lib/form-validators'
 import { getBotDescription, getBotDisplayName, isGitHubBot } from '~/lib/github-bots'
 import styles from '~/styles/common.module.css'
 import type { Route } from './+types/$username'
@@ -73,12 +74,12 @@ export async function action({ request }: Route.ActionArgs) {
     }
 
     // Validate email format
-    if (navEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(navEmail)) {
+    if (navEmail && !isValidEmail(navEmail)) {
       fieldErrors.nav_email = 'Ugyldig e-postformat'
     }
 
     // Validate Nav-ident format (one letter followed by 6 digits)
-    if (navIdent && !/^[a-zA-Z]\d{6}$/.test(navIdent)) {
+    if (navIdent && !isValidNavIdent(navIdent)) {
       fieldErrors.nav_ident = 'Må være én bokstav etterfulgt av 6 siffer (f.eks. A123456)'
     }
 

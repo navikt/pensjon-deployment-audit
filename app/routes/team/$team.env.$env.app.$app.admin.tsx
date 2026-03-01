@@ -47,6 +47,7 @@ import {
 } from '~/db/sync-jobs.server'
 import { generateAuditReportPdf } from '~/lib/audit-report-pdf'
 import { requireAdmin } from '~/lib/auth.server'
+import { isValidSlackChannel } from '~/lib/form-validators'
 import { logger, runWithJobContext } from '~/lib/logger.server'
 import { getCompletedPeriods, REPORT_PERIOD_TYPE_LABELS, type ReportPeriodType } from '~/lib/report-periods'
 import { fetchVerificationDataForAllDeployments } from '~/lib/verification'
@@ -398,7 +399,7 @@ export async function action({ request }: Route.ActionArgs) {
     const slackNotificationsEnabled = formData.get('slack_notifications_enabled') === 'true'
 
     // Validate channel ID format if provided (C followed by alphanumeric, or #channel-name)
-    if (slackChannelId && !/^(C[A-Z0-9]+|#[\w-]+)$/i.test(slackChannelId)) {
+    if (slackChannelId && !isValidSlackChannel(slackChannelId)) {
       return { error: 'Ugyldig kanal-format. Bruk kanal-ID (C01234567) eller kanalnavn (#kanal-navn)' }
     }
 
@@ -413,7 +414,7 @@ export async function action({ request }: Route.ActionArgs) {
     const slackDeployChannelId = (formData.get('slack_deploy_channel_id') as string)?.trim() || null
     const slackDeployNotifyEnabled = formData.get('slack_deploy_notify_enabled') === 'true'
 
-    if (slackDeployChannelId && !/^(C[A-Z0-9]+|#[\w-]+)$/i.test(slackDeployChannelId)) {
+    if (slackDeployChannelId && !isValidSlackChannel(slackDeployChannelId)) {
       return { error: 'Ugyldig kanal-format. Bruk kanal-ID (C01234567) eller kanalnavn (#kanal-navn)' }
     }
 
