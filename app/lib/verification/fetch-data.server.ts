@@ -640,7 +640,11 @@ export async function refreshPrData(
     await savePrSnapshotsBatch(owner, repo, prNumber, snapshots)
   } catch (error) {
     // Handle GitHub 404/410 - data no longer available
-    if (error instanceof Error && (error.message.includes('404') || error.message.includes('410'))) {
+    if (
+      error instanceof Error &&
+      'status' in error &&
+      ((error as { status: number }).status === 404 || (error as { status: number }).status === 410)
+    ) {
       for (const dataType of typesToFetch) {
         await markPrDataUnavailable(owner, repo, prNumber, dataType)
       }

@@ -23,7 +23,7 @@ function getNoLogsReason(appSlug: string | null, conclusion: string | null): str
 
 export function CheckLogViewer({ owner, repo, jobId, appSlug, conclusion }: CheckLogViewerProps) {
   const noLogsReason = getNoLogsReason(appSlug, conclusion)
-  const fetcher = useFetcher<{ logs?: string; error?: string; source?: string }>()
+  const fetcher = useFetcher<{ logs?: string; error?: string; errorType?: string; source?: string }>()
   const [showLogs, setShowLogs] = useState(false)
   const [pendingDownload, setPendingDownload] = useState(false)
 
@@ -101,7 +101,7 @@ export function CheckLogViewer({ owner, repo, jobId, appSlug, conclusion }: Chec
         <>
           {fetcher.state === 'loading' && <Loader size="small" />}
           {fetcher.data?.error && (
-            <Alert variant="warning" size="small">
+            <Alert variant={fetcher.data.errorType === 'not_found' ? 'info' : 'warning'} size="small">
               {fetcher.data.error}
             </Alert>
           )}

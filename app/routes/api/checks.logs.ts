@@ -70,13 +70,22 @@ export async function loader({ request }: Route.LoaderArgs) {
   } catch (error) {
     logger.warn(`Could not fetch logs for job ${jobId}: ${error}`)
 
-    if (error instanceof Error && (error.message.includes('404') || error.message.includes('410'))) {
+    const isNotFound =
+      error instanceof Error &&
+      'status' in error &&
+      ((error as { status: number }).status === 404 || (error as { status: number }).status === 410)
+
+    if (isNotFound) {
       return Response.json(
-        { error: 'Logger er ikke tilgjengelige. De kan ha utløpt (GitHub beholder logger i ~90 dager).' },
+        {
+          error:
+            'Logger er ikke tilgjengelige for denne sjekken. Sjekken kan mangle logger fordi den ikke er en vanlig workflow-jobb, eller fordi loggene har utløpt.',
+          errorType: 'not_found',
+        },
         { status: 404 },
       )
     }
 
-    return Response.json({ error: 'Kunne ikke hente logger.' }, { status: 500 })
+    return Response.json({ error: 'Kunne ikke hente logger.', errorType: 'server_error' }, { status: 500 })
   }
 }
