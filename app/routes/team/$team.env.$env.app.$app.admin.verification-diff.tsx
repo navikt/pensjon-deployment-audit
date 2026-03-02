@@ -212,7 +212,7 @@ export default function VerificationDiffPage() {
     }
   }, [triggerFetcher.data])
 
-  const isComputing = !!activeJobId
+  const isComputing = !!activeJobId || triggerFetcher.state !== 'idle'
 
   return (
     <Box paddingBlock="space-8" paddingInline={{ xs: 'space-4', md: 'space-8' }}>
