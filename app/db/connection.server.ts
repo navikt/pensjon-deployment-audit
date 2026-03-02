@@ -69,8 +69,14 @@ export function getPool(): Pool {
   return poolInstance
 }
 
-// Export pool directly for direct usage
-export const pool = getPool()
+// Lazy pool proxy — defers creation until first use to avoid throwing at import time
+export const pool: Pool = new Proxy({} as Pool, {
+  get(_target, prop) {
+    const instance = getPool()
+    const value = (instance as any)[prop]
+    return typeof value === 'function' ? value.bind(instance) : value
+  },
+})
 
 export async function query<T extends Record<string, any> = any>(
   text: string,
