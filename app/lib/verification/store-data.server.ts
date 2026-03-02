@@ -131,7 +131,8 @@ async function updateDeploymentVerification(
        four_eyes_status = $2,
        github_pr_number = COALESCE($3, github_pr_number),
        unverified_commits = $5::jsonb,
-       github_pr_data = COALESCE($6::jsonb, github_pr_data)
+       github_pr_data = COALESCE($6::jsonb, github_pr_data),
+       title = COALESCE($7, title)
      WHERE id = $4
        AND four_eyes_status NOT IN ('manually_approved', 'legacy')`,
     [
@@ -153,6 +154,7 @@ async function updateDeploymentVerification(
           )
         : null,
       githubPrDataJson,
+      result.deployedPr?.title || null,
     ],
   )
 
