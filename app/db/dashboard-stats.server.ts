@@ -27,6 +27,7 @@ export interface BoardObjectiveProgress {
 
 /**
  * Get dashboard stats for all dev teams in a section within a date range.
+ * Uses direct app links (dev_team_applications) when available, falling back to nais team links.
  */
 export async function getSectionDashboardStats(
   sectionId: number,
@@ -34,37 +35,44 @@ export async function getSectionDashboardStats(
   endDate: Date,
 ): Promise<DevTeamDashboardStats[]> {
   const result = await pool.query(
-    `WITH team_slugs AS (
+    `WITH team_apps AS (
+       -- Direct app links
        SELECT dt.id AS dev_team_id, dt.name AS dev_team_name, dt.slug AS dev_team_slug,
-              array_agg(dtn.nais_team_slug) FILTER (WHERE dtn.nais_team_slug IS NOT NULL) AS nais_team_slugs
+              COALESCE(array_agg(DISTINCT dtn.nais_team_slug) FILTER (WHERE dtn.nais_team_slug IS NOT NULL), '{}') AS nais_team_slugs,
+              array_agg(DISTINCT dta.monitored_app_id) FILTER (WHERE dta.monitored_app_id IS NOT NULL) AS direct_app_ids
        FROM dev_teams dt
        LEFT JOIN dev_team_nais_teams dtn ON dtn.dev_team_id = dt.id
+       LEFT JOIN dev_team_applications dta ON dta.dev_team_id = dt.id
        WHERE dt.section_id = $1 AND dt.is_active = true
        GROUP BY dt.id
      ),
      deployment_stats AS (
-       SELECT ts.dev_team_id,
+       SELECT ta.dev_team_id,
               COUNT(d.id) AS total_deployments,
               COUNT(d.id) FILTER (WHERE d.has_four_eyes = true) AS with_four_eyes,
               COUNT(d.id) FILTER (WHERE d.four_eyes_status IN ('direct_push', 'unverified_commits', 'approved_pr_with_unreviewed', 'unauthorized_repository', 'unauthorized_branch')) AS without_four_eyes,
               COUNT(d.id) FILTER (WHERE d.four_eyes_status IN ('pending', 'pending_baseline', 'pending_approval', 'unknown')) AS pending_verification,
               COUNT(DISTINCT dgl.deployment_id) AS linked_to_goal
-       FROM team_slugs ts
-       LEFT JOIN deployments d ON d.team_slug = ANY(ts.nais_team_slugs)
-         AND d.created_at >= $2 AND d.created_at < $3
+       FROM team_apps ta
+       LEFT JOIN deployments d ON (
+         CASE
+           WHEN ta.direct_app_ids IS NOT NULL THEN d.monitored_app_id = ANY(ta.direct_app_ids)
+           ELSE d.team_slug = ANY(ta.nais_team_slugs)
+         END
+       ) AND d.created_at >= $2 AND d.created_at < $3
        LEFT JOIN deployment_goal_links dgl ON dgl.deployment_id = d.id
-       GROUP BY ts.dev_team_id
+       GROUP BY ta.dev_team_id
      )
-     SELECT ts.dev_team_id, ts.dev_team_name, ts.dev_team_slug,
-            COALESCE(ts.nais_team_slugs, '{}') AS nais_team_slugs,
+     SELECT ta.dev_team_id, ta.dev_team_name, ta.dev_team_slug,
+            ta.nais_team_slugs,
             COALESCE(ds.total_deployments, 0)::int AS total_deployments,
             COALESCE(ds.with_four_eyes, 0)::int AS with_four_eyes,
             COALESCE(ds.without_four_eyes, 0)::int AS without_four_eyes,
             COALESCE(ds.pending_verification, 0)::int AS pending_verification,
             COALESCE(ds.linked_to_goal, 0)::int AS linked_to_goal
-     FROM team_slugs ts
-     LEFT JOIN deployment_stats ds ON ds.dev_team_id = ts.dev_team_id
-     ORDER BY ts.dev_team_name`,
+     FROM team_apps ta
+     LEFT JOIN deployment_stats ds ON ds.dev_team_id = ta.dev_team_id
+     ORDER BY ta.dev_team_name`,
     [sectionId, startDate, endDate],
   )
 

@@ -71,8 +71,29 @@ export async function getOriginOfChangeCoverage(
   naisTeamSlugs: string[],
   startDate: Date,
   endDate: Date,
+  directAppIds?: number[],
 ): Promise<{ total: number; linked: number; coverage: number }> {
-  if (naisTeamSlugs.length === 0) return { total: 0, linked: 0, coverage: 0 }
+  if (naisTeamSlugs.length === 0 && (!directAppIds || directAppIds.length === 0))
+    return { total: 0, linked: 0, coverage: 0 }
+
+  // If direct app IDs are provided, use them; otherwise fall back to nais team slugs
+  if (directAppIds && directAppIds.length > 0) {
+    const placeholders = directAppIds.map((_, i) => `$${i + 1}`).join(', ')
+    const result = await pool.query(
+      `SELECT
+         COUNT(DISTINCT d.id) AS total,
+         COUNT(DISTINCT dgl.deployment_id) AS linked
+       FROM deployments d
+       LEFT JOIN deployment_goal_links dgl ON dgl.deployment_id = d.id
+       WHERE d.monitored_app_id IN (${placeholders})
+         AND d.created_at >= $${directAppIds.length + 1}
+         AND d.created_at < $${directAppIds.length + 2}`,
+      [...directAppIds, startDate, endDate],
+    )
+    const total = Number(result.rows[0]?.total ?? 0)
+    const linked = Number(result.rows[0]?.linked ?? 0)
+    return { total, linked, coverage: total > 0 ? linked / total : 0 }
+  }
 
   const placeholders = naisTeamSlugs.map((_, i) => `$${i + 1}`).join(', ')
   const result = await pool.query(

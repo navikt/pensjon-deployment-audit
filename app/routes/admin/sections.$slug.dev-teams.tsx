@@ -1,11 +1,28 @@
 import { BarChartIcon, PencilIcon, PlusIcon, TrashIcon } from '@navikt/aksel-icons'
-import { Alert, BodyShort, Box, Button, Heading, HStack, Table, Tag, TextField, VStack } from '@navikt/ds-react'
+import {
+  Alert,
+  BodyShort,
+  Box,
+  Button,
+  Checkbox,
+  CheckboxGroup,
+  Heading,
+  HStack,
+  Table,
+  Tag,
+  TextField,
+  VStack,
+} from '@navikt/ds-react'
 import { useState } from 'react'
 import { Form, Link, useLoaderData } from 'react-router'
 import {
   createDevTeam,
+  type DevTeamApplication,
   type DevTeamWithNaisTeams,
+  getAvailableAppsForDevTeam,
+  getDevTeamApplications,
   getDevTeamsBySection,
+  setDevTeamApplications,
   setDevTeamNaisTeams,
   updateDevTeam,
 } from '~/db/dev-teams.server'
@@ -24,7 +41,18 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     throw new Response('Seksjon ikke funnet', { status: 404 })
   }
   const devTeams = await getDevTeamsBySection(section.id)
-  return { section, devTeams }
+
+  const appsByTeam: Record<number, DevTeamApplication[]> = {}
+  const availableAppsByTeam: Record<
+    number,
+    { id: number; team_slug: string; environment_name: string; app_name: string; is_linked: boolean }[]
+  > = {}
+  for (const team of devTeams) {
+    appsByTeam[team.id] = await getDevTeamApplications(team.id)
+    availableAppsByTeam[team.id] = await getAvailableAppsForDevTeam(team.id)
+  }
+
+  return { section, devTeams, appsByTeam, availableAppsByTeam }
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
@@ -84,12 +112,24 @@ export async function action({ request, params }: Route.ActionArgs) {
     }
   }
 
+  if (intent === 'update_apps') {
+    const id = Number(formData.get('id'))
+    const appIds = formData.getAll('app_ids').map(Number).filter(Boolean)
+    try {
+      await setDevTeamApplications(id, appIds)
+      return { success: true }
+    } catch (error) {
+      return { error: `Kunne ikke oppdatere applikasjoner: ${error}` }
+    }
+  }
+
   return { error: 'Ukjent handling.' }
 }
 
 export default function AdminDevTeams() {
-  const { section, devTeams } = useLoaderData<typeof loader>()
+  const { section, devTeams, appsByTeam, availableAppsByTeam } = useLoaderData<typeof loader>()
   const [editingId, setEditingId] = useState<number | null>(null)
+  const [managingAppsId, setManagingAppsId] = useState<number | null>(null)
   const [showCreate, setShowCreate] = useState(false)
 
   return (
@@ -167,6 +207,7 @@ export default function AdminDevTeams() {
               <Table.HeaderCell>Utviklingsteam</Table.HeaderCell>
               <Table.HeaderCell>Slug</Table.HeaderCell>
               <Table.HeaderCell>Nais-team</Table.HeaderCell>
+              <Table.HeaderCell>Applikasjoner</Table.HeaderCell>
               <Table.HeaderCell />
             </Table.Row>
           </Table.Header>
@@ -175,9 +216,14 @@ export default function AdminDevTeams() {
               <DevTeamRow
                 key={team.id}
                 team={team}
+                linkedApps={appsByTeam[team.id] ?? []}
+                availableApps={availableAppsByTeam[team.id] ?? []}
                 isEditing={editingId === team.id}
+                isManagingApps={managingAppsId === team.id}
                 onEdit={() => setEditingId(team.id)}
                 onCancel={() => setEditingId(null)}
+                onManageApps={() => setManagingAppsId(managingAppsId === team.id ? null : team.id)}
+                onCancelApps={() => setManagingAppsId(null)}
               />
             ))}
           </Table.Body>
@@ -189,19 +235,29 @@ export default function AdminDevTeams() {
 
 function DevTeamRow({
   team,
+  linkedApps,
+  availableApps,
   isEditing,
+  isManagingApps,
   onEdit,
   onCancel,
+  onManageApps,
+  onCancelApps,
 }: {
   team: DevTeamWithNaisTeams
+  linkedApps: DevTeamApplication[]
+  availableApps: { id: number; team_slug: string; environment_name: string; app_name: string; is_linked: boolean }[]
   isEditing: boolean
+  isManagingApps: boolean
   onEdit: () => void
   onCancel: () => void
+  onManageApps: () => void
+  onCancelApps: () => void
 }) {
   if (isEditing) {
     return (
       <Table.Row>
-        <Table.DataCell colSpan={4}>
+        <Table.DataCell colSpan={5}>
           <Form method="post" onSubmit={onCancel}>
             <input type="hidden" name="intent" value="update" />
             <input type="hidden" name="id" value={team.id} />
@@ -222,6 +278,48 @@ function DevTeamRow({
                   Lagre
                 </Button>
                 <Button variant="tertiary" size="small" onClick={onCancel}>
+                  Avbryt
+                </Button>
+              </HStack>
+            </VStack>
+          </Form>
+        </Table.DataCell>
+      </Table.Row>
+    )
+  }
+
+  if (isManagingApps) {
+    return (
+      <Table.Row>
+        <Table.DataCell colSpan={5}>
+          <Form method="post" onSubmit={onCancelApps}>
+            <input type="hidden" name="intent" value="update_apps" />
+            <input type="hidden" name="id" value={team.id} />
+            <VStack gap="space-12" style={{ padding: 'var(--ax-space-8) 0' }}>
+              <Heading level="3" size="xsmall">
+                Applikasjoner for {team.name}
+              </Heading>
+              {availableApps.length === 0 ? (
+                <Alert variant="info" size="small">
+                  Ingen tilgjengelige applikasjoner. Koble Nais-team til dette utviklingsteamet først.
+                </Alert>
+              ) : (
+                <CheckboxGroup legend="Velg applikasjoner" size="small" hideLegend>
+                  {availableApps.map((app) => (
+                    <Checkbox key={app.id} name="app_ids" value={String(app.id)} defaultChecked={app.is_linked}>
+                      {app.app_name}{' '}
+                      <BodyShort as="span" size="small" textColor="subtle">
+                        ({app.team_slug} / {app.environment_name})
+                      </BodyShort>
+                    </Checkbox>
+                  ))}
+                </CheckboxGroup>
+              )}
+              <HStack gap="space-8">
+                <Button type="submit" size="small">
+                  Lagre
+                </Button>
+                <Button variant="tertiary" size="small" onClick={onCancelApps}>
                   Avbryt
                 </Button>
               </HStack>
@@ -253,6 +351,20 @@ function DevTeamRow({
         </HStack>
       </Table.DataCell>
       <Table.DataCell>
+        <HStack gap="space-4" wrap>
+          {linkedApps.map((app) => (
+            <Tag key={app.monitored_app_id} variant="info" size="small">
+              {app.app_name}
+            </Tag>
+          ))}
+          {linkedApps.length === 0 && (
+            <BodyShort size="small" textColor="subtle">
+              Alle via Nais-team
+            </BodyShort>
+          )}
+        </HStack>
+      </Table.DataCell>
+      <Table.DataCell>
         <HStack gap="space-4">
           <Button
             as={Link}
@@ -265,6 +377,9 @@ function DevTeamRow({
           </Button>
           <Button variant="tertiary" size="xsmall" icon={<PencilIcon aria-hidden />} onClick={onEdit}>
             Rediger
+          </Button>
+          <Button variant="tertiary" size="xsmall" onClick={onManageApps}>
+            Apper
           </Button>
           <Form method="post" style={{ display: 'inline' }}>
             <input type="hidden" name="intent" value="deactivate" />

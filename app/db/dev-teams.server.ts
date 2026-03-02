@@ -13,6 +13,13 @@ export interface DevTeamWithNaisTeams extends DevTeam {
   nais_team_slugs: string[]
 }
 
+export interface DevTeamApplication {
+  monitored_app_id: number
+  team_slug: string
+  environment_name: string
+  app_name: string
+}
+
 export async function getDevTeamsBySection(sectionId: number): Promise<DevTeamWithNaisTeams[]> {
   const result = await pool.query(
     `SELECT dt.*,
@@ -112,4 +119,55 @@ export async function setDevTeamNaisTeams(devTeamId: number, naisTeamSlugs: stri
   } finally {
     client.release()
   }
+}
+
+/** Get all applications directly linked to a dev team */
+export async function getDevTeamApplications(devTeamId: number): Promise<DevTeamApplication[]> {
+  const result = await pool.query(
+    `SELECT ma.id AS monitored_app_id, ma.team_slug, ma.environment_name, ma.app_name
+     FROM dev_team_applications dta
+     JOIN monitored_applications ma ON ma.id = dta.monitored_app_id
+     WHERE dta.dev_team_id = $1
+     ORDER BY ma.team_slug, ma.environment_name, ma.app_name`,
+    [devTeamId],
+  )
+  return result.rows
+}
+
+/** Set the full list of directly linked applications for a dev team (replace all) */
+export async function setDevTeamApplications(devTeamId: number, monitoredAppIds: number[]): Promise<void> {
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    await client.query('DELETE FROM dev_team_applications WHERE dev_team_id = $1', [devTeamId])
+    for (const appId of monitoredAppIds) {
+      await client.query('INSERT INTO dev_team_applications (dev_team_id, monitored_app_id) VALUES ($1, $2)', [
+        devTeamId,
+        appId,
+      ])
+    }
+    await client.query('COMMIT')
+  } catch (e) {
+    await client.query('ROLLBACK')
+    throw e
+  } finally {
+    client.release()
+  }
+}
+
+/** Get available apps for linking — apps belonging to the dev team's nais teams that are not yet linked */
+export async function getAvailableAppsForDevTeam(
+  devTeamId: number,
+): Promise<{ id: number; team_slug: string; environment_name: string; app_name: string; is_linked: boolean }[]> {
+  const result = await pool.query(
+    `SELECT ma.id, ma.team_slug, ma.environment_name, ma.app_name,
+            (dta.dev_team_id IS NOT NULL) AS is_linked
+     FROM monitored_applications ma
+     JOIN dev_team_nais_teams dtn ON dtn.nais_team_slug = ma.team_slug
+     LEFT JOIN dev_team_applications dta ON dta.monitored_app_id = ma.id AND dta.dev_team_id = $1
+     WHERE dtn.dev_team_id = $1 AND ma.is_active = true
+     ORDER BY ma.team_slug, ma.environment_name, ma.app_name`,
+    [devTeamId],
+  )
+  return result.rows
 }

@@ -4,7 +4,7 @@ import { Link, useLoaderData, useSearchParams } from 'react-router'
 import { getBoardsByDevTeam } from '~/db/boards.server'
 import { type BoardObjectiveProgress, getBoardObjectiveProgress } from '~/db/dashboard-stats.server'
 import { getOriginOfChangeCoverage } from '~/db/deployment-goal-links.server'
-import { getDevTeamBySlug } from '~/db/dev-teams.server'
+import { getDevTeamApplications, getDevTeamBySlug } from '~/db/dev-teams.server'
 import { requireUser } from '~/lib/auth.server'
 import { type BoardPeriodType, getCurrentPeriod, getPeriodsForYear } from '~/lib/board-periods'
 import type { Route } from './+types/boards.$devTeamSlug.dashboard'
@@ -38,7 +38,15 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     objectiveProgress = await getBoardObjectiveProgress(currentBoard.id)
   }
 
-  const coverage = await getOriginOfChangeCoverage(devTeam.nais_team_slugs, startDate, endDate)
+  const directApps = await getDevTeamApplications(devTeam.id)
+  const directAppIds = directApps.map((a) => a.monitored_app_id)
+
+  const coverage = await getOriginOfChangeCoverage(
+    devTeam.nais_team_slugs,
+    startDate,
+    endDate,
+    directAppIds.length > 0 ? directAppIds : undefined,
+  )
 
   return { devTeam, periods, selectedPeriod, periodType, currentBoard, objectiveProgress, coverage }
 }
