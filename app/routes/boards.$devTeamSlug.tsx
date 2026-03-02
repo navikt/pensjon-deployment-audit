@@ -1,4 +1,4 @@
-import { PlusIcon } from '@navikt/aksel-icons'
+import { BarChartIcon, PlusIcon } from '@navikt/aksel-icons'
 import { Alert, BodyShort, Box, Button, Heading, HStack, Select, Table, Tag, TextField, VStack } from '@navikt/ds-react'
 import { useState } from 'react'
 import { Form, Link, useLoaderData } from 'react-router'
@@ -78,9 +78,18 @@ export default function BoardsList() {
       </div>
 
       {!showCreate ? (
-        <HStack>
+        <HStack gap="space-8">
           <Button variant="secondary" size="small" icon={<PlusIcon aria-hidden />} onClick={() => setShowCreate(true)}>
             Ny tavle
+          </Button>
+          <Button
+            as={Link}
+            to={`/boards/${devTeam.slug}/dashboard`}
+            variant="tertiary"
+            size="small"
+            icon={<BarChartIcon aria-hidden />}
+          >
+            Dashboard
           </Button>
         </HStack>
       ) : (

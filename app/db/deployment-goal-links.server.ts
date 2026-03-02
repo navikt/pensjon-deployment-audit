@@ -82,8 +82,8 @@ export async function getOriginOfChangeCoverage(
      FROM deployments d
      LEFT JOIN deployment_goal_links dgl ON dgl.deployment_id = d.id
      WHERE d.team_slug IN (${placeholders})
-       AND d.deployed_at >= $${naisTeamSlugs.length + 1}
-       AND d.deployed_at < $${naisTeamSlugs.length + 2}`,
+       AND d.created_at >= $${naisTeamSlugs.length + 1}
+       AND d.created_at < $${naisTeamSlugs.length + 2}`,
     [...naisTeamSlugs, startDate, endDate],
   )
 

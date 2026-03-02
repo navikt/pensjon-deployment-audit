@@ -1,0 +1,124 @@
+import { pool } from './connection.server'
+
+export interface DevTeamDashboardStats {
+  dev_team_id: number
+  dev_team_name: string
+  dev_team_slug: string
+  nais_team_slugs: string[]
+  total_deployments: number
+  with_four_eyes: number
+  without_four_eyes: number
+  pending_verification: number
+  linked_to_goal: number
+  four_eyes_coverage: number
+  goal_coverage: number
+}
+
+export interface BoardObjectiveProgress {
+  objective_id: number
+  objective_title: string
+  key_results: {
+    id: number
+    title: string
+    linked_deployments: number
+  }[]
+  total_linked_deployments: number
+}
+
+/**
+ * Get dashboard stats for all dev teams in a section within a date range.
+ */
+export async function getSectionDashboardStats(
+  sectionId: number,
+  startDate: Date,
+  endDate: Date,
+): Promise<DevTeamDashboardStats[]> {
+  const result = await pool.query(
+    `WITH team_slugs AS (
+       SELECT dt.id AS dev_team_id, dt.name AS dev_team_name, dt.slug AS dev_team_slug,
+              array_agg(dtn.nais_team_slug) FILTER (WHERE dtn.nais_team_slug IS NOT NULL) AS nais_team_slugs
+       FROM dev_teams dt
+       LEFT JOIN dev_team_nais_teams dtn ON dtn.dev_team_id = dt.id
+       WHERE dt.section_id = $1 AND dt.is_active = true
+       GROUP BY dt.id
+     ),
+     deployment_stats AS (
+       SELECT ts.dev_team_id,
+              COUNT(d.id) AS total_deployments,
+              COUNT(d.id) FILTER (WHERE d.has_four_eyes = true) AS with_four_eyes,
+              COUNT(d.id) FILTER (WHERE d.four_eyes_status IN ('direct_push', 'unverified_commits', 'approved_pr_with_unreviewed', 'unauthorized_repository', 'unauthorized_branch')) AS without_four_eyes,
+              COUNT(d.id) FILTER (WHERE d.four_eyes_status IN ('pending', 'pending_baseline', 'pending_approval', 'unknown')) AS pending_verification,
+              COUNT(DISTINCT dgl.deployment_id) AS linked_to_goal
+       FROM team_slugs ts
+       LEFT JOIN deployments d ON d.team_slug = ANY(ts.nais_team_slugs)
+         AND d.created_at >= $2 AND d.created_at < $3
+       LEFT JOIN deployment_goal_links dgl ON dgl.deployment_id = d.id
+       GROUP BY ts.dev_team_id
+     )
+     SELECT ts.dev_team_id, ts.dev_team_name, ts.dev_team_slug,
+            COALESCE(ts.nais_team_slugs, '{}') AS nais_team_slugs,
+            COALESCE(ds.total_deployments, 0)::int AS total_deployments,
+            COALESCE(ds.with_four_eyes, 0)::int AS with_four_eyes,
+            COALESCE(ds.without_four_eyes, 0)::int AS without_four_eyes,
+            COALESCE(ds.pending_verification, 0)::int AS pending_verification,
+            COALESCE(ds.linked_to_goal, 0)::int AS linked_to_goal
+     FROM team_slugs ts
+     LEFT JOIN deployment_stats ds ON ds.dev_team_id = ts.dev_team_id
+     ORDER BY ts.dev_team_name`,
+    [sectionId, startDate, endDate],
+  )
+
+  return result.rows.map((row) => ({
+    ...row,
+    four_eyes_coverage: row.total_deployments > 0 ? row.with_four_eyes / row.total_deployments : 0,
+    goal_coverage: row.total_deployments > 0 ? row.linked_to_goal / row.total_deployments : 0,
+  }))
+}
+
+/**
+ * Get objective progress for a board — how many deployments are linked to each objective/key result.
+ */
+export async function getBoardObjectiveProgress(boardId: number): Promise<BoardObjectiveProgress[]> {
+  const objectives = await pool.query(
+    'SELECT id, title FROM board_objectives WHERE board_id = $1 ORDER BY sort_order, id',
+    [boardId],
+  )
+
+  const result: BoardObjectiveProgress[] = []
+
+  for (const obj of objectives.rows) {
+    const krResult = await pool.query(
+      `SELECT bkr.id, bkr.title,
+              COUNT(DISTINCT dgl.deployment_id) AS linked_deployments
+       FROM board_key_results bkr
+       LEFT JOIN deployment_goal_links dgl ON dgl.key_result_id = bkr.id
+       WHERE bkr.objective_id = $1
+       GROUP BY bkr.id, bkr.title
+       ORDER BY bkr.sort_order, bkr.id`,
+      [obj.id],
+    )
+
+    const objLinks = await pool.query(
+      'SELECT COUNT(DISTINCT deployment_id) AS cnt FROM deployment_goal_links WHERE objective_id = $1',
+      [obj.id],
+    )
+
+    const krLinkedTotal = krResult.rows.reduce(
+      (sum: number, kr: { linked_deployments: string }) => sum + Number(kr.linked_deployments),
+      0,
+    )
+
+    result.push({
+      objective_id: obj.id,
+      objective_title: obj.title,
+      key_results: krResult.rows.map((kr) => ({
+        id: kr.id,
+        title: kr.title,
+        linked_deployments: Number(kr.linked_deployments),
+      })),
+      total_linked_deployments: Number(objLinks.rows[0]?.cnt ?? 0) + krLinkedTotal,
+    })
+  }
+
+  return result
+}
