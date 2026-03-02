@@ -24,6 +24,10 @@ function getQuarter(month: number): 1 | 2 | 3 | 4 {
   return 4
 }
 
+function formatLocalDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export function getCurrentPeriod(type: BoardPeriodType, date = new Date()): BoardPeriod {
   const year = date.getFullYear()
   const month = date.getMonth()
@@ -36,7 +40,7 @@ export function getCurrentPeriod(type: BoardPeriodType, date = new Date()): Boar
       type,
       label: `T${t} ${year}`,
       start: `${year}-${String(startMonth + 1).padStart(2, '0')}-01`,
-      end: new Date(year, endMonth + 1, 0).toISOString().split('T')[0],
+      end: formatLocalDate(new Date(year, endMonth + 1, 0)),
     }
   }
 
@@ -47,7 +51,7 @@ export function getCurrentPeriod(type: BoardPeriodType, date = new Date()): Boar
     type,
     label: `Q${q} ${year}`,
     start: `${year}-${String(startMonth + 1).padStart(2, '0')}-01`,
-    end: new Date(year, endMonth + 1, 0).toISOString().split('T')[0],
+    end: formatLocalDate(new Date(year, endMonth + 1, 0)),
   }
 }
 
