@@ -46,6 +46,17 @@ export async function seedApp(
 }
 
 /**
+ * Insert a dev team and return its id.
+ */
+export async function seedDevTeam(pool: Pool, slug: string, name?: string, sectionId?: number): Promise<number> {
+  const { rows } = await pool.query<{ id: number }>(
+    `INSERT INTO dev_teams (slug, name, section_id) VALUES ($1, $2, $3) RETURNING id`,
+    [slug, name ?? slug, sectionId ?? null],
+  )
+  return rows[0].id
+}
+
+/**
  * Insert a deployment and return its id.
  */
 export async function seedDeployment(
