@@ -1,5 +1,5 @@
 ---
-name: aksel-designsystem
+name: aksel
 description: >
   Aksel er Navs designsystem. Bruk denne skillen når du skal bygge UI med Aksel-komponenter
   fra @navikt/ds-react, style med design tokens fra @navikt/ds-tokens, bruke layout primitives,
@@ -34,12 +34,12 @@ design tokens, ikoner, layout primitives og retningslinjer for universell utform
 
 ## Referansefiler
 
-For detaljert informasjon, se filene i `docs/`-mappen:
+For detaljert informasjon, se filene i `references/`-mappen:
 
-- **docs/components.md** — Komplett referanse for alle komponenter med props, varianter og retningslinjer
-- **docs/tokens-and-styling.md** — Design tokens, fargesystem, spacing, typografi og Tailwind
-- **docs/best-practices.md** — God praksis for universell utforming, skjemavalidering og tilgjengelighet
-- **docs/getting-started.md** — Installasjon, oppsett, fontlasting og versjonering
+- **references/components.md** — Komplett referanse for alle komponenter med props, varianter og retningslinjer
+- **references/tokens-and-styling.md** — Design tokens, fargesystem, spacing, typografi og Tailwind
+- **references/best-practices.md** — God praksis for universell utforming, skjemavalidering og tilgjengelighet
+- **references/getting-started.md** — Installasjon, oppsett, fontlasting og versjonering
 
 ## Komponentvalg — hurtigreferanse
 
