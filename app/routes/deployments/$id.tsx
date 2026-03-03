@@ -47,7 +47,7 @@ import {
   getPreviousDeploymentForNav,
   getStatusHistory,
 } from '~/db/deployments.server'
-import { getDevTeamForApp } from '~/db/dev-teams.server'
+import { getDevTeamsForApp } from '~/db/dev-teams.server'
 import { getDeviationsByDeploymentId } from '~/db/deviations.server'
 import { getMonitoredApplicationById } from '~/db/monitored-applications.server'
 import { getUserMappings } from '~/db/user-mappings.server'
@@ -115,9 +115,10 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   const deviations = await getDeviationsByDeploymentId(deploymentId)
   const goalLinks = await getLinksForDeployment(deploymentId)
 
-  // Get available boards/goals for goal linking UI
-  const devTeam = await getDevTeamForApp(deployment.monitored_app_id, app.team_slug)
-  const availableBoards = devTeam ? await getBoardsWithGoalsForDevTeam(devTeam.id) : []
+  // Get available boards/goals for goal linking UI (from all matching dev teams)
+  const devTeams = await getDevTeamsForApp(deployment.monitored_app_id, app.team_slug)
+  const boardsPerTeam = await Promise.all(devTeams.map((dt) => getBoardsWithGoalsForDevTeam(dt.id)))
+  const availableBoards = boardsPerTeam.flat()
 
   // Get previous and next deployments for navigation (respecting filters)
   const previousDeployment = await getPreviousDeploymentForNav(deploymentId, deployment.monitored_app_id, navFilters)
