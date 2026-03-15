@@ -31,7 +31,9 @@ import {
  * 0a. Repository not active → unauthorized_repository
  * 0b. Commit not on base branch → unauthorized_branch
  * 1. No previous deployment → pending_baseline
- * 2. No commits between deployments → no_changes
+ * 2. No commits between deployments:
+ *    a. Same commit SHA → no_changes
+ *    b. Different SHA (rollback/error) → error
  * 3. Check each commit against PR data
  * 4. All verified → approved
  * 5. Base branch merge explains unverified → approved (base_merge)
@@ -54,7 +56,13 @@ export function verifyDeployment(input: VerificationInput): VerificationResult {
   }
 
   if (input.commitsBetween.length === 0) {
-    return handleNoChanges(input)
+    // Only treat as "no changes" when the commit SHA is identical.
+    // Different SHAs with 0 commits means the GitHub compare failed,
+    // the deployment is a rollback, or the branches diverged.
+    if (input.commitSha === input.previousDeployment.commitSha) {
+      return handleNoChanges(input)
+    }
+    return handleCompareError(input)
   }
 
   const unverifiedCommits = findUnverifiedCommits(input)
@@ -124,6 +132,20 @@ function handleNoChanges(input: VerificationInput): VerificationResult {
       method: 'no_changes',
       approvers: [],
       reason: 'No new commits since previous deployment',
+    },
+  })
+}
+
+function handleCompareError(input: VerificationInput): VerificationResult {
+  const prevSha = input.previousDeployment?.commitSha?.substring(0, 7) ?? 'unknown'
+  const currSha = input.commitSha.substring(0, 7)
+  return buildResult(input, {
+    hasFourEyes: false,
+    status: 'error',
+    approvalDetails: {
+      method: null,
+      approvers: [],
+      reason: `Commit SHAs differ (${prevSha}→${currSha}) but GitHub compare returned 0 commits. Possible rollback, branch divergence, or API error.`,
     },
   })
 }

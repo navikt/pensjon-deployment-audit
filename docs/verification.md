@@ -131,7 +131,10 @@ Hvis dette er **første gang** applikasjonen deployes (ingen tidligere deploymen
 
 #### Steg 2: Er det noen nye commits?
 
-Systemet henter listen over commits mellom forrige deployment sin commit-SHA og nåværende deployment sin commit-SHA via GitHub API. Hvis listen er tom (samme commit), betyr det at deploymentet er en **re-deploy** av eksakt samme kode. Status: **`no_changes`**.
+Systemet henter listen over commits mellom forrige deployment sin commit-SHA og nåværende deployment sin commit-SHA via GitHub API.
+
+- **Samme commit-SHA** og tom commit-liste: Deploymentet er en **re-deploy** av eksakt samme kode. Status: **`no_changes`**.
+- **Forskjellig commit-SHA** men tom commit-liste: GitHub compare returnerte 0 commits til tross for ulike SHAer. Dette kan skyldes rollback (eldre commit deployet på nytt), branch-divergens, eller API-feil. Status: **`error`**. Krever manuell vurdering.
 
 #### Steg 3: Sjekk hver commit individuelt
 
@@ -175,14 +178,14 @@ Hvert deployment får én av følgende statuser etter verifisering:
 |--------|-----------|-----------|-------------|
 | `approved` | Godkjent | ✅ Ja | Alle commits har godkjent PR-review |
 | `implicitly_approved` | Implisitt godkjent | ✅ Ja | Godkjent via implisitte regler (f.eks. Dependabot) |
-| `no_changes` | Ingen endringer | ✅ Ja | Ingen nye commits siden forrige deployment |
+| `no_changes` | Ingen endringer | ✅ Ja | Re-deploy av eksakt samme commit (identisk SHA) |
 | `pending_baseline` | Første deployment | ⚠️ Nei | Første deployment — brukes som referansepunkt |
 | `unverified_commits` | Uverifiserte commits | ❌ Nei | Én eller flere commits mangler godkjent PR-review |
 | `unauthorized_repository` | Ikke godkjent repo | ❌ Nei | Deploymentets repo er ikke godkjent for applikasjonen |
 | `unauthorized_branch` | Ikke på godkjent branch | ❌ Nei | Deployet commit er ikke på konfigurert base-branch |
 | `manually_approved` | Manuelt godkjent | ✅ Ja | Manuelt godkjent av administrator i applikasjonen |
 | `legacy` | Legacy | ⚠️ N/A | Deployment fra før audit-systemet ble aktivert |
-| `error` | Feil | ❌ Nei | Teknisk feil under verifisering |
+| `error` | Feil | ❌ Nei | Teknisk feil under verifisering, eller ulike commit-SHAer med 0 commits fra GitHub compare (rollback/divergens) |
 
 > **Koderef**: Enum `VerificationStatus` i [`app/lib/verification/types.ts`](../app/lib/verification/types.ts)
 

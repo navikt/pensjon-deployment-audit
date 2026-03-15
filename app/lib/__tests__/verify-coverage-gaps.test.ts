@@ -7,7 +7,8 @@ import { verifyDeployment, verifyFourEyesFromPrData } from '../verification/veri
  *
  * Covers:
  * - Case 1: pending_baseline (no previousDeployment)
- * - Case 2: no_changes (empty commitsBetween)
+ * - Case 2a: no_changes (empty commitsBetween, same SHA)
+ * - Case 2b: compare error (empty commitsBetween, different SHAs)
  * - Case 5: approved via base branch merge (integration)
  * - Case 6: implicitly_approved via mode 'all' (integration)
  * - Deployed PR with approval_before_last_commit reason propagation
@@ -133,12 +134,20 @@ describe('verifyDeployment - Case 1: pending_baseline', () => {
 })
 
 // =============================================================================
-// Case 2: no_changes
+// Case 2: no_changes / compare error
 // =============================================================================
 
-describe('verifyDeployment - Case 2: no_changes', () => {
-  it('should return no_changes when commitsBetween is empty', () => {
-    const input = makeBaseInput({ commitsBetween: [] })
+describe('verifyDeployment - Case 2a: no_changes (same commit SHA)', () => {
+  it('should return no_changes when commitsBetween is empty and SHAs match', () => {
+    const input = makeBaseInput({
+      commitSha: 'same-sha-abc',
+      previousDeployment: {
+        id: 999,
+        commitSha: 'same-sha-abc',
+        createdAt: '2026-02-26T10:00:00Z',
+      },
+      commitsBetween: [],
+    })
 
     const result = verifyDeployment(input)
 
@@ -150,6 +159,12 @@ describe('verifyDeployment - Case 2: no_changes', () => {
 
   it('should still include deployed PR info when no_changes', () => {
     const input = makeBaseInput({
+      commitSha: 'same-sha-abc',
+      previousDeployment: {
+        id: 999,
+        commitSha: 'same-sha-abc',
+        createdAt: '2026-02-26T10:00:00Z',
+      },
       commitsBetween: [],
       deployedPr: {
         number: 100,
@@ -164,6 +179,44 @@ describe('verifyDeployment - Case 2: no_changes', () => {
 
     expect(result.status).toBe('no_changes')
     expect(result.deployedPr).not.toBeNull()
+  })
+})
+
+describe('verifyDeployment - Case 2b: compare error (different SHAs, 0 commits)', () => {
+  it('should return error when SHAs differ but commitsBetween is empty', () => {
+    const input = makeBaseInput({
+      commitSha: 'deploy-sha-new',
+      previousDeployment: {
+        id: 999,
+        commitSha: 'deploy-sha-old',
+        createdAt: '2026-02-26T10:00:00Z',
+      },
+      commitsBetween: [],
+    })
+
+    const result = verifyDeployment(input)
+
+    expect(result.status).toBe('error')
+    expect(result.hasFourEyes).toBe(false)
+    expect(result.approvalDetails.reason).toContain('Commit SHAs differ')
+    expect(result.approvalDetails.reason).toContain('0 commits')
+  })
+
+  it('should return error for rollback scenario (older commit deployed after newer)', () => {
+    const input = makeBaseInput({
+      commitSha: '6ebced4f706d932c617212ef01fbc8be06bdbc6c',
+      previousDeployment: {
+        id: 998,
+        commitSha: '2c2b64200000000000000000000000000000000a',
+        createdAt: '2026-06-26T14:55:00Z',
+      },
+      commitsBetween: [],
+    })
+
+    const result = verifyDeployment(input)
+
+    expect(result.status).toBe('error')
+    expect(result.hasFourEyes).toBe(false)
   })
 })
 
