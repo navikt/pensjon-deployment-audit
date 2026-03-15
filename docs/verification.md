@@ -127,6 +127,8 @@ Hvis API-kallet feiler (f.eks. midlertidig nettverksproblem), fortsetter verifis
 
 Hvis dette er **første gang** applikasjonen deployes (ingen tidligere deployment i databasen), kan vi ikke vite hvilke commits som er nye. Deploymentet får status **`pending_baseline`** — det fungerer som referansepunkt for fremtidige deployments.
 
+> **Merk:** Legacy-deployments (importert historikk med ugyldige commit-referanser som `refs/heads/...`) filtreres bort ved søk etter forrige deployment. Første deployment etter legacy-perioden behandles derfor som `pending_baseline`.
+
 #### Steg 2: Er det noen nye commits?
 
 Systemet henter listen over commits mellom forrige deployment sin commit-SHA og nåværende deployment sin commit-SHA via GitHub API. Hvis listen er tom (samme commit), betyr det at deploymentet er en **re-deploy** av eksakt samme kode. Status: **`no_changes`**.

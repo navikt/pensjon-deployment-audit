@@ -188,6 +188,8 @@ async function getPreviousDeployment(
       AND d.detected_github_owner = $3
       AND d.detected_github_repo_name = $4
       AND d.commit_sha IS NOT NULL
+      AND d.four_eyes_status NOT IN ('legacy', 'legacy_pending')
+      AND d.commit_sha !~ '^refs/'
   `
   const params: (number | string)[] = [currentDeploymentId, environmentName, owner, repo]
 
