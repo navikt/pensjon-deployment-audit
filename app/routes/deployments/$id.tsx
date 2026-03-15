@@ -15,6 +15,7 @@ import {
 import {
   Accordion,
   Alert,
+  BodyLong,
   BodyShort,
   Box,
   Button,
@@ -26,6 +27,7 @@ import {
   Modal,
   Radio,
   RadioGroup,
+  ReadMore,
   Select,
   Tag,
   Textarea,
@@ -486,6 +488,47 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
                   </>
                 )}
             </BodyShort>
+            {deployment.four_eyes_status === 'error' && (
+              <VStack gap="space-8" marginBlock="space-8 space-0">
+                {isAdmin && verificationRun?.result && (
+                  <BodyShort>
+                    <strong>Årsak:</strong>{' '}
+                    {(verificationRun.result as { approvalDetails?: { reason?: string } })?.approvalDetails?.reason ??
+                      'Ukjent'}
+                  </BodyShort>
+                )}
+                <ReadMore header="Kan dette skyldes manglende GitHub App-tilgang?">
+                  <VStack gap="space-8">
+                    <BodyLong>
+                      Deployment Audit bruker en GitHub App for å hente commit-historikk og PR-data fra GitHub. Hvis
+                      appen ikke har tilgang til repoet{' '}
+                      <strong>
+                        {deployment.detected_github_owner}/{deployment.detected_github_repo_name}
+                      </strong>
+                      , vil sammenligningen av commits feile med 404.
+                    </BodyLong>
+                    <BodyLong>
+                      <strong>Slik gir du appen tilgang:</strong>
+                    </BodyLong>
+                    <ol style={{ margin: 0, paddingLeft: '1.5rem' }}>
+                      <li>
+                        Gå til{' '}
+                        <a
+                          href={`https://github.com/organizations/${deployment.detected_github_owner}/settings/installations`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          GitHub → Organization settings → GitHub Apps
+                        </a>
+                      </li>
+                      <li>Finn appen «Pensjon Deployment Audit» og klikk «Configure»</li>
+                      <li>Under «Repository access», legg til repoet i listen over godkjente repos</li>
+                      <li>Kjør re-verifisering av dette deploymentet etterpå</li>
+                    </ol>
+                  </VStack>
+                </ReadMore>
+              </VStack>
+            )}
           </Alert>
         )}
       {/* Unverified commits section */}
