@@ -83,8 +83,8 @@ export function CheckAnnotations({
           )}
           {annotations && annotations.length > 0 && (
             <VStack gap="space-8">
-              {annotations.map((a, i) => (
-                <HStack key={`${a.path}-${a.start_line}-${i}`} gap="space-8" align="start" wrap>
+              {annotations.map((a) => (
+                <HStack key={`${a.path}-${a.start_line}-${a.message}`} gap="space-8" align="start" wrap>
                   {levelIcon(a.annotation_level)}
                   <VStack gap="space-2" style={{ flex: 1, minWidth: 0 }}>
                     <HStack gap="space-8" align="center" wrap>

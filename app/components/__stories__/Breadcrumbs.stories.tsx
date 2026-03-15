@@ -40,7 +40,7 @@ function MockBreadcrumbs({ crumbs }: { crumbs: Crumb[] }) {
             const isClickable = crumb.path !== null
 
             return (
-              <HStack key={`${crumb.label}-${index}`} gap="space-4" align="center">
+              <HStack key={crumb.path ?? crumb.label} gap="space-4" align="center">
                 {index > 0 && <ChevronRightIcon aria-hidden fontSize="1rem" />}
                 {isLast ? (
                   <Detail aria-current="page">
