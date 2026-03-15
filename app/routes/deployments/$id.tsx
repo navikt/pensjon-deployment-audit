@@ -5,6 +5,7 @@ import {
   CheckmarkIcon,
   CircleIcon,
   ClockIcon,
+  DownloadIcon,
   ExclamationmarkTriangleIcon,
   MinusCircleIcon,
   TrashIcon,
@@ -49,6 +50,7 @@ import {
 } from '~/db/deployments.server'
 import { getDevTeamsForApp } from '~/db/dev-teams.server'
 import { getDeviationsByDeploymentId } from '~/db/deviations.server'
+import { getLatestVerificationRun } from '~/db/github-data.server'
 import { getMonitoredApplicationById } from '~/db/monitored-applications.server'
 import { getUserMappings } from '~/db/user-mappings.server'
 import { getUserIdentity } from '~/lib/auth.server'
@@ -210,6 +212,11 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     }
   }
 
+  const isAdmin = currentUser?.role === 'admin'
+
+  // Fetch verification run data for admin download
+  const verificationRun = isAdmin ? await getLatestVerificationRun(deploymentId) : null
+
   return {
     deployment,
     comments,
@@ -226,8 +233,9 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     currentUserNavIdent: currentUser?.navIdent || null,
     isCurrentUserInvolved,
     involvementReason,
-    isDebugMode: isVerificationDebugMode || currentUser?.role === 'admin',
-    isAdmin: currentUser?.role === 'admin',
+    isDebugMode: isVerificationDebugMode || isAdmin,
+    isAdmin,
+    verificationRun,
     slackConfig: {
       enabled: app.slack_notifications_enabled,
       channelId: app.slack_channel_id,
@@ -259,6 +267,7 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
     involvementReason,
     isDebugMode,
     isAdmin,
+    verificationRun,
     slackConfig,
   } = loaderData
   const [searchParams] = useSearchParams()
@@ -1592,9 +1601,37 @@ export default function DeploymentDetail({ loaderData, actionData }: Route.Compo
       {/* Status history section */}
       {statusHistory.length > 0 && (
         <VStack gap="space-16">
-          <Heading size="medium" level="2">
-            Statushistorikk
-          </Heading>
+          <HStack justify="space-between" align="center">
+            <Heading size="medium" level="2">
+              Statushistorikk
+            </Heading>
+            {isAdmin && verificationRun && (
+              <Button
+                variant="tertiary"
+                size="small"
+                icon={<DownloadIcon aria-hidden />}
+                onClick={() => {
+                  const data = {
+                    deploymentId: deployment.id,
+                    status: verificationRun.status,
+                    hasFourEyes: verificationRun.hasFourEyes,
+                    runAt: verificationRun.runAt,
+                    schemaVersion: verificationRun.schemaVersion,
+                    result: verificationRun.result,
+                  }
+                  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = `begrunnelse-deployment-${deployment.id}.json`
+                  a.click()
+                  URL.revokeObjectURL(url)
+                }}
+              >
+                Last ned begrunnelse
+              </Button>
+            )}
+          </HStack>
           <VStack gap="space-8">
             {statusHistory.map((transition) => (
               <Box key={transition.id} padding="space-12" borderRadius="4" borderColor="neutral-subtle" borderWidth="1">
