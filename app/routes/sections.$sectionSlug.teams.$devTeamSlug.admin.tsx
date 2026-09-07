@@ -1,7 +1,6 @@
 import { useNavigation } from 'react-router'
 import type { AddableApp } from '~/components/AddAppsDialog'
 import { DevTeamAdminPage } from '~/components/DevTeamAdminPage'
-import { updateImplicitApprovalSettings } from '~/db/app-settings.server'
 import { type Board, createBoard, getBoardsByDevTeam } from '~/db/boards.server'
 import { pool } from '~/db/connection.server'
 import {
@@ -27,13 +26,12 @@ import { requireUser } from '~/lib/auth.server'
 import { canAssignTeamRole, resolveTeamAdminCapabilities } from '~/lib/authorization.server'
 import { TEAM_ROLE_LABELS, TEAM_ROLES, type TeamRole } from '~/lib/authorization-types'
 import { type BoardPeriodType, formatBoardLabel } from '~/lib/board-periods'
-import { getFormString, isValidGitHubUsername, isValidNavIdent, parseAuditStartYear } from '~/lib/form-validators'
+import { getFormString, isValidGitHubUsername, isValidNavIdent } from '~/lib/form-validators'
 import { getRepositoryDefaultBranch } from '~/lib/github/git.server'
 import { isGitHubBot } from '~/lib/github-bots'
 import { logger } from '~/lib/logger.server'
 import { fetchAllTeamsAndApplications, getApplicationInfo } from '~/lib/nais.server'
 import { parseRepository } from '~/lib/sync/repo-parser'
-import { type ImplicitApprovalMode, isImplicitApprovalMode } from '~/lib/verification/types'
 import type { Route } from './+types/sections.$sectionSlug.teams.$devTeamSlug.admin'
 
 export function meta({ loaderData: data }: Route.MetaArgs) {
@@ -280,7 +278,6 @@ export async function action({ request, params }: Route.ActionArgs) {
 
   if (intent === 'add_apps') {
     const refs = [...new Set(formData.getAll('app_ref').map(String))]
-    const implicitApprovalModeRaw = getFormString(formData, 'implicit_approval_mode') ?? 'off'
     const existingIds = new Set<number>()
     const newKeys = new Map<string, { team_slug: string; environment_name: string; app_name: string }>()
     for (const ref of refs) {
@@ -298,18 +295,6 @@ export async function action({ request, params }: Route.ActionArgs) {
 
     if (existingIds.size === 0 && newIdentities.length === 0) {
       return fail('Velg minst én applikasjon å legge til.')
-    }
-
-    let auditStartYear = 0
-    let implicitApprovalMode: ImplicitApprovalMode = 'off'
-    if (newIdentities.length > 0) {
-      const parsed = parseAuditStartYear(formData)
-      if (typeof parsed === 'string') return fail(parsed)
-      auditStartYear = parsed
-      if (!isImplicitApprovalMode(implicitApprovalModeRaw)) {
-        return fail('Ugyldig modus for implisitt godkjenning.')
-      }
-      implicitApprovalMode = implicitApprovalModeRaw
     }
 
     const appRepoMap = new Map<string, string | null>()
@@ -347,7 +332,6 @@ export async function action({ request, params }: Route.ActionArgs) {
             team_slug: id.team_slug,
             environment_name: id.environment_name,
             app_name: id.app_name,
-            audit_start_year: auditStartYear,
             default_branch: defaultBranchMap.get(key),
           },
           client,
@@ -368,24 +352,6 @@ export async function action({ request, params }: Route.ActionArgs) {
       transactionCommitted = true
       client.release()
       clientReleased = true
-
-      if (createdIds.length > 0) {
-        try {
-          for (const monitoredAppId of createdIds) {
-            await updateImplicitApprovalSettings({
-              monitoredAppId,
-              settings: { mode: implicitApprovalMode },
-              changedByNavIdent: user.navIdent,
-              changedByName: user.name || undefined,
-            })
-          }
-        } catch (error) {
-          logger.error('implicit approval setup failed for newly added apps:', error)
-          return fail(
-            'Applikasjonene ble lagt til, men klarte ikke å lagre oppsett for implisitt godkjenning. Sett dette på appens admin-side.',
-          )
-        }
-      }
 
       const total = existingIds.size + createdIds.length
       const createdMsg =

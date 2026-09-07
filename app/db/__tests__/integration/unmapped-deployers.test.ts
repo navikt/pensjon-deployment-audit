@@ -1,7 +1,7 @@
 import { Pool } from 'pg'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { getUnmappedContributors } from '~/db/deployments/home.server'
-import { seedApp, seedDeployment, truncateAllTables } from './helpers'
+import { seedApp, seedApplicationRepository, seedDeployment, seedRepository, truncateAllTables } from './helpers'
 
 let pool: Pool
 
@@ -228,6 +228,17 @@ describe('getUnmappedContributors', () => {
       teamSlug: 'team-a',
       appName: 'svc',
       environment: 'prod',
+    })
+    await seedApplicationRepository(pool, {
+      monitoredAppId: appId,
+      githubOwner: 'navikt',
+      githubRepo: 'svc',
+      githubRepoId: '7050',
+    })
+    await seedRepository(pool, {
+      githubRepoId: '7050',
+      githubOwner: 'navikt',
+      githubRepoName: 'svc',
       auditStartYear: new Date().getFullYear(),
     })
     await seedDeployment(pool, {
@@ -253,7 +264,6 @@ describe('getUnmappedContributors', () => {
       teamSlug: 'team-a',
       appName: 'svc',
       environment: 'prod',
-      auditStartYear: null,
     })
     await seedDeployment(pool, {
       monitoredAppId: appId,
@@ -272,13 +282,23 @@ describe('getUnmappedContributors', () => {
       teamSlug: 'team-a',
       appName: 'new-svc',
       environment: 'prod',
+    })
+    await seedApplicationRepository(pool, {
+      monitoredAppId: appWithAudit,
+      githubOwner: 'navikt',
+      githubRepo: 'new-svc',
+      githubRepoId: '7051',
+    })
+    await seedRepository(pool, {
+      githubRepoId: '7051',
+      githubOwner: 'navikt',
+      githubRepoName: 'new-svc',
       auditStartYear: currentYear,
     })
     const appNoAudit = await seedApp(pool, {
       teamSlug: 'team-a',
       appName: 'old-svc',
       environment: 'prod',
-      auditStartYear: null,
     })
 
     await seedDeployment(pool, {

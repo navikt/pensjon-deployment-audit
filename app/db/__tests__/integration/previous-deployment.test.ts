@@ -211,7 +211,6 @@ describe('getPreviousDeployment', () => {
       teamSlug: 'team',
       appName: 'app',
       environment: 'prod',
-      auditStartYear: 2025,
     })
     await seedApplicationRepository(pool, {
       monitoredAppId: appId,

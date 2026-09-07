@@ -6,7 +6,7 @@ import {
   propagateVerificationToSiblings,
   searchMonorepoGroups,
 } from '../../monorepo.server'
-import { seedApp, seedApplicationRepository, seedDeployment, truncateAllTables } from './helpers'
+import { seedApp, seedApplicationRepository, seedDeployment, seedRepository, truncateAllTables } from './helpers'
 
 let pool: Pool
 
@@ -24,10 +24,6 @@ afterEach(async () => {
 
 async function setDefaultBranch(appId: number, branch: string): Promise<void> {
   await pool.query('UPDATE monitored_applications SET default_branch = $1 WHERE id = $2', [branch, appId])
-}
-
-async function setAuditStartYear(appId: number, year: number | null): Promise<void> {
-  await pool.query('UPDATE monitored_applications SET audit_start_year = $1 WHERE id = $2', [year, appId])
 }
 
 async function setAppInactive(appId: number): Promise<void> {
@@ -110,40 +106,44 @@ describe('getAllMonorepoGroups', () => {
   })
 
   it('should flag audit_year_mismatch when apps have different audit start years', async () => {
-    const appA = await seedApp(pool, {
-      teamSlug: 'team-a',
-      appName: 'service-a',
-      environment: 'prod',
-      auditStartYear: 2024,
+    const appA = await seedApp(pool, { teamSlug: 'team-a', appName: 'service-a', environment: 'prod' })
+    const appB = await seedApp(pool, { teamSlug: 'team-b', appName: 'service-b', environment: 'prod' })
+    await seedApplicationRepository(pool, {
+      monitoredAppId: appA,
+      githubOwner: owner,
+      githubRepo: repo,
+      githubRepoId: '7020',
     })
-    const appB = await seedApp(pool, {
-      teamSlug: 'team-b',
-      appName: 'service-b',
-      environment: 'prod',
-      auditStartYear: 2025,
+    await seedApplicationRepository(pool, {
+      monitoredAppId: appB,
+      githubOwner: owner,
+      githubRepo: repo,
+      githubRepoId: '7021',
     })
-    await seedApplicationRepository(pool, { monitoredAppId: appA, githubOwner: owner, githubRepo: repo })
-    await seedApplicationRepository(pool, { monitoredAppId: appB, githubOwner: owner, githubRepo: repo })
+    await seedRepository(pool, { githubRepoId: '7020', githubOwner: owner, githubRepoName: repo, auditStartYear: 2024 })
+    await seedRepository(pool, { githubRepoId: '7021', githubOwner: owner, githubRepoName: repo, auditStartYear: 2025 })
 
     const groups = await getAllMonorepoGroups()
     expect(groups[0].audit_year_mismatch).toBe(true)
   })
 
   it('should not flag audit_year_mismatch when apps share the same audit start year', async () => {
-    const appA = await seedApp(pool, {
-      teamSlug: 'team-a',
-      appName: 'service-a',
-      environment: 'prod',
-      auditStartYear: 2025,
+    const appA = await seedApp(pool, { teamSlug: 'team-a', appName: 'service-a', environment: 'prod' })
+    const appB = await seedApp(pool, { teamSlug: 'team-b', appName: 'service-b', environment: 'prod' })
+    await seedApplicationRepository(pool, {
+      monitoredAppId: appA,
+      githubOwner: owner,
+      githubRepo: repo,
+      githubRepoId: '7022',
     })
-    const appB = await seedApp(pool, {
-      teamSlug: 'team-b',
-      appName: 'service-b',
-      environment: 'prod',
-      auditStartYear: 2025,
+    await seedApplicationRepository(pool, {
+      monitoredAppId: appB,
+      githubOwner: owner,
+      githubRepo: repo,
+      githubRepoId: '7023',
     })
-    await seedApplicationRepository(pool, { monitoredAppId: appA, githubOwner: owner, githubRepo: repo })
-    await seedApplicationRepository(pool, { monitoredAppId: appB, githubOwner: owner, githubRepo: repo })
+    await seedRepository(pool, { githubRepoId: '7022', githubOwner: owner, githubRepoName: repo, auditStartYear: 2025 })
+    await seedRepository(pool, { githubRepoId: '7023', githubOwner: owner, githubRepoName: repo, auditStartYear: 2025 })
 
     const groups = await getAllMonorepoGroups()
     expect(groups[0].audit_year_mismatch).toBe(false)
@@ -255,12 +255,22 @@ describe('getMonorepoSiblings', () => {
   it('should compute mismatch flags including the app itself', async () => {
     const appA = await seedApp(pool, { teamSlug: 'team-a', appName: 'service-a', environment: 'prod' })
     const appB = await seedApp(pool, { teamSlug: 'team-b', appName: 'service-b', environment: 'prod' })
-    await seedApplicationRepository(pool, { monitoredAppId: appA, githubOwner: owner, githubRepo: repo })
-    await seedApplicationRepository(pool, { monitoredAppId: appB, githubOwner: owner, githubRepo: repo })
+    await seedApplicationRepository(pool, {
+      monitoredAppId: appA,
+      githubOwner: owner,
+      githubRepo: repo,
+      githubRepoId: '7030',
+    })
+    await seedApplicationRepository(pool, {
+      monitoredAppId: appB,
+      githubOwner: owner,
+      githubRepo: repo,
+      githubRepoId: '7031',
+    })
     await setDefaultBranch(appA, 'main')
     await setDefaultBranch(appB, 'master')
-    await setAuditStartYear(appA, 2025)
-    await setAuditStartYear(appB, 2025)
+    await seedRepository(pool, { githubRepoId: '7030', githubOwner: owner, githubRepoName: repo, auditStartYear: 2025 })
+    await seedRepository(pool, { githubRepoId: '7031', githubOwner: owner, githubRepoName: repo, auditStartYear: 2025 })
 
     const info = await getMonorepoSiblings(appA)
     expect(info?.base_branch_mismatch).toBe(true)

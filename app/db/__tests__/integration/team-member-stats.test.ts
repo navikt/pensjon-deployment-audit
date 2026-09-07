@@ -193,7 +193,7 @@ describe('stats and paginated list consistency', () => {
 describe('getAppDeploymentStats / batch parity', () => {
   it('single-app result matches batch result for same app', async () => {
     const { getAppDeploymentStats } = await import('../../deployments/stats.server')
-    const appId = await seedApp(pool, { teamSlug: 'tx', appName: 'a', environment: 'prod', auditStartYear: 2024 })
+    const appId = await seedApp(pool, { teamSlug: 'tx', appName: 'a', environment: 'prod' })
     const now = new Date()
 
     await seedDeploy(appId, 'tx', 'alice', 'approved_pr', now)
@@ -322,7 +322,7 @@ async function seedBaselineApproval(deploymentId: number, changedBy: string | nu
 
 describe('baseline_action_count in getAppDeploymentStatsBatch', () => {
   it('counts pending_baseline deployments', async () => {
-    const appId = await seedApp(pool, { teamSlug: 'tx', appName: 'a', environment: 'prod', auditStartYear: null })
+    const appId = await seedApp(pool, { teamSlug: 'tx', appName: 'a', environment: 'prod' })
     await seedDeploy(appId, 'tx', 'alice', 'pending_baseline', new Date())
     await seedDeploy(appId, 'tx', 'alice', 'approved_pr', new Date())
 
@@ -331,7 +331,7 @@ describe('baseline_action_count in getAppDeploymentStatsBatch', () => {
   })
 
   it('counts baseline deployments missing an attributed baseline_approval', async () => {
-    const appId = await seedApp(pool, { teamSlug: 'tx', appName: 'a', environment: 'prod', auditStartYear: null })
+    const appId = await seedApp(pool, { teamSlug: 'tx', appName: 'a', environment: 'prod' })
     const noApprover = await seedDeploy(appId, 'tx', 'alice', 'baseline', new Date())
     void noApprover
 
@@ -340,7 +340,7 @@ describe('baseline_action_count in getAppDeploymentStatsBatch', () => {
   })
 
   it('excludes baseline deployments that have an attributed baseline_approval', async () => {
-    const appId = await seedApp(pool, { teamSlug: 'tx', appName: 'a', environment: 'prod', auditStartYear: null })
+    const appId = await seedApp(pool, { teamSlug: 'tx', appName: 'a', environment: 'prod' })
     const withApprover = await seedDeploy(appId, 'tx', 'alice', 'baseline', new Date())
     await seedBaselineApproval(withApprover, 'Z990001')
 
@@ -349,7 +349,7 @@ describe('baseline_action_count in getAppDeploymentStatsBatch', () => {
   })
 
   it('is not date-filtered — counts baseline actions outside the selected period', async () => {
-    const appId = await seedApp(pool, { teamSlug: 'tx', appName: 'a', environment: 'prod', auditStartYear: null })
+    const appId = await seedApp(pool, { teamSlug: 'tx', appName: 'a', environment: 'prod' })
     const old = new Date('2023-01-15')
     await seedDeploy(appId, 'tx', 'alice', 'pending_baseline', old)
 
@@ -362,7 +362,7 @@ describe('baseline_action_count in getAppDeploymentStatsBatch', () => {
   })
 
   it('is not deployer-filtered — counts baseline actions regardless of who deployed', async () => {
-    const appId = await seedApp(pool, { teamSlug: 'tx', appName: 'a', environment: 'prod', auditStartYear: null })
+    const appId = await seedApp(pool, { teamSlug: 'tx', appName: 'a', environment: 'prod' })
     await seedDeploy(appId, 'tx', 'outsider', 'pending_baseline', new Date())
 
     const stats = await getAppDeploymentStatsBatch([{ id: appId }], ['alice', 'bob'])
@@ -374,7 +374,7 @@ describe('baseline_action_count in getAppDeploymentStatsBatch', () => {
 
 describe('getDeploymentsPaginated with baseline_action filter', () => {
   it('returns pending_baseline deployments', async () => {
-    const appId = await seedApp(pool, { teamSlug: 'tx', appName: 'a', environment: 'prod', auditStartYear: null })
+    const appId = await seedApp(pool, { teamSlug: 'tx', appName: 'a', environment: 'prod' })
     await seedDeploy(appId, 'tx', 'alice', 'pending_baseline', new Date())
     await seedDeploy(appId, 'tx', 'alice', 'approved_pr', new Date())
 
@@ -389,7 +389,7 @@ describe('getDeploymentsPaginated with baseline_action filter', () => {
   })
 
   it('returns baseline deployments missing an attributed baseline_approval', async () => {
-    const appId = await seedApp(pool, { teamSlug: 'tx', appName: 'a', environment: 'prod', auditStartYear: null })
+    const appId = await seedApp(pool, { teamSlug: 'tx', appName: 'a', environment: 'prod' })
     await seedDeploy(appId, 'tx', 'alice', 'baseline', new Date())
 
     const result = await getDeploymentsPaginated({
@@ -402,7 +402,7 @@ describe('getDeploymentsPaginated with baseline_action filter', () => {
   })
 
   it('excludes baseline deployments that have an attributed baseline_approval', async () => {
-    const appId = await seedApp(pool, { teamSlug: 'tx', appName: 'a', environment: 'prod', auditStartYear: null })
+    const appId = await seedApp(pool, { teamSlug: 'tx', appName: 'a', environment: 'prod' })
     const withApprover = await seedDeploy(appId, 'tx', 'alice', 'baseline', new Date())
     await seedBaselineApproval(withApprover, 'Z990002')
 
@@ -416,7 +416,7 @@ describe('getDeploymentsPaginated with baseline_action filter', () => {
   })
 
   it('returns both pending_baseline and baseline-without-approver in the same list', async () => {
-    const appId = await seedApp(pool, { teamSlug: 'tx', appName: 'a', environment: 'prod', auditStartYear: null })
+    const appId = await seedApp(pool, { teamSlug: 'tx', appName: 'a', environment: 'prod' })
     await seedDeploy(appId, 'tx', 'alice', 'pending_baseline', new Date())
     const noApprover = await seedDeploy(appId, 'tx', 'alice', 'baseline', new Date())
     void noApprover

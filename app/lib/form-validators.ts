@@ -18,16 +18,3 @@ export function getFormString(formData: FormData, key: string): string | null {
   const value = formData.get(key)
   return typeof value === 'string' ? value.trim() : null
 }
-
-export function parseAuditStartYear(formData: FormData): number | string {
-  const raw = getFormString(formData, 'audit_start_year')
-  if (raw === null || raw === '') {
-    return 'Startår for revisjon er påkrevd.'
-  }
-  const currentYear = new Date().getFullYear()
-  const parsed = /^\d+$/.test(raw) ? Number(raw) : Number.NaN
-  if (!Number.isInteger(parsed) || parsed < 2000 || parsed > currentYear + 1) {
-    return `Startår må være et helt tall mellom 2000 og ${currentYear + 1}.`
-  }
-  return parsed
-}

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
+import type { ImplicitApprovalSettings } from '../../lib/verification/types'
 import { checkImplicitApproval } from '../../lib/verification/verify'
-import { DEFAULT_IMPLICIT_APPROVAL_SETTINGS, type ImplicitApprovalSettings } from '../app-settings.server'
+
+const DEFAULT_IMPLICIT_APPROVAL_SETTINGS: ImplicitApprovalSettings = { mode: 'off' }
 
 describe('checkImplicitApproval', () => {
   const DEPENDABOT_PR = {

@@ -15,9 +15,7 @@ vi.mock('~/lib/authorization.server', () => ({
   canAccessAppAdmin: mockCanAccessAppAdmin,
 }))
 
-vi.mock('~/db/app-settings.server', () => ({
-  updateImplicitApprovalSettings: vi.fn(),
-}))
+vi.mock('~/db/app-settings.server', () => ({}))
 
 vi.mock('~/db/audit-reports.server', () => ({
   archiveAuditReport: vi.fn(),

@@ -3,16 +3,14 @@ import { resolveEffectiveSettings } from '~/lib/repository-settings'
 
 describe('resolveEffectiveSettings', () => {
   const appSettings = {
-    auditStartYear: 2026,
-    implicitApprovalMode: 'all' as const,
     defaultBranch: 'master',
   }
 
-  it('falls back to the app values when no repository row is linked', () => {
+  it('returns null audit start year and off implicit approval when no repository row is linked', () => {
     expect(resolveEffectiveSettings(null, appSettings)).toEqual({
       repositoryId: null,
-      auditStartYear: 2026,
-      implicitApprovalSettings: { mode: 'all' },
+      auditStartYear: null,
+      implicitApprovalSettings: { mode: 'off' },
       defaultBranch: 'master',
     })
   })
@@ -63,7 +61,7 @@ describe('resolveEffectiveSettings', () => {
         implicitApprovalMode: 'off',
         defaultBranch: 'main',
       },
-      { ...appSettings, implicitApprovalMode: 'all' },
+      appSettings,
     )
     expect(effective.implicitApprovalSettings.mode).toBe('off')
   })

@@ -51,6 +51,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   const implicitApprovalSettings = effectiveSettings.implicitApprovalSettings
   const auditStartYear = effectiveSettings.auditStartYear
   const defaultBranch = effectiveSettings.defaultBranch
+  const repositoryId = effectiveSettings.repositoryId
 
   const [githubDataStats, userMappings] = await Promise.all([
     getGitHubDataStatsForApp(app.id, auditStartYear),
@@ -75,6 +76,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     implicitApprovalSettings,
     auditStartYear,
     defaultBranch,
+    repositoryId,
     affectedApps,
     recentConfigChanges,
     auditReports,
@@ -91,6 +93,7 @@ export default function AppAdmin({ loaderData, actionData }: Route.ComponentProp
     implicitApprovalSettings,
     auditStartYear,
     defaultBranch,
+    repositoryId,
     affectedApps,
     recentConfigChanges,
     auditReports,
@@ -274,12 +277,18 @@ export default function AppAdmin({ loaderData, actionData }: Route.ComponentProp
 
       <DefaultBranchSettings app={app} defaultBranch={defaultBranch} affectedApps={affectedApps} />
 
-      <AuditStartYearSettings app={app} auditStartYear={auditStartYear} affectedApps={affectedApps} />
+      <AuditStartYearSettings
+        app={app}
+        auditStartYear={auditStartYear}
+        affectedApps={affectedApps}
+        repositoryId={repositoryId}
+      />
 
       <ImplicitApprovalSettings
         app={app}
         implicitApprovalSettings={implicitApprovalSettings}
         affectedApps={affectedApps}
+        repositoryId={repositoryId}
       />
 
       <TestRequirementSettings app={app} />
@@ -290,7 +299,12 @@ export default function AppAdmin({ loaderData, actionData }: Route.ComponentProp
 
       <ReminderSettings app={app} />
 
-      <FetchVerificationDataSection app={app} githubDataStats={githubDataStats} fetchJobStatus={fetchJobStatus} />
+      <FetchVerificationDataSection
+        app={app}
+        auditStartYear={auditStartYear}
+        githubDataStats={githubDataStats}
+        fetchJobStatus={fetchJobStatus}
+      />
 
       <Reverifisering app={app} />
 

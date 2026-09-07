@@ -5,6 +5,7 @@ import { getAlertCountsByApp } from '~/db/alerts.server'
 import { getAllActiveRepositories } from '~/db/application-repositories.server'
 import { getAppDeploymentStatsBatch } from '~/db/deployments.server'
 import { getApplicationsByTeamAndEnv } from '~/db/monitored-applications.server'
+import { getEffectiveSettingsForApps } from '~/db/repositories.server'
 import { requireTeamEnvParams } from '~/lib/route-params.server'
 import type { Route } from './+types/$team.env.$env'
 
@@ -17,10 +18,17 @@ export async function loader({ params }: Route.LoaderArgs) {
     throw new Response('Team/environment not found or has no monitored applications', { status: 404 })
   }
 
+  const effectiveSettingsByApp = await getEffectiveSettingsForApps(applications.map((a) => a.id))
+
   const [alertCountsByApp, activeRepos, statsByApp] = await Promise.all([
     getAlertCountsByApp(),
     getAllActiveRepositories(),
-    getAppDeploymentStatsBatch(applications.map((a) => ({ id: a.id, audit_start_year: a.audit_start_year }))),
+    getAppDeploymentStatsBatch(
+      applications.map((a) => ({
+        id: a.id,
+        audit_start_year: effectiveSettingsByApp.get(a.id)?.auditStartYear ?? null,
+      })),
+    ),
   ])
 
   const appsWithData: AppCardData[] = applications.map((app) => ({

@@ -31,7 +31,6 @@ const app: AppDeploymentsPageProps['app'] = {
   is_active: true,
   default_branch: 'main',
   default_branch_synced_at: new Date('2026-02-01T09:00:00Z'),
-  audit_start_year: 2024,
   test_requirement: 'integration_tests',
   slack_channel_id: null,
   slack_notifications_enabled: false,

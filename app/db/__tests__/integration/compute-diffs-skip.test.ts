@@ -34,7 +34,6 @@ describe('computeVerificationDiffs admin-approval skip', () => {
       teamSlug: 'pensjonselvbetjening',
       appName: 'pensjon-app',
       environment: 'prod-gcp',
-      auditStartYear: 2026,
     })
     await seedDeployment(pool, {
       monitoredAppId: appId,
@@ -60,7 +59,6 @@ describe('computeVerificationDiffs admin-approval skip', () => {
       teamSlug: 'pensjonselvbetjening',
       appName: 'pensjon-app-2',
       environment: 'prod-gcp',
-      auditStartYear: 2026,
     })
     await seedDeployment(pool, {
       monitoredAppId: appId,

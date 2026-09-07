@@ -16,7 +16,6 @@ interface MonitoredApplication {
   is_active: boolean
   default_branch: string | null
   default_branch_synced_at: string | Date | null
-  audit_start_year: number | null
   test_requirement: 'none' | 'unit_tests' | 'integration_tests'
   slack_channel_id: string | null
   slack_notifications_enabled: boolean

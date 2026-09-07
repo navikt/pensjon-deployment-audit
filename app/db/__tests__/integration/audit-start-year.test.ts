@@ -15,7 +15,15 @@ import {
   getDeploymentCountByDeployer,
 } from '../../deployments.server'
 import { createDeviation, getDeviationsByAppId, getDeviationsForPeriod } from '../../deviations.server'
-import { seedApp, seedDeployment, seedDevTeam, seedSection, truncateAllTables } from './helpers'
+import {
+  seedApp,
+  seedApplicationRepository,
+  seedDeployment,
+  seedDevTeam,
+  seedRepository,
+  seedSection,
+  truncateAllTables,
+} from './helpers'
 
 let pool: Pool
 
@@ -34,14 +42,32 @@ afterEach(async () => {
 const PRE_YEAR = new Date('2024-06-15T10:00:00Z')
 const POST_YEAR = new Date('2026-06-15T10:00:00Z')
 
+let repoIdCounter = 20000
+async function seedAppWithAuditStartYear(
+  opts: { teamSlug: string; appName: string; environment: string },
+  auditStartYear: number | null,
+): Promise<number> {
+  const appId = await seedApp(pool, opts)
+  if (auditStartYear === null) return appId
+  const githubRepoId = String(repoIdCounter++)
+  await seedApplicationRepository(pool, {
+    monitoredAppId: appId,
+    githubOwner: 'navikt',
+    githubRepo: opts.appName,
+    githubRepoId,
+  })
+  await seedRepository(pool, {
+    githubRepoId,
+    githubOwner: 'navikt',
+    githubRepoName: opts.appName,
+    auditStartYear,
+  })
+  return appId
+}
+
 describe('audit_start_year filter — grenseverdier', () => {
   it('inkluderer deployment ved nøyaktig audit_start_year-grensen (2026-01-01 00:00:00Z)', async () => {
-    const appId = await seedApp(pool, {
-      teamSlug: 'team-a',
-      appName: 'app-a',
-      environment: 'prod',
-      auditStartYear: 2026,
-    })
+    const appId = await seedAppWithAuditStartYear({ teamSlug: 'team-a', appName: 'app-a', environment: 'prod' }, 2026)
     await seedDeployment(pool, {
       monitoredAppId: appId,
       teamSlug: 'team-a',
@@ -64,12 +90,7 @@ describe('audit_start_year filter — grenseverdier', () => {
 
 describe('audit_start_year filter — deployer queries', () => {
   it('getDeploymentCountByDeployer ekskluderer pre-revisjons-deployments', async () => {
-    const appId = await seedApp(pool, {
-      teamSlug: 'team-a',
-      appName: 'app-a',
-      environment: 'prod',
-      auditStartYear: 2026,
-    })
+    const appId = await seedAppWithAuditStartYear({ teamSlug: 'team-a', appName: 'app-a', environment: 'prod' }, 2026)
     await seedDeployment(pool, {
       monitoredAppId: appId,
       teamSlug: 'team-a',
@@ -89,12 +110,7 @@ describe('audit_start_year filter — deployer queries', () => {
   })
 
   it('getDeploymentCountByDeployer teller alle når audit_start_year er null', async () => {
-    const appId = await seedApp(pool, {
-      teamSlug: 'team-a',
-      appName: 'app-a',
-      environment: 'prod',
-      auditStartYear: null,
-    })
+    const appId = await seedAppWithAuditStartYear({ teamSlug: 'team-a', appName: 'app-a', environment: 'prod' }, null)
     await seedDeployment(pool, {
       monitoredAppId: appId,
       teamSlug: 'team-a',
@@ -114,12 +130,7 @@ describe('audit_start_year filter — deployer queries', () => {
   })
 
   it('getDeployerMonthlyStats ekskluderer pre-revisjons-deployments', async () => {
-    const appId = await seedApp(pool, {
-      teamSlug: 'team-a',
-      appName: 'app-a',
-      environment: 'prod',
-      auditStartYear: 2026,
-    })
+    const appId = await seedAppWithAuditStartYear({ teamSlug: 'team-a', appName: 'app-a', environment: 'prod' }, 2026)
     await seedDeployment(pool, {
       monitoredAppId: appId,
       teamSlug: 'team-a',
@@ -141,12 +152,7 @@ describe('audit_start_year filter — deployer queries', () => {
   })
 
   it('getDeployerDeploymentsPaginated med without_goal-filter ekskluderer pre-revisjons-deployments', async () => {
-    const appId = await seedApp(pool, {
-      teamSlug: 'team-a',
-      appName: 'app-a',
-      environment: 'prod',
-      auditStartYear: 2026,
-    })
+    const appId = await seedAppWithAuditStartYear({ teamSlug: 'team-a', appName: 'app-a', environment: 'prod' }, 2026)
     await seedDeployment(pool, {
       monitoredAppId: appId,
       teamSlug: 'team-a',
@@ -172,12 +178,7 @@ describe('audit_start_year filter — deployer queries', () => {
 
 describe('audit_start_year filter — Slack reminder query', () => {
   it('getUnapprovedDeployments ekskluderer pre-revisjons-deployments', async () => {
-    const appId = await seedApp(pool, {
-      teamSlug: 'team-a',
-      appName: 'app-a',
-      environment: 'prod',
-      auditStartYear: 2026,
-    })
+    const appId = await seedAppWithAuditStartYear({ teamSlug: 'team-a', appName: 'app-a', environment: 'prod' }, 2026)
     await seedDeployment(pool, {
       monitoredAppId: appId,
       teamSlug: 'team-a',
@@ -200,12 +201,7 @@ describe('audit_start_year filter — Slack reminder query', () => {
 
 describe('audit_start_year filter — coverage queries', () => {
   it('getOriginOfChangeCoverage (directApps) ekskluderer pre-revisjons-deployments', async () => {
-    const appId = await seedApp(pool, {
-      teamSlug: 'team-a',
-      appName: 'app-a',
-      environment: 'prod',
-      auditStartYear: 2026,
-    })
+    const appId = await seedAppWithAuditStartYear({ teamSlug: 'team-a', appName: 'app-a', environment: 'prod' }, 2026)
     await seedDeployment(pool, {
       monitoredAppId: appId,
       teamSlug: 'team-a',
@@ -224,12 +220,7 @@ describe('audit_start_year filter — coverage queries', () => {
   })
 
   it('getOriginOfChangeCoverage (naisTeamSlugs) ekskluderer pre-revisjons-deployments', async () => {
-    const appId = await seedApp(pool, {
-      teamSlug: 'team-a',
-      appName: 'app-a',
-      environment: 'prod',
-      auditStartYear: 2026,
-    })
+    const appId = await seedAppWithAuditStartYear({ teamSlug: 'team-a', appName: 'app-a', environment: 'prod' }, 2026)
     await seedDeployment(pool, {
       monitoredAppId: appId,
       teamSlug: 'team-a',
@@ -248,12 +239,7 @@ describe('audit_start_year filter — coverage queries', () => {
   })
 
   it('getDevTeamCoverageStats ekskluderer pre-revisjons-deployments', async () => {
-    const appId = await seedApp(pool, {
-      teamSlug: 'team-a',
-      appName: 'app-a',
-      environment: 'prod',
-      auditStartYear: 2026,
-    })
+    const appId = await seedAppWithAuditStartYear({ teamSlug: 'team-a', appName: 'app-a', environment: 'prod' }, 2026)
     await seedDeployment(pool, {
       monitoredAppId: appId,
       teamSlug: 'team-a',
@@ -276,12 +262,7 @@ describe('audit_start_year filter — coverage queries', () => {
 
 describe('audit_start_year filter — Dependabot link query', () => {
   it('getUnlinkedDependabotDeploymentIds ekskluderer pre-revisjons-deployments', async () => {
-    const appId = await seedApp(pool, {
-      teamSlug: 'team-a',
-      appName: 'app-a',
-      environment: 'prod',
-      auditStartYear: 2026,
-    })
+    const appId = await seedAppWithAuditStartYear({ teamSlug: 'team-a', appName: 'app-a', environment: 'prod' }, 2026)
     await seedDeployment(pool, {
       monitoredAppId: appId,
       teamSlug: 'team-a',
@@ -306,12 +287,7 @@ describe('audit_start_year filter — Dependabot link query', () => {
 
 describe('audit_start_year filter — deviations queries', () => {
   it('getDeviationsByAppId ekskluderer avvik knyttet til pre-revisjons-deployments', async () => {
-    const appId = await seedApp(pool, {
-      teamSlug: 'team-a',
-      appName: 'app-a',
-      environment: 'prod',
-      auditStartYear: 2026,
-    })
+    const appId = await seedAppWithAuditStartYear({ teamSlug: 'team-a', appName: 'app-a', environment: 'prod' }, 2026)
     const preDep = await seedDeployment(pool, {
       monitoredAppId: appId,
       teamSlug: 'team-a',
@@ -333,12 +309,7 @@ describe('audit_start_year filter — deviations queries', () => {
   })
 
   it('getDeviationsForPeriod ekskluderer avvik knyttet til pre-revisjons-deployments', async () => {
-    const appId = await seedApp(pool, {
-      teamSlug: 'team-a',
-      appName: 'app-a',
-      environment: 'prod',
-      auditStartYear: 2026,
-    })
+    const appId = await seedAppWithAuditStartYear({ teamSlug: 'team-a', appName: 'app-a', environment: 'prod' }, 2026)
     const preDep = await seedDeployment(pool, {
       monitoredAppId: appId,
       teamSlug: 'team-a',
@@ -364,12 +335,7 @@ describe('audit_start_year filter — section dashboard queries', () => {
   it('getSectionOverallStats ekskluderer pre-revisjons-deployments', async () => {
     const sectionId = await seedSection(pool, 'sec-a', 'Section A')
     await pool.query(`INSERT INTO section_teams (section_id, team_slug) VALUES ($1, $2)`, [sectionId, 'team-a'])
-    const appId = await seedApp(pool, {
-      teamSlug: 'team-a',
-      appName: 'app-a',
-      environment: 'prod',
-      auditStartYear: 2026,
-    })
+    const appId = await seedAppWithAuditStartYear({ teamSlug: 'team-a', appName: 'app-a', environment: 'prod' }, 2026)
     await seedDeployment(pool, {
       monitoredAppId: appId,
       teamSlug: 'team-a',
@@ -397,12 +363,7 @@ describe('audit_start_year filter — section dashboard queries', () => {
       devTeamId,
       'team-a',
     ])
-    const appId = await seedApp(pool, {
-      teamSlug: 'team-a',
-      appName: 'app-a',
-      environment: 'prod',
-      auditStartYear: 2026,
-    })
+    const appId = await seedAppWithAuditStartYear({ teamSlug: 'team-a', appName: 'app-a', environment: 'prod' }, 2026)
     await seedDeployment(pool, {
       monitoredAppId: appId,
       teamSlug: 'team-a',
@@ -428,12 +389,10 @@ describe('audit_start_year filter — section dashboard queries', () => {
 
 describe('audit_start_year filter — audit reports queries', () => {
   it('checkAuditReadiness ekskluderer pre-revisjons-deployments', async () => {
-    const appId = await seedApp(pool, {
-      teamSlug: 'team-a',
-      appName: 'app-a',
-      environment: 'prod-fss',
-      auditStartYear: 2026,
-    })
+    const appId = await seedAppWithAuditStartYear(
+      { teamSlug: 'team-a', appName: 'app-a', environment: 'prod-fss' },
+      2026,
+    )
     await seedDeployment(pool, {
       monitoredAppId: appId,
       teamSlug: 'team-a',
@@ -456,18 +415,14 @@ describe('audit_start_year filter — audit reports queries', () => {
 
 describe('audit_start_year filter — deployer apps query', () => {
   it('getDeployerApps ekskluderer apper med kun pre-revisjons-deployments', async () => {
-    const appA = await seedApp(pool, {
-      teamSlug: 'team-a',
-      appName: 'app-only-pre',
-      environment: 'prod',
-      auditStartYear: 2026,
-    })
-    const appB = await seedApp(pool, {
-      teamSlug: 'team-b',
-      appName: 'app-with-post',
-      environment: 'prod',
-      auditStartYear: 2026,
-    })
+    const appA = await seedAppWithAuditStartYear(
+      { teamSlug: 'team-a', appName: 'app-only-pre', environment: 'prod' },
+      2026,
+    )
+    const appB = await seedAppWithAuditStartYear(
+      { teamSlug: 'team-b', appName: 'app-with-post', environment: 'prod' },
+      2026,
+    )
     await seedDeployment(pool, {
       monitoredAppId: appA,
       teamSlug: 'team-a',

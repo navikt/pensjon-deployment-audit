@@ -5,6 +5,7 @@ import { getAllActiveRepositories } from '~/db/application-repositories.server'
 import { getAppDeploymentStatsBatch } from '~/db/deployments.server'
 import { getDevTeamApplications } from '~/db/dev-teams.server'
 import { getAllAlertCounts, getAllMonitoredApplications } from '~/db/monitored-applications.server'
+import { getEffectiveSettingsForApps } from '~/db/repositories.server'
 import { getUserDevTeamsByRole } from '~/db/role-assignments.server'
 import { requireUser } from '~/lib/auth.server'
 import { groupAppCardsByRepo } from '~/lib/group-app-cards'
@@ -40,9 +41,15 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   const userApps = allApps.filter((app) => directAppIdSet.has(app.id) || naisTeamSlugSet.has(app.team_slug))
 
+  const effectiveSettingsByApp = await getEffectiveSettingsForApps(userApps.map((a) => a.id))
   const statsByApp =
     userApps.length > 0
-      ? await getAppDeploymentStatsBatch(userApps.map((a) => ({ id: a.id, audit_start_year: a.audit_start_year })))
+      ? await getAppDeploymentStatsBatch(
+          userApps.map((a) => ({
+            id: a.id,
+            audit_start_year: effectiveSettingsByApp.get(a.id)?.auditStartYear ?? null,
+          })),
+        )
       : new Map()
 
   const appCards = groupAppCardsByRepo(

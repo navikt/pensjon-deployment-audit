@@ -13,7 +13,7 @@ import {
   syncRepositoryDefaultBranch,
   updateRepositorySettings,
 } from '../../repositories.server'
-import { seedApp, seedApplicationRepository, truncateAllTables } from './helpers'
+import { seedApp, seedApplicationRepository, seedRepository, truncateAllTables } from './helpers'
 
 let pool: Pool
 
@@ -29,74 +29,39 @@ afterEach(async () => {
   await truncateAllTables(pool)
 })
 
-async function seedRepository(opts: {
-  githubRepoId: string
-  githubOwner: string
-  githubRepoName: string
-  auditStartYear?: number | null
-  implicitApprovalMode?: string
-  defaultBranch?: string | null
-}): Promise<number> {
-  const { rows } = await pool.query<{ id: number }>(
-    `INSERT INTO repositories (github_repo_id, github_owner, github_repo_name, audit_start_year, implicit_approval_mode, default_branch)
-     VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-    [
-      opts.githubRepoId,
-      opts.githubOwner,
-      opts.githubRepoName,
-      opts.auditStartYear ?? null,
-      opts.implicitApprovalMode ?? 'off',
-      opts.defaultBranch ?? null,
-    ],
-  )
-  return rows[0].id
-}
-
-async function setAppImplicitApproval(appId: number, mode: string): Promise<void> {
-  await pool.query(
-    `INSERT INTO app_settings (monitored_app_id, setting_key, setting_value)
-     VALUES ($1, 'implicit_approval', $2::jsonb)
-     ON CONFLICT (monitored_app_id, setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value`,
-    [appId, JSON.stringify({ mode })],
-  )
-}
-
-async function getAppRow(appId: number): Promise<{ audit_start_year: number | null; default_branch: string | null }> {
-  const { rows } = await pool.query<{ audit_start_year: number | null; default_branch: string | null }>(
-    `SELECT audit_start_year, default_branch FROM monitored_applications WHERE id = $1`,
+async function getAppRow(appId: number): Promise<{ default_branch: string | null }> {
+  const { rows } = await pool.query<{ default_branch: string | null }>(
+    `SELECT default_branch FROM monitored_applications WHERE id = $1`,
     [appId],
   )
   return rows[0]
 }
 
 describe('effective repository settings resolution', () => {
-  it('falls back to the app columns when the active repo row has no github_repo_id', async () => {
+  it('returns null audit_start_year and off implicit approval when the active repo row has no github_repo_id', async () => {
     const appId = await seedApp(pool, {
       teamSlug: 'team-fjord',
       appName: 'app-fjord',
       environment: 'prod-gcp',
-      auditStartYear: 2025,
     })
     await seedApplicationRepository(pool, {
       monitoredAppId: appId,
       githubOwner: 'navikt',
       githubRepo: 'fjord',
     })
-    await setAppImplicitApproval(appId, 'all')
 
     const effective = await getEffectiveSettingsForApp(appId)
     expect(effective.repositoryId).toBeNull()
-    expect(effective.auditStartYear).toBe(2025)
-    expect(effective.implicitApprovalSettings).toEqual({ mode: 'all' })
+    expect(effective.auditStartYear).toBeNull()
+    expect(effective.implicitApprovalSettings).toEqual({ mode: 'off' })
     expect(effective.defaultBranch).toBe('main')
   })
 
-  it('falls back to the app columns when the repo id exists but no repositories row is linked', async () => {
+  it('returns null audit_start_year when the repo id exists but no repositories row is linked', async () => {
     const appId = await seedApp(pool, {
       teamSlug: 'team-elv',
       appName: 'app-elv',
       environment: 'prod-gcp',
-      auditStartYear: 2023,
     })
     await seedApplicationRepository(pool, {
       monitoredAppId: appId,
@@ -105,16 +70,15 @@ describe('effective repository settings resolution', () => {
       githubRepoId: '4001',
     })
 
-    expect(await getEffectiveAuditStartYear(appId)).toBe(2023)
+    expect(await getEffectiveAuditStartYear(appId)).toBeNull()
     expect(await getRepositoryIdForApp(appId)).toBeNull()
   })
 
-  it('prefers repository values over the app columns when linked', async () => {
+  it('prefers repository values once linked', async () => {
     const appId = await seedApp(pool, {
       teamSlug: 'team-skog',
       appName: 'app-skog',
       environment: 'prod-gcp',
-      auditStartYear: 2026,
     })
     await seedApplicationRepository(pool, {
       monitoredAppId: appId,
@@ -122,8 +86,7 @@ describe('effective repository settings resolution', () => {
       githubRepo: 'skog',
       githubRepoId: '4002',
     })
-    await setAppImplicitApproval(appId, 'all')
-    const repositoryId = await seedRepository({
+    const repositoryId = await seedRepository(pool, {
       githubRepoId: '4002',
       githubOwner: 'navikt',
       githubRepoName: 'skog',
@@ -143,7 +106,6 @@ describe('effective repository settings resolution', () => {
       teamSlug: 'team-vann',
       appName: 'app-vann',
       environment: 'prod-gcp',
-      auditStartYear: 2022,
     })
     await seedApplicationRepository(pool, {
       monitoredAppId: appId,
@@ -151,7 +113,7 @@ describe('effective repository settings resolution', () => {
       githubRepo: 'vann',
       githubRepoId: '4003',
     })
-    await seedRepository({
+    await seedRepository(pool, {
       githubRepoId: '4003',
       githubOwner: 'navikt',
       githubRepoName: 'vann',
@@ -168,13 +130,11 @@ describe('effective repository settings resolution', () => {
       teamSlug: 'team-bulk',
       appName: 'app-linked',
       environment: 'prod-gcp',
-      auditStartYear: 2026,
     })
     const unlinkedApp = await seedApp(pool, {
       teamSlug: 'team-bulk',
       appName: 'app-unlinked',
       environment: 'prod-gcp',
-      auditStartYear: 2021,
     })
     await seedApplicationRepository(pool, {
       monitoredAppId: linkedApp,
@@ -182,7 +142,7 @@ describe('effective repository settings resolution', () => {
       githubRepo: 'bulk',
       githubRepoId: '4004',
     })
-    await seedRepository({
+    await seedRepository(pool, {
       githubRepoId: '4004',
       githubOwner: 'navikt',
       githubRepoName: 'bulk',
@@ -193,7 +153,7 @@ describe('effective repository settings resolution', () => {
     const map = await getEffectiveSettingsForApps([linkedApp, unlinkedApp])
     expect(map.get(linkedApp)?.auditStartYear).toBe(2020)
     expect(map.get(linkedApp)?.implicitApprovalSettings).toEqual({ mode: 'dependabot_only' })
-    expect(map.get(unlinkedApp)?.auditStartYear).toBe(2021)
+    expect(map.get(unlinkedApp)?.auditStartYear).toBeNull()
     expect(map.get(unlinkedApp)?.implicitApprovalSettings).toEqual({ mode: 'off' })
   })
 
@@ -258,13 +218,11 @@ describe('updateRepositorySettings', () => {
       teamSlug: 'team-mono',
       appName: 'app-a',
       environment: 'prod-gcp',
-      auditStartYear: 2026,
     })
     const appB = await seedApp(pool, {
       teamSlug: 'team-mono',
       appName: 'app-b',
       environment: 'prod-gcp',
-      auditStartYear: 2027,
     })
     for (const appId of [appA, appB]) {
       await seedApplicationRepository(pool, {
@@ -297,7 +255,7 @@ describe('updateRepositorySettings', () => {
     expect(await getEffectiveImplicitApprovalSettings(appB)).toEqual({ mode: 'dependabot_only' })
     expect(await getEffectiveDefaultBranch(appB)).toBe('trunk')
 
-    expect(await getAppRow(appB)).toEqual({ audit_start_year: 2024, default_branch: 'trunk' })
+    expect(await getAppRow(appB)).toEqual({ default_branch: 'trunk' })
 
     const { rows: auditRows } = await pool.query<{ setting_key: string; new_value: Record<string, unknown> }>(
       `SELECT setting_key, new_value FROM repo_config_audit_log WHERE repository_id = $1 ORDER BY id`,
@@ -323,7 +281,7 @@ describe('updateRepositorySettings', () => {
       githubRepo: 'noop',
       githubRepoId: '4021',
     })
-    await seedRepository({
+    await seedRepository(pool, {
       githubRepoId: '4021',
       githubOwner: 'navikt',
       githubRepoName: 'noop',
@@ -347,7 +305,7 @@ describe('updateRepositorySettings', () => {
 
 describe('recordRepoConfigAuditLog', () => {
   it('stores an entry keyed by repository id', async () => {
-    const repositoryId = await seedRepository({
+    const repositoryId = await seedRepository(pool, {
       githubRepoId: '4030',
       githubOwner: 'navikt',
       githubRepoName: 'log',

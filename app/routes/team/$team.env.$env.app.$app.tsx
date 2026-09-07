@@ -1,7 +1,6 @@
 import { useActionData, useLoaderData } from 'react-router'
 import { AppDetailPage } from '~/components/AppDetailPage'
 import { getUnresolvedAlertsByApp, resolveRepositoryAlert } from '~/db/alerts.server'
-import { updateImplicitApprovalSettings } from '~/db/app-settings.server'
 import {
   approveRepository,
   getRepositoriesByAppId,
@@ -9,12 +8,15 @@ import {
   setRepositoryAsActive,
 } from '~/db/application-repositories.server'
 import { getAuditReportsForApp } from '~/db/audit-reports.server'
-import { applyAuditStartYearChange } from '~/db/audit-start-year-baseline.server'
 import { getAppDeploymentStats, getPendingVerificationCount } from '~/db/deployments.server'
 import { getDevTeamsForApp } from '~/db/dev-teams.server'
 import { getMonitoredApplicationByIdentity, updateMonitoredApplication } from '~/db/monitored-applications.server'
 import { getMonorepoSiblings } from '~/db/monorepo.server'
-import { type RepositorySettingsPatch, updateRepositorySettings } from '~/db/repositories.server'
+import {
+  getEffectiveAuditStartYear,
+  type RepositorySettingsPatch,
+  updateRepositorySettings,
+} from '~/db/repositories.server'
 import { getLatestSyncJob, getObservedSyncIntervalMs, SYNC_INTERVAL_MS } from '~/db/sync-jobs.server'
 import { getUserIdentity } from '~/lib/auth.server'
 import { canAccessAppAdmin, canAccessRepositorySettingsAdmin, resolveAppCapabilities } from '~/lib/authorization.server'
@@ -46,7 +48,7 @@ export async function loader({ params, request, url }: Route.LoaderArgs) {
     capabilities,
     canAccessAdmin,
     repositories,
-    deploymentStats,
+    effectiveAuditStartYear,
     alerts,
     auditReports,
     monorepo,
@@ -58,7 +60,7 @@ export async function loader({ params, request, url }: Route.LoaderArgs) {
     (app.not_found_in_nais_at || !app.is_active) && identity ? resolveAppCapabilities(identity, app.id) : null,
     identity ? canAccessAppAdmin(identity, app.id) : false,
     getRepositoriesByAppId(app.id),
-    getAppDeploymentStats(app.id, startDate, endDate, app.audit_start_year),
+    getEffectiveAuditStartYear(app.id),
     getUnresolvedAlertsByApp(app.id),
     getAuditReportsForApp(app.id),
     getMonorepoSiblings(app.id),
@@ -67,6 +69,8 @@ export async function loader({ params, request, url }: Route.LoaderArgs) {
     getPendingVerificationCount(app.id),
     getObservedSyncIntervalMs(app.id, 'github_verify'),
   ])
+
+  const deploymentStats = await getAppDeploymentStats(app.id, startDate, endDate, effectiveAuditStartYear)
 
   const canDeactivate = app.not_found_in_nais_at ? (capabilities?.canDeactivate ?? false) : false
   const canReactivate = !app.is_active ? (capabilities?.canReactivate ?? false) : false
@@ -207,20 +211,13 @@ export async function action({ params, request }: Route.ActionArgs) {
 
         if (action === 'update_default_branch' && patch.defaultBranch) {
           await updateMonitoredApplication(appId, { default_branch: patch.defaultBranch })
-        }
-        if (action === 'update_implicit_approval' && patch.implicitApprovalMode) {
-          await updateImplicitApprovalSettings({
-            monitoredAppId: appId,
-            settings: { mode: patch.implicitApprovalMode },
-            changedByNavIdent: identity.navIdent,
-            changedByName: identity.name || undefined,
-          })
-        }
-        if (action === 'update_audit_start_year') {
-          await applyAuditStartYearChange(appId, patch.auditStartYear ?? null, identity.navIdent)
+          return { success: `Innstillingen er oppdatert!${REPO_NOT_LINKED_SUFFIX}` }
         }
 
-        return { success: `Innstillingen er oppdatert!${REPO_NOT_LINKED_SUFFIX}` }
+        return {
+          error:
+            'Denne appen har ikke et kjent GitHub-repository koblet til seg, så denne innstillingen kan ikke konfigureres.',
+        }
       }
 
       return {

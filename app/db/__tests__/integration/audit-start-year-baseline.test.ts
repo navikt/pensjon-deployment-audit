@@ -1,7 +1,12 @@
 import { Pool } from 'pg'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
-import { applyAuditStartYearChange } from '../../audit-start-year-baseline.server'
-import { seedApp, seedApplicationRepository, seedDeployment, truncateAllTables } from './helpers'
+import {
+  type AuditStartYearChangeResult,
+  applyAuditStartYearChangeForApps,
+} from '../../audit-start-year-baseline.server'
+import { withTransaction } from '../../connection.server'
+import { getEffectiveAuditStartYear } from '../../repositories.server'
+import { seedApp, seedApplicationRepository, seedDeployment, seedRepository, truncateAllTables } from './helpers'
 
 let pool: Pool
 
@@ -26,11 +31,75 @@ async function getStatus(deploymentId: number): Promise<string> {
 }
 
 async function getAuditStartYear(appId: number): Promise<number | null> {
-  const { rows } = await pool.query<{ audit_start_year: number | null }>(
-    `SELECT audit_start_year FROM monitored_applications WHERE id = $1`,
-    [appId],
-  )
-  return rows[0].audit_start_year
+  return getEffectiveAuditStartYear(appId)
+}
+
+async function applyAuditStartYearChange(
+  appId: number,
+  newAuditStartYear: number | null,
+  adminNavIdent: string,
+): Promise<AuditStartYearChangeResult> {
+  return withTransaction(async (client) => {
+    const { rows: linkRows } = await client.query<{ github_repo_id: string }>(
+      `SELECT github_repo_id FROM application_repositories
+       WHERE monitored_app_id = $1 AND status = 'active' AND github_repo_id IS NOT NULL
+       ORDER BY created_at DESC, id DESC LIMIT 1`,
+      [appId],
+    )
+    const githubRepoId = linkRows[0]?.github_repo_id ?? null
+
+    let targetAppIds = [appId]
+    let previousAuditStartYear: number | null = null
+    let repositoryId: number | null = null
+
+    if (githubRepoId) {
+      const { rows: appIdRows } = await client.query<{ id: number }>(
+        `SELECT DISTINCT ma.id
+         FROM application_repositories ar
+         JOIN monitored_applications ma ON ma.id = ar.monitored_app_id
+         WHERE ar.status = 'active' AND ma.is_active = true AND ar.github_repo_id = $1`,
+        [githubRepoId],
+      )
+      targetAppIds = appIdRows.map((row) => row.id)
+      if (!targetAppIds.includes(appId)) targetAppIds.push(appId)
+
+      const { rows: repoRows } = await client.query<{ id: number; audit_start_year: number | null }>(
+        `SELECT id, audit_start_year FROM repositories WHERE github_repo_id = $1`,
+        [githubRepoId],
+      )
+      const repoRow = repoRows[0]
+      if (repoRow) {
+        repositoryId = repoRow.id
+        previousAuditStartYear = repoRow.audit_start_year
+        await client.query(`UPDATE repositories SET audit_start_year = $1, updated_at = now() WHERE id = $2`, [
+          newAuditStartYear,
+          repoRow.id,
+        ])
+      } else {
+        const { rows: insertedRows } = await client.query<{ id: number }>(
+          `INSERT INTO repositories (github_repo_id, github_owner, github_repo_name, audit_start_year)
+           SELECT github_repo_id, github_owner, github_repo_name, $2
+           FROM application_repositories
+           WHERE monitored_app_id = $1 AND status = 'active' AND github_repo_id = $3
+           LIMIT 1
+           RETURNING id`,
+          [appId, newAuditStartYear, githubRepoId],
+        )
+        repositoryId = insertedRows[0]?.id ?? null
+      }
+    }
+
+    const result = await applyAuditStartYearChangeForApps(
+      client,
+      appId,
+      targetAppIds,
+      previousAuditStartYear,
+      newAuditStartYear,
+      adminNavIdent,
+    )
+    void repositoryId
+    return result
+  })
 }
 
 describe('applyAuditStartYearChange', () => {
@@ -39,7 +108,6 @@ describe('applyAuditStartYearChange', () => {
       teamSlug: 'team-a',
       appName: 'app-a',
       environment: 'prod',
-      auditStartYear: null,
     })
     const before = await seedDeployment(pool, {
       monitoredAppId: appId,
@@ -70,7 +138,6 @@ describe('applyAuditStartYearChange', () => {
       teamSlug: 'team-a2',
       appName: 'app-a2',
       environment: 'prod',
-      auditStartYear: null,
     })
     const unauthorizedRepo = await seedDeployment(pool, {
       monitoredAppId: appId,
@@ -107,6 +174,17 @@ describe('applyAuditStartYearChange', () => {
       teamSlug: 'team-b',
       appName: 'app-b',
       environment: 'prod',
+    })
+    await seedApplicationRepository(pool, {
+      monitoredAppId: appId,
+      githubOwner: 'navikt',
+      githubRepo: 'app-b',
+      githubRepoId: '9500',
+    })
+    await seedRepository(pool, {
+      githubRepoId: '9500',
+      githubOwner: 'navikt',
+      githubRepoName: 'app-b',
       auditStartYear: 2026,
     })
     const baseline = await seedDeployment(pool, {
@@ -129,6 +207,17 @@ describe('applyAuditStartYearChange', () => {
       teamSlug: 'team-c',
       appName: 'app-c',
       environment: 'prod',
+    })
+    await seedApplicationRepository(pool, {
+      monitoredAppId: appId,
+      githubOwner: 'navikt',
+      githubRepo: 'app-c',
+      githubRepoId: '9501',
+    })
+    await seedRepository(pool, {
+      githubRepoId: '9501',
+      githubOwner: 'navikt',
+      githubRepoName: 'app-c',
       auditStartYear: 2026,
     })
     const earlierDeploy = await seedDeployment(pool, {
@@ -173,6 +262,17 @@ describe('applyAuditStartYearChange', () => {
       teamSlug: 'team-c2',
       appName: 'app-c2',
       environment: 'prod',
+    })
+    await seedApplicationRepository(pool, {
+      monitoredAppId: appId,
+      githubOwner: 'navikt',
+      githubRepo: 'app-c2',
+      githubRepoId: '9502',
+    })
+    await seedRepository(pool, {
+      githubRepoId: '9502',
+      githubOwner: 'navikt',
+      githubRepoName: 'app-c2',
       auditStartYear: 2026,
     })
     const earlierDeploy = await seedDeployment(pool, {
@@ -211,6 +311,17 @@ describe('applyAuditStartYearChange', () => {
       teamSlug: 'team-d',
       appName: 'app-d',
       environment: 'prod',
+    })
+    await seedApplicationRepository(pool, {
+      monitoredAppId: appId,
+      githubOwner: 'navikt',
+      githubRepo: 'app-d',
+      githubRepoId: '9503',
+    })
+    await seedRepository(pool, {
+      githubRepoId: '9503',
+      githubOwner: 'navikt',
+      githubRepoName: 'app-d',
       auditStartYear: 2026,
     })
     const earlierDeploy = await seedDeployment(pool, {
@@ -241,6 +352,17 @@ describe('applyAuditStartYearChange', () => {
       teamSlug: 'team-e',
       appName: 'app-e',
       environment: 'prod',
+    })
+    await seedApplicationRepository(pool, {
+      monitoredAppId: appId,
+      githubOwner: 'navikt',
+      githubRepo: 'app-e',
+      githubRepoId: '9504',
+    })
+    await seedRepository(pool, {
+      githubRepoId: '9504',
+      githubOwner: 'navikt',
+      githubRepoName: 'app-e',
       auditStartYear: 2025,
     })
     const oldPendingBaseline = await seedDeployment(pool, {
@@ -263,13 +385,11 @@ describe('applyAuditStartYearChange', () => {
       teamSlug: 'team-f',
       appName: 'app-f-1',
       environment: 'prod-fss',
-      auditStartYear: null,
     })
     const appB = await seedApp(pool, {
       teamSlug: 'team-f',
       appName: 'app-f-2',
       environment: 'prod-gcp',
-      auditStartYear: null,
     })
     await seedApplicationRepository(pool, {
       monitoredAppId: appA,
@@ -318,13 +438,11 @@ describe('applyAuditStartYearChange', () => {
       teamSlug: 'team-g',
       appName: 'app-g-1',
       environment: 'prod-fss',
-      auditStartYear: null,
     })
     const appB = await seedApp(pool, {
       teamSlug: 'team-g',
       appName: 'app-g-2',
       environment: 'prod-gcp',
-      auditStartYear: null,
     })
     await seedApplicationRepository(pool, {
       monitoredAppId: appA,
@@ -370,13 +488,11 @@ describe('applyAuditStartYearChange', () => {
       teamSlug: 'team-g2',
       appName: 'app-g2-1',
       environment: 'prod-fss',
-      auditStartYear: null,
     })
     const appB = await seedApp(pool, {
       teamSlug: 'team-g2',
       appName: 'app-g2-2',
       environment: 'prod-gcp',
-      auditStartYear: null,
     })
     await seedApplicationRepository(pool, {
       monitoredAppId: appA,
@@ -421,13 +537,11 @@ describe('applyAuditStartYearChange', () => {
       teamSlug: 'team-g2b',
       appName: 'app-g2b-1',
       environment: 'prod-fss',
-      auditStartYear: null,
     })
     const appB = await seedApp(pool, {
       teamSlug: 'team-g2b',
       appName: 'app-g2b-2',
       environment: 'prod-gcp',
-      auditStartYear: null,
     })
     await seedApplicationRepository(pool, {
       monitoredAppId: appA,
@@ -478,7 +592,6 @@ describe('applyAuditStartYearChange', () => {
       teamSlug: 'team-g3',
       appName: 'app-g3-1',
       environment: 'prod-fss',
-      auditStartYear: null,
     })
     await seedApplicationRepository(pool, { monitoredAppId: appA, githubOwner: 'navikt', githubRepo: 'repo-one' })
     await seedApplicationRepository(pool, { monitoredAppId: appA, githubOwner: 'navikt', githubRepo: 'repo-two' })
@@ -517,13 +630,11 @@ describe('applyAuditStartYearChange', () => {
       teamSlug: 'team-mono',
       appName: 'app-mono-backend',
       environment: 'prod-gcp',
-      auditStartYear: null,
     })
     const appB = await seedApp(pool, {
       teamSlug: 'team-mono',
       appName: 'app-mono-frontend',
       environment: 'prod-gcp',
-      auditStartYear: null,
     })
     await seedApplicationRepository(pool, {
       monitoredAppId: appA,
@@ -572,13 +683,11 @@ describe('applyAuditStartYearChange', () => {
       teamSlug: 'team-mono2',
       appName: 'app-mono2-a',
       environment: 'prod-gcp',
-      auditStartYear: null,
     })
     const appB = await seedApp(pool, {
       teamSlug: 'team-mono2',
       appName: 'app-mono2-b',
       environment: 'prod-gcp',
-      auditStartYear: null,
     })
     await seedApplicationRepository(pool, {
       monitoredAppId: appA,
@@ -605,13 +714,11 @@ describe('applyAuditStartYearChange', () => {
       teamSlug: 'team-mono3',
       appName: 'app-mono3-active',
       environment: 'prod-gcp',
-      auditStartYear: null,
     })
     const appB = await seedApp(pool, {
       teamSlug: 'team-mono3',
       appName: 'app-mono3-inactive',
       environment: 'prod-gcp',
-      auditStartYear: null,
       isActive: false,
     })
     await seedApplicationRepository(pool, {
@@ -639,13 +746,11 @@ describe('applyAuditStartYearChange', () => {
       teamSlug: 'team-h',
       appName: 'app-h-1',
       environment: 'prod-fss',
-      auditStartYear: null,
     })
     const appB = await seedApp(pool, {
       teamSlug: 'team-h',
       appName: 'app-h-2',
       environment: 'prod-gcp',
-      auditStartYear: null,
     })
     await seedApplicationRepository(pool, {
       monitoredAppId: appA,
@@ -676,18 +781,16 @@ describe('applyAuditStartYearChange', () => {
     expect(await getStatus(siblingDeploy)).toBe('pending_baseline')
   })
 
-  it('logs each app’s own previous audit_start_year in status history, not the acting app’s', async () => {
+  it('logs the shared repository previous audit_start_year in status history for both apps', async () => {
     const appA = await seedApp(pool, {
       teamSlug: 'team-hi',
       appName: 'app-hi-1',
       environment: 'prod-fss',
-      auditStartYear: 2024,
     })
     const appB = await seedApp(pool, {
       teamSlug: 'team-hi',
       appName: 'app-hi-2',
       environment: 'prod-gcp',
-      auditStartYear: 2023,
     })
     await seedApplicationRepository(pool, {
       monitoredAppId: appA,
@@ -700,6 +803,12 @@ describe('applyAuditStartYearChange', () => {
       githubOwner: 'navikt',
       githubRepo: 'shared-hi',
       githubRepoId: '906',
+    })
+    await seedRepository(pool, {
+      githubRepoId: '906',
+      githubOwner: 'navikt',
+      githubRepoName: 'shared-hi',
+      auditStartYear: 2023,
     })
 
     const groupOldBaseline = await seedDeployment(pool, {
@@ -736,7 +845,7 @@ describe('applyAuditStartYearChange', () => {
     )
 
     expect(demotedRows[0]?.details.previous_audit_start_year).toBe(2023)
-    expect(promotedRows[0]?.details.previous_audit_start_year).toBe(2024)
+    expect(promotedRows[0]?.details.previous_audit_start_year).toBe(2023)
   })
 
   it('demotes an existing baseline marker even when it has no commit_sha', async () => {
@@ -744,7 +853,6 @@ describe('applyAuditStartYearChange', () => {
       teamSlug: 'team-i',
       appName: 'app-i-1',
       environment: 'prod-fss',
-      auditStartYear: null,
     })
     await seedApplicationRepository(pool, { monitoredAppId: appId, githubOwner: 'navikt', githubRepo: 'repo-i' })
 

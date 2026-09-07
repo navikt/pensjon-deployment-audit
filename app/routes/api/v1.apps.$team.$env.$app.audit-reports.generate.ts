@@ -1,6 +1,7 @@
 import { getReportSummaryById, hasActiveReportForPeriod } from '~/db/audit-reports.server'
 import { getMonitoredApplicationByIdentity } from '~/db/monitored-applications.server'
 import { createReportJob, findInFlightJob, isStaleJob } from '~/db/report-jobs.server'
+import { getEffectiveAuditStartYear } from '~/db/repositories.server'
 import { buildAppMetadata } from '~/lib/api/app-metadata.server'
 import { jsonError, validateProdEnvironment } from '~/lib/api/errors'
 import type { AuditReportGenerateResponse } from '~/lib/api/types'
@@ -49,7 +50,8 @@ export async function action({ request, params }: Route.ActionArgs) {
     throw jsonError('Application not found', 404)
   }
 
-  const resolved = resolvePeriod(periodType as ReportPeriodType, periodStartDate, monitoredApp.audit_start_year)
+  const auditStartYear = await getEffectiveAuditStartYear(monitoredApp.id)
+  const resolved = resolvePeriod(periodType as ReportPeriodType, periodStartDate, auditStartYear)
   if (resolved.error !== null) {
     throw jsonError(resolved.error, 400)
   }

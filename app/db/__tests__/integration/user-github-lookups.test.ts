@@ -392,7 +392,7 @@ describe('getUnmappedDeployers', () => {
   })
 
   it('returns deployers without an active account link', async () => {
-    const appId = await seedApp(pool, { teamSlug: 't', appName: 'app1', environment: 'prod', auditStartYear: 2025 })
+    const appId = await seedApp(pool, { teamSlug: 't', appName: 'app1', environment: 'prod' })
     await seedDeployment(pool, {
       monitoredAppId: appId,
       teamSlug: 't',
@@ -405,7 +405,7 @@ describe('getUnmappedDeployers', () => {
   })
 
   it('excludes deployers that have an active account link', async () => {
-    const appId = await seedApp(pool, { teamSlug: 't', appName: 'app1', environment: 'prod', auditStartYear: 2025 })
+    const appId = await seedApp(pool, { teamSlug: 't', appName: 'app1', environment: 'prod' })
     await seedDeployment(pool, {
       monitoredAppId: appId,
       teamSlug: 't',
@@ -419,7 +419,7 @@ describe('getUnmappedDeployers', () => {
   })
 
   it('includes deployers whose account link is soft-deleted', async () => {
-    const appId = await seedApp(pool, { teamSlug: 't', appName: 'app1', environment: 'prod', auditStartYear: 2025 })
+    const appId = await seedApp(pool, { teamSlug: 't', appName: 'app1', environment: 'prod' })
     await seedDeployment(pool, {
       monitoredAppId: appId,
       teamSlug: 't',
@@ -433,7 +433,7 @@ describe('getUnmappedDeployers', () => {
   })
 
   it('returns correct deployment_count', async () => {
-    const appId = await seedApp(pool, { teamSlug: 't', appName: 'app1', environment: 'prod', auditStartYear: 2025 })
+    const appId = await seedApp(pool, { teamSlug: 't', appName: 'app1', environment: 'prod' })
     await seedDeployment(pool, {
       monitoredAppId: appId,
       teamSlug: 't',

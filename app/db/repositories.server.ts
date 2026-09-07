@@ -35,18 +35,24 @@ async function applyAuditStartYearChangeForAppsLazy(
   client: PoolClient,
   appId: number,
   targetAppIds: number[],
+  previousAuditStartYear: number | null,
   newAuditStartYear: number | null,
   adminNavIdent: string,
 ): Promise<AuditStartYearChangeResult> {
   const { applyAuditStartYearChangeForApps } = await import('./audit-start-year-baseline.server')
-  return applyAuditStartYearChangeForApps(client, appId, targetAppIds, newAuditStartYear, adminNavIdent)
+  return applyAuditStartYearChangeForApps(
+    client,
+    appId,
+    targetAppIds,
+    previousAuditStartYear,
+    newAuditStartYear,
+    adminNavIdent,
+  )
 }
 
 interface EffectiveSettingsRow {
   monitored_app_id: number
-  app_audit_start_year: number | null
   app_default_branch: string | null
-  app_implicit_approval_mode: string | null
   repository_id: number | null
   repo_audit_start_year: number | null
   repo_implicit_approval_mode: string | null
@@ -55,15 +61,12 @@ interface EffectiveSettingsRow {
 
 const EFFECTIVE_SETTINGS_SELECT = `
   SELECT ma.id AS monitored_app_id,
-         ma.audit_start_year AS app_audit_start_year,
          ma.default_branch AS app_default_branch,
-         s.setting_value ->> 'mode' AS app_implicit_approval_mode,
          r.id AS repository_id,
          r.audit_start_year AS repo_audit_start_year,
          r.implicit_approval_mode AS repo_implicit_approval_mode,
          r.default_branch AS repo_default_branch
   FROM monitored_applications ma
-  LEFT JOIN app_settings s ON s.monitored_app_id = ma.id AND s.setting_key = 'implicit_approval'
   LEFT JOIN LATERAL (
     SELECT ar.github_repo_id
     FROM application_repositories ar
@@ -89,8 +92,6 @@ function toEffectiveSettings(row: EffectiveSettingsRow): EffectiveRepositorySett
           defaultBranch: row.repo_default_branch,
         },
     {
-      auditStartYear: row.app_audit_start_year,
-      implicitApprovalMode: toMode(row.app_implicit_approval_mode),
       defaultBranch: row.app_default_branch,
     },
   )
@@ -197,27 +198,6 @@ export async function getAffectedAppsForRepo(monitoredAppId: number): Promise<Af
   return rows
 }
 
-const MERGED_GROUP_SETTINGS_SQL = `
-  SELECT MIN(ma.audit_start_year) AS audit_start_year,
-         MIN(
-           CASE COALESCE(s.setting_value ->> 'mode', 'off')
-             WHEN 'dependabot_only' THEN 2
-             WHEN 'all' THEN 3
-             ELSE 1
-           END
-         ) AS strictness
-  FROM application_repositories ar
-  JOIN monitored_applications ma ON ma.id = ar.monitored_app_id AND ma.is_active = true
-  LEFT JOIN app_settings s ON s.monitored_app_id = ma.id AND s.setting_key = 'implicit_approval'
-  WHERE ar.status = 'active' AND ar.github_repo_id = $1
-`
-
-const STRICTNESS_TO_MODE: Record<number, ImplicitApprovalMode> = {
-  1: 'off',
-  2: 'dependabot_only',
-  3: 'all',
-}
-
 async function upsertRepositoryRow(
   client: PoolClient,
   link: { githubRepoId: string; githubOwner: string; githubRepoName: string },
@@ -238,14 +218,6 @@ async function upsertRepositoryRow(
     return rows[0]
   }
 
-  const { rows: mergedRows } = await client.query<{ audit_start_year: number | null; strictness: number | null }>(
-    MERGED_GROUP_SETTINGS_SQL,
-    [link.githubRepoId],
-  )
-  const merged = mergedRows[0]
-  const seedAuditStartYear = merged?.audit_start_year ?? null
-  const seedMode = STRICTNESS_TO_MODE[merged?.strictness ?? 1] ?? 'off'
-
   const { rows } = await client.query<Repository>(
     `INSERT INTO repositories (github_repo_id, github_owner, github_repo_name, audit_start_year, implicit_approval_mode)
      VALUES ($1, $2, $3, $4, $5)
@@ -254,7 +226,7 @@ async function upsertRepositoryRow(
        github_repo_name = EXCLUDED.github_repo_name,
        updated_at = now()
      RETURNING *`,
-    [link.githubRepoId, link.githubOwner, link.githubRepoName, seedAuditStartYear, seedMode],
+    [link.githubRepoId, link.githubOwner, link.githubRepoName, null, 'off'],
   )
   return rows[0]
 }
@@ -310,20 +282,6 @@ export type UpdateRepositorySettingsResult =
       auditStartYearChange: AuditStartYearChangeResult | null
     }
 
-async function mirrorImplicitApprovalToApps(
-  client: PoolClient,
-  appIds: number[],
-  mode: ImplicitApprovalMode,
-): Promise<void> {
-  await client.query(
-    `INSERT INTO app_settings (monitored_app_id, setting_key, setting_value, updated_at)
-     SELECT id, 'implicit_approval', $2::jsonb, CURRENT_TIMESTAMP FROM UNNEST($1::int[]) AS ids(id)
-     ON CONFLICT (monitored_app_id, setting_key)
-     DO UPDATE SET setting_value = EXCLUDED.setting_value, updated_at = CURRENT_TIMESTAMP`,
-    [appIds, JSON.stringify({ mode })],
-  )
-}
-
 export async function updateRepositorySettings(params: {
   monitoredAppId: number
   patch: RepositorySettingsPatch
@@ -375,6 +333,7 @@ export async function updateRepositorySettings(params: {
         client,
         monitoredAppId,
         targetAppIds,
+        repository.audit_start_year,
         patch.auditStartYear,
         changedByNavIdent,
       )
@@ -398,7 +357,6 @@ export async function updateRepositorySettings(params: {
         },
         client,
       )
-      await mirrorImplicitApprovalToApps(client, targetAppIds, patch.implicitApprovalMode)
       changedKeys.push(REPOSITORY_SETTING_KEYS.IMPLICIT_APPROVAL)
     }
 

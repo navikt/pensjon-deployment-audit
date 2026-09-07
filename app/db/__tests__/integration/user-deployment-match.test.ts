@@ -30,7 +30,6 @@ describe('user deployment match — deployer ELLER PR-skaper, case-insensitive',
       teamSlug: 'team-a',
       appName: 'app-a',
       environment: 'prod',
-      auditStartYear: 2026,
     })
     const now = new Date('2026-03-15T10:00:00Z')
     await seedDeployment(pool, {
@@ -100,7 +99,6 @@ describe('user deployment match — deployer ELLER PR-skaper, case-insensitive',
       teamSlug: 'team-a',
       appName: 'app-a',
       environment: 'prod',
-      auditStartYear: 2026,
     })
     await seedDeployment(pool, {
       monitoredAppId: appId,
@@ -127,7 +125,6 @@ describe('user deployment match — deployer ELLER PR-skaper, case-insensitive',
       teamSlug: 'team-a',
       appName: 'app-a',
       environment: 'prod',
-      auditStartYear: 2026,
     })
     const now = new Date('2026-03-15T10:00:00Z')
     await seedDeployment(pool, {
@@ -173,7 +170,6 @@ describe('user deployment match — team-aggregate queries', () => {
       teamSlug: 'team-a',
       appName: 'app-a',
       environment: 'prod',
-      auditStartYear: 2026,
     })
     const now = new Date('2026-03-15T10:00:00Z')
     await seedDeployment(pool, {
@@ -212,7 +208,6 @@ describe('user deployment match — team-aggregate queries', () => {
       teamSlug: 'team-a',
       appName: 'app-a',
       environment: 'prod',
-      auditStartYear: 2026,
     })
     const now = new Date('2026-03-15T10:00:00Z')
     await seedDeployment(pool, {

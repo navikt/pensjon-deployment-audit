@@ -1,7 +1,8 @@
 import { Pool } from 'pg'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { LEGACY_STATUSES_SQL } from '../../../lib/four-eyes-status'
-import { seedApp, seedDeployment, truncateAllTables } from './helpers'
+import { effectiveAuditStartYearSql } from '../../repository-settings-sql'
+import { seedApp, seedApplicationRepository, seedDeployment, seedRepository, truncateAllTables } from './helpers'
 
 let pool: Pool
 
@@ -39,8 +40,8 @@ const FIXED_SUMMARY_SQL = `SELECT
   ))::int AS no_fallback
   FROM deployments d
   JOIN monitored_applications ma ON d.monitored_app_id = ma.id
-  WHERE ma.audit_start_year IS NOT NULL
-    AND d.created_at >= make_date(ma.audit_start_year, 1, 1)
+  WHERE ${effectiveAuditStartYearSql('ma')} IS NOT NULL
+    AND d.created_at >= make_date(${effectiveAuditStartYearSql('ma')}, 1, 1)
     AND COALESCE(d.four_eyes_status, 'unknown') NOT IN (${LEGACY_STATUSES_SQL})`
 
 function MISSING_ROWS_SQL(limit: number, offset: number) {
@@ -59,8 +60,8 @@ function MISSING_ROWS_SQL(limit: number, offset: number) {
     FROM deployments d
     JOIN monitored_applications ma ON d.monitored_app_id = ma.id
     WHERE d.title IS NULL
-      AND ma.audit_start_year IS NOT NULL
-      AND d.created_at >= make_date(ma.audit_start_year, 1, 1)
+      AND ${effectiveAuditStartYearSql('ma')} IS NOT NULL
+      AND d.created_at >= make_date(${effectiveAuditStartYearSql('ma')}, 1, 1)
       AND COALESCE(d.four_eyes_status, 'unknown') NOT IN (${LEGACY_STATUSES_SQL})
     ORDER BY d.id DESC
     LIMIT $1 OFFSET $2`,
@@ -195,6 +196,17 @@ describe('data-mismatches: missing title rows (paginated) query', () => {
       teamSlug: 'team-l',
       appName: 'app-l',
       environment: 'prod',
+    })
+    await seedApplicationRepository(pool, {
+      monitoredAppId: appId,
+      githubOwner: 'navikt',
+      githubRepo: 'app-l',
+      githubRepoId: '7010',
+    })
+    await seedRepository(pool, {
+      githubRepoId: '7010',
+      githubOwner: 'navikt',
+      githubRepoName: 'app-l',
       auditStartYear: currentYear,
     })
     await seedDeployment(pool, {
@@ -221,7 +233,6 @@ describe('data-mismatches: missing title rows (paginated) query', () => {
       teamSlug: 'team-m',
       appName: 'app-m',
       environment: 'prod',
-      auditStartYear: null,
     })
     await seedDeployment(pool, { monitoredAppId: appId, teamSlug: 'team-m', environment: 'prod', title: undefined })
 
@@ -346,6 +357,17 @@ describe('data-mismatches: title missing summary query', () => {
       teamSlug: 'team-s2',
       appName: 'app-s2',
       environment: 'prod',
+    })
+    await seedApplicationRepository(pool, {
+      monitoredAppId: appId,
+      githubOwner: 'navikt',
+      githubRepo: 'app-s2',
+      githubRepoId: '7011',
+    })
+    await seedRepository(pool, {
+      githubRepoId: '7011',
+      githubOwner: 'navikt',
+      githubRepoName: 'app-s2',
       auditStartYear: currentYear,
     })
     await seedDeployment(pool, {
@@ -372,7 +394,6 @@ describe('data-mismatches: title missing summary query', () => {
       teamSlug: 'team-s3',
       appName: 'app-s3',
       environment: 'prod',
-      auditStartYear: null,
     })
     await seedDeployment(pool, { monitoredAppId: appId, teamSlug: 'team-s3', environment: 'prod', title: undefined })
 

@@ -2,7 +2,7 @@ import { notApprovedWhereClause, PENDING_STATUSES_SQL } from '~/lib/four-eyes-st
 import type { WorkflowTriggerConfig } from '~/lib/github'
 import { baselineActionSql } from './baseline-action'
 import { pool } from './connection.server'
-import { effectiveDefaultBranchSql } from './repository-settings-sql'
+import { effectiveAuditStartYearSql, effectiveDefaultBranchSql } from './repository-settings-sql'
 import { lowerUsernames, userDeploymentMatchAnySql } from './user-deployment-match'
 
 export const TITLE_COALESCE_SQL = `COALESCE(d.title, d.github_pr_data->>'title', c.original_pr_title, c.message, d.unverified_commits->0->>'message')`
@@ -278,7 +278,7 @@ export async function getDeploymentsPaginated(filters?: DeploymentFilters): Prom
   }
 
   if (filters?.per_app_audit_start_year) {
-    whereSql += ` AND (ma.audit_start_year IS NULL OR d.created_at >= make_date(ma.audit_start_year, 1, 1))`
+    whereSql += ` AND (${effectiveAuditStartYearSql('ma')} IS NULL OR d.created_at >= make_date(${effectiveAuditStartYearSql('ma')}, 1, 1))`
   } else if (filters?.audit_start_year) {
     whereSql += ` AND d.created_at >= make_date($${paramIndex}, 1, 1)`
     params.push(filters.audit_start_year)

@@ -9,7 +9,6 @@ export interface MonitoredApplication {
   is_active: boolean
   default_branch: string | null
   default_branch_synced_at: Date | null
-  audit_start_year: number | null
   test_requirement: 'none' | 'unit_tests' | 'integration_tests'
   slack_channel_id: string | null
   slack_notifications_enabled: boolean
@@ -93,7 +92,6 @@ export async function createMonitoredApplication(
     team_slug: string
     environment_name: string
     app_name: string
-    audit_start_year: number
     default_branch?: string | null
   },
   client?: PoolClient,
@@ -101,15 +99,15 @@ export async function createMonitoredApplication(
   const queryable = client ?? pool
   const result = await queryable.query(
     `INSERT INTO monitored_applications
-        (team_slug, environment_name, app_name, audit_start_year, default_branch)
-      VALUES ($1, $2, $3, $4, $5)
+        (team_slug, environment_name, app_name, default_branch)
+      VALUES ($1, $2, $3, $4)
       ON CONFLICT (team_slug, environment_name, app_name)
       DO UPDATE SET
         is_active = true,
         not_found_in_nais_at = NULL,
         updated_at = CURRENT_TIMESTAMP
       RETURNING *`,
-    [data.team_slug, data.environment_name, data.app_name, data.audit_start_year, data.default_branch ?? null],
+    [data.team_slug, data.environment_name, data.app_name, data.default_branch ?? null],
   )
   return result.rows[0]
 }
@@ -120,7 +118,6 @@ export async function updateMonitoredApplication(
     is_active?: boolean
     default_branch?: string
     default_branch_synced_at?: Date | null
-    audit_start_year?: number | null
     test_requirement?: 'none' | 'unit_tests' | 'integration_tests'
     slack_channel_id?: string | null
     slack_notifications_enabled?: boolean
@@ -152,11 +149,6 @@ export async function updateMonitoredApplication(
   if (data.default_branch_synced_at !== undefined) {
     updates.push(`default_branch_synced_at = $${paramCount++}`)
     values.push(data.default_branch_synced_at)
-  }
-
-  if (data.audit_start_year !== undefined) {
-    updates.push(`audit_start_year = $${paramCount++}`)
-    values.push(data.audit_start_year)
   }
 
   if (data.test_requirement !== undefined) {

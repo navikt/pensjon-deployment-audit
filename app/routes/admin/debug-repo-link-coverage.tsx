@@ -102,9 +102,8 @@ export default function DebugRepoLinkCoveragePage() {
           </Heading>
           <BodyShort textColor="subtle">
             Midlertidig side for å sjekke hvor mange aktive applikasjoner som mangler en koblet repositories-rad (dvs.
-            fortsatt avhenger av per-app fallback for audit_start_year/default_branch/implicit_approval). Fjernes etter
-            bruk. {totalActiveApps - unlinkedCount} av {totalActiveApps} aktive apper er koblet. Ukoblede:{' '}
-            {unlinkedCount}.
+            fortsatt avhenger av per-app fallback for default_branch). Fjernes etter bruk.{' '}
+            {totalActiveApps - unlinkedCount} av {totalActiveApps} aktive apper er koblet. Ukoblede: {unlinkedCount}.
           </BodyShort>
         </div>
 

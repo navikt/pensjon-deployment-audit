@@ -11,6 +11,7 @@ import { getBoardObjectiveProgress, getContributedBoards, getDevTeamStats } from
 import { getAppDeploymentStatsBatch } from '~/db/deployments.server'
 import { getDevTeamApplications, getDevTeamBySlug, getExclusivelyOwnedAppIds } from '~/db/dev-teams.server'
 import { getAllAlertCounts, getAllMonitoredApplications } from '~/db/monitored-applications.server'
+import { getEffectiveSettingsForApps } from '~/db/repositories.server'
 import {
   type DevTeamMemberWithRole,
   getDevTeamMembersWithRoles,
@@ -89,17 +90,24 @@ export async function loader({ request, params, url }: Route.LoaderArgs) {
   const sharedApps = appsForStats.filter((a) => !effectiveExclusiveIds.has(a.id))
 
   const statsOptions = { startDate: ytdStart }
+  const effectiveSettingsByApp = await getEffectiveSettingsForApps(appsForStats.map((a) => a.id))
   const [exclusiveStats, sharedStats] = await Promise.all([
     exclusiveApps.length > 0
       ? getAppDeploymentStatsBatch(
-          exclusiveApps.map((a) => ({ id: a.id, audit_start_year: a.audit_start_year })),
+          exclusiveApps.map((a) => ({
+            id: a.id,
+            audit_start_year: effectiveSettingsByApp.get(a.id)?.auditStartYear ?? null,
+          })),
           undefined,
           statsOptions,
         )
       : Promise.resolve(new Map()),
     sharedApps.length > 0
       ? getAppDeploymentStatsBatch(
-          sharedApps.map((a) => ({ id: a.id, audit_start_year: a.audit_start_year })),
+          sharedApps.map((a) => ({
+            id: a.id,
+            audit_start_year: effectiveSettingsByApp.get(a.id)?.auditStartYear ?? null,
+          })),
           deployerUsernames,
           statsOptions,
         )

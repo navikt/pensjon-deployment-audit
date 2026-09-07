@@ -21,12 +21,14 @@ type LoaderData = Route.ComponentProps['loaderData']
 
 export type FetchVerificationDataSectionProps = {
   app: LoaderData['app']
+  auditStartYear: LoaderData['auditStartYear']
   githubDataStats: LoaderData['githubDataStats']
   fetchJobStatus: SyncJob | null
 }
 
 export function FetchVerificationDataSection({
   app,
+  auditStartYear,
   githubDataStats,
   fetchJobStatus,
 }: FetchVerificationDataSectionProps) {
@@ -54,9 +56,7 @@ export function FetchVerificationDataSection({
         {/* GitHub Data Stats */}
         <Box padding="space-16" borderRadius="4" background="neutral-soft">
           <VStack gap="space-8">
-            <Label size="small">
-              GitHub data-dekning{app.audit_start_year ? ` (fra ${app.audit_start_year})` : ''}
-            </Label>
+            <Label size="small">GitHub data-dekning{auditStartYear ? ` (fra ${auditStartYear})` : ''}</Label>
             <HStack gap="space-24" wrap>
               <div>
                 <Detail textColor="subtle">Totalt deployments</Detail>
