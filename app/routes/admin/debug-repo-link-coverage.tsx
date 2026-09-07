@@ -125,7 +125,7 @@ export default function DebugRepoLinkCoveragePage() {
                 <Table.DataCell>{r.environment_name}</Table.DataCell>
                 <Table.DataCell>{r.app_name}</Table.DataCell>
                 <Table.DataCell>{r.active_repo_status ?? 'ingen aktiv repo-rad'}</Table.DataCell>
-                <Table.DataCell>{r.not_found_in_nais_at ?? '-'}</Table.DataCell>
+                <Table.DataCell>{r.not_found_in_nais_at ? String(r.not_found_in_nais_at) : '-'}</Table.DataCell>
               </Table.Row>
             ))}
           </Table.Body>
@@ -158,7 +158,7 @@ export default function DebugRepoLinkCoveragePage() {
                         {r.github_owner}/{r.github_repo_name}
                       </Table.DataCell>
                       <Table.DataCell>{r.status}</Table.DataCell>
-                      <Table.DataCell>{r.created_at}</Table.DataCell>
+                      <Table.DataCell>{String(r.created_at)}</Table.DataCell>
                     </Table.Row>
                   ))}
                 </Table.Body>
@@ -186,7 +186,7 @@ export default function DebugRepoLinkCoveragePage() {
                     <Table.Row key={d.nais_deployment_id}>
                       <Table.DataCell>{d.monitored_app_id}</Table.DataCell>
                       <Table.DataCell>{d.nais_deployment_id}</Table.DataCell>
-                      <Table.DataCell>{d.created_at}</Table.DataCell>
+                      <Table.DataCell>{String(d.created_at)}</Table.DataCell>
                       <Table.DataCell>
                         {d.detected_github_owner ?? '-'}/{d.detected_github_repo_name ?? '-'}
                       </Table.DataCell>
