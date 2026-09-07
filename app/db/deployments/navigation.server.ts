@@ -1,4 +1,4 @@
-import { LEGACY_STATUSES_SQL, notApprovedWhereClause, PENDING_STATUSES_SQL } from '~/lib/four-eyes-status'
+import { NON_DIFFABLE_STATUSES_SQL, notApprovedWhereClause, PENDING_STATUSES_SQL } from '~/lib/four-eyes-status'
 import { baselineActionSql } from '../baseline-action'
 import { pool } from '../connection.server'
 import type { Deployment } from '../deployments.server'
@@ -135,7 +135,7 @@ export async function getPreviousDeploymentForDiff(
        AND curr.id = $2
        AND prev.created_at < curr.created_at
        AND prev.commit_sha IS NOT NULL
-       AND prev.four_eyes_status NOT IN (${LEGACY_STATUSES_SQL})
+       AND prev.four_eyes_status NOT IN (${NON_DIFFABLE_STATUSES_SQL})
        AND prev.commit_sha !~ '^refs/'`
 
   const params: (number | string)[] = [monitoredAppId, currentDeploymentId]

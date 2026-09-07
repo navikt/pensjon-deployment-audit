@@ -121,8 +121,9 @@ export function AuditReportPdfDocument(props: AuditReportPdfProps) {
   const manuallyApprovedCount = reportData.deployments.filter((d) => d.method === 'manual').length
   const baselineCount = reportData.deployments.filter((d) => d.method === 'baseline').length
   const legacyCount = reportData.deployments.filter((d) => d.method === 'legacy').length
-  const [prDisplay, manualDisplay, baselineDisplay, legacyDisplay] = formatPercentages(
-    [prApprovedCount, manuallyApprovedCount, baselineCount, legacyCount],
+  const unverifiableCount = reportData.deployments.filter((d) => d.method === 'unverifiable').length
+  const [prDisplay, manualDisplay, baselineDisplay, legacyDisplay, unverifiableDisplay] = formatPercentages(
+    [prApprovedCount, manuallyApprovedCount, baselineCount, legacyCount, unverifiableCount],
     totalDeployments,
   )
 
@@ -224,6 +225,14 @@ export function AuditReportPdfDocument(props: AuditReportPdfProps) {
               </Text>
             </View>
           )}
+          {unverifiableCount > 0 && (
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Ikke sporbar (se forklaring):</Text>
+              <Text style={styles.summaryValue}>
+                {unverifiableCount} ({unverifiableDisplay}%)
+              </Text>
+            </View>
+          )}
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Unike bidragsytere:</Text>
             <Text style={styles.summaryValue}>{reportData.contributors.length} personer</Text>
@@ -290,6 +299,16 @@ export function AuditReportPdfDocument(props: AuditReportPdfProps) {
                 eller review-prosess å verifisere. Deploymentet godkjennes i stedet eksplisitt av en person med
                 godkjennerrolle i NDA, som bekrefter at den registrerte versjonen er riktig utgangspunkt for perioden.
                 Godkjenneren er oppgitt i «Godkjenner»-kolonnen for dette deploymentet.
+              </Text>
+            </View>
+          )}
+          {unverifiableCount > 0 && (
+            <View style={styles.methodologyBox}>
+              <Text style={styles.methodologyTitle}>E. Ikke sporbare deployments ({unverifiableCount} stk)</Text>
+              <Text style={styles.methodologyText}>
+                Disse deployments mangler repository-informasjon fra Nais, typisk fordi de ble deployet manuelt (f.eks.
+                kubectl apply) utenfor GitHub Actions. Uten repository- og commit-informasjon kan det ikke verifiseres
+                hvem som har utført endringen eller om fire-øyne-prinsippet er fulgt.
               </Text>
             </View>
           )}
@@ -471,12 +490,14 @@ export function AuditReportPdfDocument(props: AuditReportPdfProps) {
                           ? 'PR'
                           : d.method === 'legacy'
                             ? 'Legacy'
-                            : d.method === 'baseline'
-                              ? 'Baseline'
-                              : 'Manuell'}
+                            : d.method === 'unverifiable'
+                              ? 'Ikke sporbar'
+                              : d.method === 'baseline'
+                                ? 'Baseline'
+                                : 'Manuell'}
                       </Text>
                       <Text style={[styles.tableCell, styles.r2col4]}>
-                        {d.method === 'legacy' || d.method === 'baseline' ? (
+                        {d.method === 'legacy' || d.method === 'unverifiable' || d.method === 'baseline' ? (
                           '-'
                         ) : d.pr_number && d.pr_url ? (
                           <Link src={d.pr_url} style={styles.link}>

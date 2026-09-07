@@ -1,11 +1,11 @@
 import type { PoolClient } from 'pg'
 import { computeBaselineRecomputePlan } from '~/lib/audit-start-year-baseline'
-import { type FourEyesStatus, LEGACY_STATUSES_SQL, UNAUTHORIZED_STATUSES_SQL } from '~/lib/four-eyes-status'
+import { type FourEyesStatus, NON_DIFFABLE_STATUSES_SQL, UNAUTHORIZED_STATUSES_SQL } from '~/lib/four-eyes-status'
 import { withTransaction } from './connection.server'
 
 const ELIGIBLE_DEPLOYMENT_SQL = `
   d.commit_sha IS NOT NULL
-  AND d.four_eyes_status NOT IN (${LEGACY_STATUSES_SQL})
+  AND d.four_eyes_status NOT IN (${NON_DIFFABLE_STATUSES_SQL})
   AND d.four_eyes_status NOT IN (${UNAUTHORIZED_STATUSES_SQL})
   AND d.commit_sha !~ '^refs/'
 `

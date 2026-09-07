@@ -1,4 +1,4 @@
-import { isApprovedStatus } from '~/lib/four-eyes-status'
+import { isApprovedStatus, isUnverifiableStatus } from '~/lib/four-eyes-status'
 import { MANUAL_TRIGGER_EVENTS } from '~/lib/workflow-trigger-label'
 import { AUDIT_START_YEAR_FILTER } from '../audit-start-year'
 import { pool } from '../connection.server'
@@ -69,8 +69,13 @@ export async function checkAuditReadiness(
   const deployments = result.rows
 
   const approved = deployments.filter((d) => isApprovedStatus(d.four_eyes_status))
-  const legacy = deployments.filter((d) => d.four_eyes_status === 'legacy')
-  const pending = deployments.filter((d) => !isApprovedStatus(d.four_eyes_status) && d.four_eyes_status !== 'legacy')
+  const legacy = deployments.filter((d) => d.four_eyes_status === 'legacy' || isUnverifiableStatus(d.four_eyes_status))
+  const pending = deployments.filter(
+    (d) =>
+      !isApprovedStatus(d.four_eyes_status) &&
+      d.four_eyes_status !== 'legacy' &&
+      !isUnverifiableStatus(d.four_eyes_status),
+  )
   const manualTrigger = deployments.filter((d) => d.trigger_event && MANUAL_TRIGGER_EVENTS.includes(d.trigger_event))
 
   const approvedIds = approved.map((d) => d.id)

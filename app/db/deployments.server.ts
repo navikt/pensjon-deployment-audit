@@ -25,8 +25,8 @@ export interface Deployment {
   deployer_username: string | null
   commit_sha: string | null
   trigger_url: string | null
-  detected_github_owner: string
-  detected_github_repo_name: string
+  detected_github_owner: string | null
+  detected_github_repo_name: string | null
   four_eyes_status: string
   github_pr_number: number | null
   github_pr_url: string | null
@@ -203,8 +203,8 @@ export interface CreateDeploymentParams {
   deployerUsername: string | null
   commitSha: string | null
   triggerUrl: string | null
-  detectedGithubOwner: string
-  detectedGithubRepoName: string
+  detectedGithubOwner: string | null
+  detectedGithubRepoName: string | null
   resources?: any
 }
 
@@ -504,8 +504,9 @@ export async function getDeploymentByNaisId(naisDeploymentId: string): Promise<D
 }
 
 export async function createDeployment(data: CreateDeploymentParams): Promise<Deployment> {
-  const legacyCutoffDate = new Date('2025-01-01T00:00:00Z')
-  const isLegacyDeployment = !data.commitSha || (data.createdAt < legacyCutoffDate && !data.commitSha)
+  const missingRepositoryInfo = !data.detectedGithubOwner || !data.detectedGithubRepoName
+  const isLegacyDeployment = !data.commitSha
+  const initialStatus = missingRepositoryInfo ? 'unverifiable' : isLegacyDeployment ? 'legacy' : 'pending'
 
   const result = await pool.query(
     `INSERT INTO deployments 
@@ -531,7 +532,7 @@ export async function createDeployment(data: CreateDeploymentParams): Promise<De
       data.detectedGithubOwner,
       data.detectedGithubRepoName,
       data.resources ? JSON.stringify(data.resources) : null,
-      isLegacyDeployment ? 'legacy' : 'pending',
+      initialStatus,
     ],
   )
   return result.rows[0]

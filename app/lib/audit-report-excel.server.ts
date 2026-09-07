@@ -37,6 +37,7 @@ function formatDate(date: Date | string): string {
 function methodLabel(method: string): string {
   if (method === 'pr') return 'PR'
   if (method === 'legacy') return 'Legacy'
+  if (method === 'unverifiable') return 'Ikke sporbar'
   if (method === 'baseline') return 'Baseline'
   return 'Manuell'
 }
@@ -89,8 +90,9 @@ function addSammendragSheet(workbook: ExcelJS.Workbook, props: AuditReportExcelP
   const manuallyApprovedCount = reportData.deployments.filter((d) => d.method === 'manual').length
   const baselineCount = reportData.deployments.filter((d) => d.method === 'baseline').length
   const legacyCount = reportData.legacy_count || 0
-  const [prDisplay, manualDisplay, baselineDisplay, legacyDisplay] = formatPercentages(
-    [prApprovedCount, manuallyApprovedCount, baselineCount, legacyCount],
+  const unverifiableCount = reportData.unverifiable_count || 0
+  const [prDisplay, manualDisplay, baselineDisplay, legacyDisplay, unverifiableDisplay] = formatPercentages(
+    [prApprovedCount, manuallyApprovedCount, baselineCount, legacyCount, unverifiableCount],
     totalDeployments,
   )
 
@@ -105,6 +107,9 @@ function addSammendragSheet(workbook: ExcelJS.Workbook, props: AuditReportExcelP
   }
   if (legacyCount > 0) {
     summaryRows.push(['Legacy', `${legacyCount} (${legacyDisplay}%)`])
+  }
+  if (unverifiableCount > 0) {
+    summaryRows.push(['Ikke sporbar', `${unverifiableCount} (${unverifiableDisplay}%)`])
   }
   summaryRows.push(
     ['Unike bidragsytere', `${reportData.contributors.length} personer`],
@@ -151,7 +156,7 @@ function addDeploymentsSheet(
         : undefined
 
     let reference = '-'
-    if (d.method !== 'legacy') {
+    if (d.method !== 'legacy' && d.method !== 'unverifiable') {
       if (d.pr_number) {
         reference = `PR #${d.pr_number}`
       } else if (d.slack_link) {

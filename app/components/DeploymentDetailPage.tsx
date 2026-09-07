@@ -194,6 +194,10 @@ export function DeploymentDetailPage({ loaderData, actionData }: DeploymentDetai
               <Tag data-color="neutral" variant="outline" size="small">
                 Legacy
               </Tag>
+            ) : deployment.four_eyes_status === 'unverifiable' ? (
+              <Tag data-color="neutral" variant="outline" size="small">
+                Ikke sporbar
+              </Tag>
             ) : null}
             {deliveryCommits && deliveryCommits.length > 1 && (
               <>

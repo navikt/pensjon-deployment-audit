@@ -52,6 +52,13 @@ export function getFourEyesStatus(deployment: any): {
             ? 'GitHub-data hentet. Venter på godkjenning fra en annen person.'
             : 'Dette deploymentet har ugyldig eller mangelfull data fra Nais API, som skyldes endringer i Nais sitt skjema.',
       }
+    case 'unverifiable':
+      return {
+        text: 'Ikke sporbar',
+        variant: 'info',
+        description:
+          'Dette deploymentet mangler repository-informasjon fra Nais, typisk fordi det ble deployet manuelt (f.eks. kubectl apply) utenfor GitHub Actions. Kan ikke kobles til en commit og blir derfor ikke verifisert.',
+      }
     case 'manually_approved':
       return {
         text: 'Manuelt godkjent',

@@ -15,7 +15,13 @@ import {
   updateSlackNotification,
 } from '~/db/slack-notifications.server'
 import { getGithubUserLookups } from '~/db/user-github-lookups.server'
-import { isApprovedStatus, isLegacyStatus, isNotApprovedStatus, isPendingStatus } from '~/lib/four-eyes-status'
+import {
+  isApprovedStatus,
+  isLegacyStatus,
+  isNotApprovedStatus,
+  isPendingStatus,
+  isUnverifiableStatus,
+} from '~/lib/four-eyes-status'
 import { isValidCommitSha } from '~/lib/git-constants'
 import { logger } from '~/lib/logger.server'
 import { callSlackApi } from './api-logging.server'
@@ -498,8 +504,8 @@ async function notifyNewDeploymentIfNeeded(
     team_slug: string
     environment_name: string
     app_name: string
-    detected_github_owner: string
-    detected_github_repo_name: string
+    detected_github_owner: string | null
+    detected_github_repo_name: string | null
     audit_start_year?: number | null
     slack_deploy_channel_id?: string | null
     slack_deploy_notify_enabled?: boolean
@@ -522,9 +528,13 @@ async function notifyNewDeploymentIfNeeded(
   const channelId = deployment.slack_deploy_channel_id
 
   const isPullRequest = !!deployment.github_pr_number
-  const legacyOrDirectPushMethod: 'legacy' | 'direct_push' = isLegacyStatus(deployment.four_eyes_status ?? '')
-    ? 'legacy'
-    : 'direct_push'
+  const legacyOrDirectPushMethod: 'legacy' | 'unverifiable' | 'direct_push' = isUnverifiableStatus(
+    deployment.four_eyes_status ?? '',
+  )
+    ? 'unverifiable'
+    : isLegacyStatus(deployment.four_eyes_status ?? '')
+      ? 'legacy'
+      : 'direct_push'
 
   const prData = deployment.github_pr_data
   const prCreator = prData?.creator?.username
@@ -546,7 +556,13 @@ async function notifyNewDeploymentIfNeeded(
   }
 
   let githubUrl: string | undefined
-  if (!isPullRequest && deployment.commit_sha && isValidCommitSha(deployment.commit_sha)) {
+  if (
+    !isPullRequest &&
+    deployment.commit_sha &&
+    isValidCommitSha(deployment.commit_sha) &&
+    deployment.detected_github_owner &&
+    deployment.detected_github_repo_name
+  ) {
     const repoBase = `https://github.com/${deployment.detected_github_owner}/${deployment.detected_github_repo_name}`
     try {
       const previousDeployment = await getPreviousDeploymentForDiff(
