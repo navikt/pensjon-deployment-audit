@@ -23,8 +23,10 @@ const readyReadiness: AuditReadinessCheck = {
   total_deployments: 42,
   approved_count: 40,
   legacy_count: 2,
+  unverifiable_count: 0,
   pending_count: 0,
   pending_deployments: [],
+  unverifiable_deployments: [],
   missing_approver_count: 0,
   missing_approver_deployments: [],
   manual_trigger_count: 0,
@@ -36,6 +38,7 @@ const notReadyReadiness: AuditReadinessCheck = {
   total_deployments: 42,
   approved_count: 35,
   legacy_count: 2,
+  unverifiable_count: 0,
   pending_count: 3,
   pending_deployments: [
     {
@@ -60,6 +63,7 @@ const notReadyReadiness: AuditReadinessCheck = {
       four_eyes_status: 'unverified',
     },
   ],
+  unverifiable_deployments: [],
   missing_approver_count: 2,
   missing_approver_deployments: [
     {

@@ -9,8 +9,16 @@ export interface AuditReadinessCheck {
   total_deployments: number
   approved_count: number
   legacy_count: number
+  unverifiable_count: number
   pending_count: number
   pending_deployments: Array<{
+    id: number
+    created_at: Date
+    commit_sha: string | null
+    deployer_username: string | null
+    four_eyes_status: string
+  }>
+  unverifiable_deployments: Array<{
     id: number
     created_at: Date
     commit_sha: string | null
@@ -69,7 +77,8 @@ export async function checkAuditReadiness(
   const deployments = result.rows
 
   const approved = deployments.filter((d) => isApprovedStatus(d.four_eyes_status))
-  const legacy = deployments.filter((d) => d.four_eyes_status === 'legacy' || isUnverifiableStatus(d.four_eyes_status))
+  const legacy = deployments.filter((d) => d.four_eyes_status === 'legacy')
+  const unverifiable = deployments.filter((d) => isUnverifiableStatus(d.four_eyes_status))
   const pending = deployments.filter(
     (d) =>
       !isApprovedStatus(d.four_eyes_status) &&
@@ -88,12 +97,24 @@ export async function checkAuditReadiness(
 
   return {
     is_ready:
-      pending.length === 0 && missingApprover.length === 0 && manualTrigger.length === 0 && deployments.length > 0,
+      pending.length === 0 &&
+      unverifiable.length === 0 &&
+      missingApprover.length === 0 &&
+      manualTrigger.length === 0 &&
+      deployments.length > 0,
     total_deployments: deployments.length,
     approved_count: approved.length,
     legacy_count: legacy.length,
+    unverifiable_count: unverifiable.length,
     pending_count: pending.length,
     pending_deployments: pending.slice(0, 10).map((d) => ({
+      id: d.id,
+      created_at: d.created_at,
+      commit_sha: d.commit_sha,
+      deployer_username: d.deployer_username,
+      four_eyes_status: d.four_eyes_status,
+    })),
+    unverifiable_deployments: unverifiable.slice(0, 10).map((d) => ({
       id: d.id,
       created_at: d.created_at,
       commit_sha: d.commit_sha,

@@ -298,6 +298,12 @@ function ReadinessResult({
             <Detail>Venter godkjenning</Detail>
             <BodyShort weight="semibold">{readinessData.pending_count}</BodyShort>
           </div>
+          {readinessData.unverifiable_count > 0 && (
+            <div>
+              <Detail>Ikke sporbar</Detail>
+              <BodyShort weight="semibold">{readinessData.unverifiable_count}</BodyShort>
+            </div>
+          )}
           {readinessData.missing_approver_count > 0 && (
             <div>
               <Detail>Mangler godkjenner</Detail>
@@ -316,6 +322,15 @@ function ReadinessResult({
           <DeploymentList
             label="Deployments som mangler godkjenning:"
             deployments={readinessData.pending_deployments}
+            appUrl={appUrl}
+            userMappings={userMappings}
+          />
+        )}
+
+        {readinessData.unverifiable_count > 0 && (
+          <DeploymentList
+            label="Deployments som mangler repository-info (kan ikke verifiseres):"
+            deployments={readinessData.unverifiable_deployments}
             appUrl={appUrl}
             userMappings={userMappings}
           />

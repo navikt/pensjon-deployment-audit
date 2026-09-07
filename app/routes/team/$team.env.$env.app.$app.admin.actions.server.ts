@@ -431,6 +431,9 @@ export async function action({ request }: { request: Request; params: Record<str
       if (readiness.pending_count > 0) {
         reasons.push(`${readiness.pending_count} deployments mangler godkjenning`)
       }
+      if (readiness.unverifiable_count > 0) {
+        reasons.push(`${readiness.unverifiable_count} deployments mangler repository-info og kan ikke verifiseres`)
+      }
       if (readiness.missing_approver_count > 0) {
         reasons.push(`${readiness.missing_approver_count} godkjente deployments mangler godkjenner-data`)
       }
