@@ -306,7 +306,7 @@ export function AuditReportPdfDocument(props: AuditReportPdfProps) {
             <View style={styles.methodologyBox}>
               <Text style={styles.methodologyTitle}>E. Ikke sporbare deployments ({unverifiableCount} stk)</Text>
               <Text style={styles.methodologyText}>
-                Disse deployments mangler repository-informasjon fra Nais, typisk fordi de ble deployet manuelt (f.eks
+                Disse deployments mangler repository-informasjon fra Nais, typisk fordi de ble deployet manuelt (f.eks.
                 kubectl apply) utenfor GitHub Actions. Uten repository- og commit-informasjon kan det ikke verifiseres
                 hvem som har utført endringen eller om fire-øyne-prinsippet er fulgt.
               </Text>
