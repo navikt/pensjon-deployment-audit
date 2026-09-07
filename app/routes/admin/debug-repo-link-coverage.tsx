@@ -15,6 +15,23 @@ interface UnlinkedApp {
   app_name: string
   active_repo_status: string | null
   linked_repository_id: number | null
+  not_found_in_nais_at: string | null
+}
+
+interface AppRepoRow {
+  monitored_app_id: number
+  github_owner: string
+  github_repo_name: string
+  status: string
+  created_at: string
+}
+
+interface RecentDeployment {
+  monitored_app_id: number
+  nais_deployment_id: string
+  created_at: string
+  detected_github_owner: string | null
+  detected_github_repo_name: string | null
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -23,7 +40,8 @@ export async function loader({ request }: Route.LoaderArgs) {
   const { rows } = await pool.query<UnlinkedApp>(`
     SELECT ma.id, ma.team_slug, ma.environment_name, ma.app_name,
            active_repo.status AS active_repo_status,
-           r.id AS linked_repository_id
+           r.id AS linked_repository_id,
+           ma.not_found_in_nais_at
     FROM monitored_applications ma
     LEFT JOIN LATERAL (
       SELECT ar.status, ar.github_repo_id
@@ -41,11 +59,39 @@ export async function loader({ request }: Route.LoaderArgs) {
     `SELECT COUNT(*) FROM monitored_applications WHERE is_active = true`,
   )
 
-  return { rows, unlinkedCount: rows.length, totalActiveApps: Number(totalRows[0].count) }
+  const appIds = rows.map((r) => r.id)
+
+  const { rows: repoRows } = appIds.length
+    ? await pool.query<AppRepoRow>(
+        `SELECT monitored_app_id, github_owner, github_repo_name, status, created_at
+         FROM application_repositories
+         WHERE monitored_app_id = ANY($1::int[])
+         ORDER BY monitored_app_id, created_at DESC`,
+        [appIds],
+      )
+    : { rows: [] }
+
+  const { rows: recentDeployments } = appIds.length
+    ? await pool.query<RecentDeployment>(
+        `SELECT monitored_app_id, nais_deployment_id, created_at, detected_github_owner, detected_github_repo_name
+         FROM deployments
+         WHERE monitored_app_id = ANY($1::int[])
+         ORDER BY monitored_app_id, created_at DESC`,
+        [appIds],
+      )
+    : { rows: [] }
+
+  return {
+    rows,
+    unlinkedCount: rows.length,
+    totalActiveApps: Number(totalRows[0].count),
+    repoRows,
+    recentDeployments,
+  }
 }
 
 export default function DebugRepoLinkCoveragePage() {
-  const { rows, unlinkedCount, totalActiveApps } = useLoaderData<typeof loader>()
+  const { rows, unlinkedCount, totalActiveApps, repoRows, recentDeployments } = useLoaderData<typeof loader>()
 
   return (
     <Box paddingBlock="space-8" paddingInline={{ xs: 'space-4', md: 'space-8' }}>
@@ -69,6 +115,7 @@ export default function DebugRepoLinkCoveragePage() {
               <Table.HeaderCell>Miljø</Table.HeaderCell>
               <Table.HeaderCell>App</Table.HeaderCell>
               <Table.HeaderCell>Aktiv repo-status</Table.HeaderCell>
+              <Table.HeaderCell>not_found_in_nais_at</Table.HeaderCell>
             </Table.Row>
           </Table.Header>
           <Table.Body>
@@ -78,6 +125,7 @@ export default function DebugRepoLinkCoveragePage() {
                 <Table.DataCell>{r.environment_name}</Table.DataCell>
                 <Table.DataCell>{r.app_name}</Table.DataCell>
                 <Table.DataCell>{r.active_repo_status ?? 'ingen aktiv repo-rad'}</Table.DataCell>
+                <Table.DataCell>{r.not_found_in_nais_at ?? '-'}</Table.DataCell>
               </Table.Row>
             ))}
           </Table.Body>
@@ -85,6 +133,72 @@ export default function DebugRepoLinkCoveragePage() {
 
         {rows.length === 0 && (
           <BodyShort textColor="subtle">Alle aktive apper er koblet til en repositories-rad. 🎉</BodyShort>
+        )}
+
+        {rows.length > 0 && (
+          <>
+            <div>
+              <Heading level="2" size="small" spacing>
+                Alle application_repositories-rader for de ukoblede appene
+              </Heading>
+              <Table size="small">
+                <Table.Header>
+                  <Table.Row>
+                    <Table.HeaderCell>monitored_app_id</Table.HeaderCell>
+                    <Table.HeaderCell>owner/repo</Table.HeaderCell>
+                    <Table.HeaderCell>status</Table.HeaderCell>
+                    <Table.HeaderCell>created_at</Table.HeaderCell>
+                  </Table.Row>
+                </Table.Header>
+                <Table.Body>
+                  {repoRows.map((r) => (
+                    <Table.Row key={`${r.monitored_app_id}-${r.github_owner}-${r.github_repo_name}`}>
+                      <Table.DataCell>{r.monitored_app_id}</Table.DataCell>
+                      <Table.DataCell>
+                        {r.github_owner}/{r.github_repo_name}
+                      </Table.DataCell>
+                      <Table.DataCell>{r.status}</Table.DataCell>
+                      <Table.DataCell>{r.created_at}</Table.DataCell>
+                    </Table.Row>
+                  ))}
+                </Table.Body>
+              </Table>
+              {repoRows.length === 0 && (
+                <BodyShort textColor="subtle">Ingen application_repositories-rader i det hele tatt.</BodyShort>
+              )}
+            </div>
+
+            <div>
+              <Heading level="2" size="small" spacing>
+                Siste deployments for de ukoblede appene
+              </Heading>
+              <Table size="small">
+                <Table.Header>
+                  <Table.Row>
+                    <Table.HeaderCell>monitored_app_id</Table.HeaderCell>
+                    <Table.HeaderCell>nais_deployment_id</Table.HeaderCell>
+                    <Table.HeaderCell>created_at</Table.HeaderCell>
+                    <Table.HeaderCell>detected_github_owner/repo</Table.HeaderCell>
+                  </Table.Row>
+                </Table.Header>
+                <Table.Body>
+                  {recentDeployments.slice(0, 20).map((d) => (
+                    <Table.Row key={d.nais_deployment_id}>
+                      <Table.DataCell>{d.monitored_app_id}</Table.DataCell>
+                      <Table.DataCell>{d.nais_deployment_id}</Table.DataCell>
+                      <Table.DataCell>{d.created_at}</Table.DataCell>
+                      <Table.DataCell>
+                        {d.detected_github_owner ?? '-'}/{d.detected_github_repo_name ?? '-'}
+                      </Table.DataCell>
+                    </Table.Row>
+                  ))}
+                </Table.Body>
+              </Table>
+              {recentDeployments.length === 0 && (
+                <BodyShort textColor="subtle">Ingen deployments funnet for disse appene.</BodyShort>
+              )}
+            </div>
+          </>
         )}
       </VStack>
     </Box>
