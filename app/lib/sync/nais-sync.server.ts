@@ -18,6 +18,7 @@ import {
 import { logger } from '~/lib/logger.server'
 import { fetchApplicationDeployments, fetchNewDeployments, NaisResourceNotFoundError } from '~/lib/nais.server'
 import { syncDefaultBranchForApp } from './default-branch-sync.server'
+import { parseRepository } from './repo-parser'
 
 async function markNaisResourceStatus<T>(
   monitoredAppId: number,
@@ -79,20 +80,20 @@ async function syncDeploymentsFromNais(
   for (const naisDep of naisDeployments) {
     totalProcessed++
 
-    if (!naisDep.repository) {
-      logger.warn(`⚠️  Skipping deployment without repository: ${naisDep.id}`)
-      skippedCount++
-      continue
-    }
+    let detectedOwner: string | null = null
+    let detectedRepoName: string | null = null
 
-    const repoParts = naisDep.repository.split('/')
-    if (repoParts.length !== 2) {
-      logger.warn(`⚠️  Invalid repository format: ${naisDep.repository}`)
-      skippedCount++
-      continue
+    if (naisDep.repository) {
+      const parsed = parseRepository(naisDep.repository)
+      if (parsed) {
+        detectedOwner = parsed.owner
+        detectedRepoName = parsed.repo
+      } else {
+        logger.warn(`⚠️  Invalid repository format: ${naisDep.repository}`)
+      }
+    } else {
+      logger.info(`ℹ️  Deployment without repository info (likely deployed outside GitHub Actions): ${naisDep.id}`)
     }
-
-    const [detectedOwner, detectedRepoName] = repoParts
 
     const existingDep = await getDeploymentByNaisId(naisDep.id)
 
@@ -122,10 +123,14 @@ async function syncDeploymentsFromNais(
     await createDeployment(deploymentParams)
     newCount++
 
-    const legacyCutoffDate = new Date('2025-01-01T00:00:00Z')
-    const isLegacyDeployment = new Date(naisDep.createdAt) < legacyCutoffDate && !naisDep.commitSha
+    const isLegacyDeployment = !naisDep.commitSha
     if (isLegacyDeployment) {
       logger.info(`⏭️  Skipping repository checks for legacy deployment: ${naisDep.id}`)
+      continue
+    }
+
+    if (!detectedOwner || !detectedRepoName) {
+      logger.info(`⏭️  Skipping repository checks for deployment without repository info: ${naisDep.id}`)
       continue
     }
 
@@ -276,14 +281,17 @@ export async function syncNewDeploymentsFromNais(
       continue
     }
 
+    let currentDeploymentRepo: { owner: string; repo: string } | null = null
     if (deployment.repository) {
-      const match = deployment.repository.match(/github\.com\/([^/]+)\/([^/]+)/)
-      if (match) {
-        detectedRepository = { owner: match[1], repo: match[2] }
-      } else if (deployment.repository.includes('/')) {
-        const parts = deployment.repository.split('/')
-        detectedRepository = { owner: parts[0], repo: parts[1] }
+      currentDeploymentRepo = parseRepository(deployment.repository)
+      if (!currentDeploymentRepo) {
+        logger.warn(`⚠️  Invalid repository format: ${deployment.repository}`)
       }
+    } else {
+      logger.info(`ℹ️  Deployment without repository info (likely deployed outside GitHub Actions): ${deployment.id}`)
+    }
+    if (currentDeploymentRepo) {
+      detectedRepository = currentDeploymentRepo
     }
 
     const resources = deployment.resources?.nodes?.map((r) => ({
@@ -303,8 +311,8 @@ export async function syncNewDeploymentsFromNais(
       deployerUsername: deployment.deployerUsername,
       commitSha: deployment.commitSha,
       triggerUrl: deployment.triggerUrl,
-      detectedGithubOwner: detectedRepository?.owner || '',
-      detectedGithubRepoName: detectedRepository?.repo || '',
+      detectedGithubOwner: currentDeploymentRepo?.owner ?? null,
+      detectedGithubRepoName: currentDeploymentRepo?.repo ?? null,
       resources,
     })
     newCount++

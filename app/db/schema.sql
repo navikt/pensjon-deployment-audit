@@ -66,9 +66,10 @@ CREATE TABLE IF NOT EXISTS deployments (
   commit_sha VARCHAR(40), -- Nullable: not always provided by Nais API
   trigger_url TEXT,
   
-  -- Detected repository (may differ from approved!)
-  detected_github_owner VARCHAR(255) NOT NULL,
-  detected_github_repo_name VARCHAR(255) NOT NULL,
+  -- Detected repository (may differ from approved!). Nullable: not provided by Nais
+  -- for deployments triggered outside GitHub Actions (e.g. manual `nais deploy`).
+  detected_github_owner VARCHAR(255),
+  detected_github_repo_name VARCHAR(255),
   
   -- Four-eyes status
   four_eyes_status VARCHAR(50) DEFAULT 'unknown',

@@ -38,7 +38,7 @@ interface NewDeploymentNotificationBase {
 
 export type NewDeploymentNotification =
   | (NewDeploymentNotificationBase & { deployMethod: 'pull_request'; pr: PullRequestInfo })
-  | (NewDeploymentNotificationBase & { deployMethod: 'direct_push' | 'legacy'; pr?: undefined })
+  | (NewDeploymentNotificationBase & { deployMethod: 'direct_push' | 'legacy' | 'unverifiable'; pr?: undefined })
 
 const SLACK_MEMBER_ID_PATTERN = /^[UW][A-Z0-9]+$/
 
@@ -75,6 +75,8 @@ function mapFourEyesStatus(status: string): { emoji: string; text: string } {
       return { emoji: '❌', text: 'Feil' }
     case 'legacy':
       return { emoji: '📋', text: 'Legacy' }
+    case 'unverifiable':
+      return { emoji: '❔', text: 'Ikke sporbar' }
     default:
       return { emoji: '❓', text: status }
   }

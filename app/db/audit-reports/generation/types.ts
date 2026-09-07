@@ -33,6 +33,7 @@ export interface AuditReportData {
   contributors: ContributorEntry[]
   reviewers: ReviewerEntry[]
   legacy_count: number
+  unverifiable_count?: number
   baseline_count?: number
   deviations: DeviationEntry[]
   unverified_commit_deployments: UnverifiedCommitDeploymentEntry[]
@@ -68,7 +69,7 @@ export interface AuditDeploymentEntry {
   title: string
   date: string
   commit_sha: string
-  method: 'pr' | 'manual' | 'legacy' | 'baseline'
+  method: 'pr' | 'manual' | 'legacy' | 'unverifiable' | 'baseline'
   pr_author?: string
   pr_author_display_name?: string
   deployer: string

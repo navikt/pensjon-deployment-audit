@@ -12,6 +12,7 @@ export const FOUR_EYES_STATUSES = [
   'direct_push', // Direct push to main without PR
   'legacy', // Legacy deployment (before audit)
   'legacy_pending', // Legacy awaiting review
+  'unverifiable', // Deployed without repository metadata (e.g. manual kubectl apply) - can never be verified
   'baseline', // First deployment baseline (manually approved)
   'unauthorized_repository', // Repository not approved for this app
   'unauthorized_branch', // Deployed commit not on approved branch
@@ -49,6 +50,7 @@ export const NOT_APPROVED_STATUSES: FourEyesStatus[] = [
   'unauthorized_branch',
   'legacy',
   'legacy_pending',
+  'unverifiable',
   'missing',
   'error',
 ]
@@ -69,11 +71,17 @@ export const LEGACY_STATUSES: FourEyesStatus[] = ['legacy', 'legacy_pending']
 
 export const LEGACY_STATUSES_SQL = LEGACY_STATUSES.map((s) => `'${s}'`).join(', ')
 
+// Statuses excluded from commit-diff/baseline-eligibility logic because there is no
+// repository to diff against (legacy: pre-audit; unverifiable: missing repo metadata).
+export const NON_DIFFABLE_STATUSES: FourEyesStatus[] = [...LEGACY_STATUSES, 'unverifiable']
+
+export const NON_DIFFABLE_STATUSES_SQL = NON_DIFFABLE_STATUSES.map((s) => `'${s}'`).join(', ')
+
 export const UNAUTHORIZED_STATUSES: FourEyesStatus[] = ['unauthorized_repository', 'unauthorized_branch']
 
 export const UNAUTHORIZED_STATUSES_SQL = UNAUTHORIZED_STATUSES.map((s) => `'${s}'`).join(', ')
 
-const PROTECTED_STATUSES: FourEyesStatus[] = ['manually_approved', 'baseline', 'legacy']
+const PROTECTED_STATUSES: FourEyesStatus[] = ['manually_approved', 'baseline', 'legacy', 'unverifiable']
 
 export const PROTECTED_STATUSES_SQL = PROTECTED_STATUSES.map((s) => `'${s}'`).join(', ')
 
@@ -96,6 +104,7 @@ export const STATUS_DISPLAY: Record<
   approved_pr_with_unreviewed: { tagLabel: 'Ureviewed', tagVariant: 'warning' },
   legacy: { tagLabel: 'Legacy', tagVariant: 'neutral' },
   legacy_pending: { tagLabel: 'Legacy', tagVariant: 'neutral' },
+  unverifiable: { tagLabel: 'Ikke sporbar', tagVariant: 'neutral' },
   missing: { tagLabel: 'Ikke godkjent', tagVariant: 'warning' },
   error: { tagLabel: 'Feil', tagVariant: 'danger' },
   unauthorized_repository: { tagLabel: 'Ikke godkjent repo', tagVariant: 'danger' },
@@ -116,6 +125,7 @@ export const FOUR_EYES_STATUS_LABELS: Record<FourEyesStatus, string> = {
   direct_push: 'Direkte push',
   legacy: 'Legacy',
   legacy_pending: 'Legacy (venter)',
+  unverifiable: 'Ikke sporbar (mangler repository-info)',
   baseline: 'Baseline',
   unauthorized_repository: 'Ikke godkjent repo',
   unauthorized_branch: 'Ikke på godkjent branch',
@@ -134,6 +144,10 @@ export function isNotApprovedStatus(status: string): boolean {
 
 export function isLegacyStatus(status: string): boolean {
   return LEGACY_STATUSES.includes(status as FourEyesStatus)
+}
+
+export function isUnverifiableStatus(status: string): boolean {
+  return status === 'unverifiable'
 }
 
 export function isPendingStatus(status: string): boolean {

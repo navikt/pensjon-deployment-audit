@@ -56,6 +56,7 @@ export function buildReportData(rawData: Awaited<ReturnType<typeof getAuditRepor
   const deploymentEntries: AuditDeploymentEntry[] = deployments.map((d) => {
     const isManual = d.four_eyes_status === 'manually_approved'
     const isLegacy = d.four_eyes_status === 'legacy'
+    const isUnverifiable = d.four_eyes_status === 'unverifiable'
     const isBaseline = d.four_eyes_status === 'baseline'
     const manualApproval = manualApprovalMap.get(d.id)
     const legacyInfo = legacyInfoMap.get(d.id)
@@ -69,6 +70,8 @@ export function buildReportData(rawData: Awaited<ReturnType<typeof getAuditRepor
     let approver = ''
     if (isLegacy || hasLegacyInfo) {
       approver = d.approved_by_usernames?.length ? formatApprovers(d.approved_by_usernames) : '-'
+    } else if (isUnverifiable) {
+      approver = '-'
     } else if (isBaseline) {
       if (!baselineApproval?.changed_by) {
         throw new Error(
@@ -83,9 +86,11 @@ export function buildReportData(rawData: Awaited<ReturnType<typeof getAuditRepor
       approver = formatApprovers(d.approved_by_usernames)
     }
 
-    let method: 'pr' | 'manual' | 'legacy' | 'baseline' = 'pr'
+    let method: 'pr' | 'manual' | 'legacy' | 'unverifiable' | 'baseline' = 'pr'
     if (isLegacy || hasLegacyInfo) {
       method = 'legacy'
+    } else if (isUnverifiable) {
+      method = 'unverifiable'
     } else if (isBaseline) {
       method = 'baseline'
     } else if (isManual) {
@@ -194,6 +199,7 @@ export function buildReportData(rawData: Awaited<ReturnType<typeof getAuditRepor
     .sort((a, b) => b.review_count - a.review_count)
 
   const legacyCount = deploymentEntries.filter((d) => d.method === 'legacy').length
+  const unverifiableCount = deploymentEntries.filter((d) => d.method === 'unverifiable').length
   const baselineCount = deploymentEntries.filter((d) => d.method === 'baseline').length
 
   const deviationEntries: DeviationEntry[] = rawDeviations.map((d) => {
@@ -262,6 +268,7 @@ export function buildReportData(rawData: Awaited<ReturnType<typeof getAuditRepor
     contributors,
     reviewers,
     legacy_count: legacyCount,
+    unverifiable_count: unverifiableCount,
     baseline_count: baselineCount,
     deviations: deviationEntries,
     unverified_commit_deployments: unverifiedCommitDeployments,

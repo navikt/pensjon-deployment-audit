@@ -199,7 +199,7 @@ export function PrDetailsAccordion({
                       </Box>
                     )}
 
-                    {check.id && (
+                    {check.id && deployment.detected_github_owner && deployment.detected_github_repo_name && (
                       <CheckLogViewer
                         owner={deployment.detected_github_owner}
                         repo={deployment.detected_github_repo_name}
@@ -209,14 +209,18 @@ export function PrDetailsAccordion({
                       />
                     )}
 
-                    {check.output?.annotations_count != null && check.output.annotations_count > 0 && check.id && (
-                      <CheckAnnotations
-                        owner={deployment.detected_github_owner}
-                        repo={deployment.detected_github_repo_name}
-                        checkRunId={check.id}
-                        storedAnnotations={check.annotations ?? null}
-                      />
-                    )}
+                    {check.output?.annotations_count != null &&
+                      check.output.annotations_count > 0 &&
+                      check.id &&
+                      deployment.detected_github_owner &&
+                      deployment.detected_github_repo_name && (
+                        <CheckAnnotations
+                          owner={deployment.detected_github_owner}
+                          repo={deployment.detected_github_repo_name}
+                          checkRunId={check.id}
+                          storedAnnotations={check.annotations ?? null}
+                        />
+                      )}
                   </VStack>
                 )
               })}

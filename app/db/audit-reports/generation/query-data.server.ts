@@ -1,4 +1,4 @@
-import { LEGACY_STATUSES_SQL } from '~/lib/four-eyes-status'
+import { NON_DIFFABLE_STATUSES_SQL } from '~/lib/four-eyes-status'
 import { AUDIT_START_YEAR_FILTER } from '../../audit-start-year'
 import { pool } from '../../connection.server'
 import { getDeviationsForPeriod } from '../../deviations.server'
@@ -92,7 +92,7 @@ export async function getAuditReportData(
                AND prev.environment_name = ma.environment_name
                AND prev.created_at < d.created_at
                AND prev.commit_sha IS NOT NULL
-               AND prev.four_eyes_status NOT IN (${LEGACY_STATUSES_SQL})
+               AND prev.four_eyes_status NOT IN (${NON_DIFFABLE_STATUSES_SQL})
                AND prev.commit_sha !~ '^refs/'
              ORDER BY prev.created_at DESC
              LIMIT 1

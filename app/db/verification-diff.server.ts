@@ -1,7 +1,7 @@
 import { AUDIT_START_YEAR_FILTER } from '~/db/audit-start-year'
 import { pool } from '~/db/connection.server'
 import { effectiveAuditStartYearSql, effectiveDefaultBranchSql } from '~/db/repository-settings-sql'
-import { APPROVED_STATUSES_SQL, LEGACY_STATUSES_SQL, UNAUTHORIZED_STATUSES_SQL } from '~/lib/four-eyes-status'
+import { APPROVED_STATUSES_SQL, NON_DIFFABLE_STATUSES_SQL, UNAUTHORIZED_STATUSES_SQL } from '~/lib/four-eyes-status'
 import { VALID_COMMIT_SHA_SQL } from '~/lib/git-constants'
 
 interface VerificationDiffDeployment {
@@ -66,7 +66,7 @@ export async function getPreviousDeploymentForDiff(
      WHERE ar.github_repo_id = $2
        AND (d.created_at, d.id) < (acting_deployment.created_at, acting_deployment.id)
        AND d.commit_sha IS NOT NULL
-       AND d.four_eyes_status NOT IN (${LEGACY_STATUSES_SQL})
+       AND d.four_eyes_status NOT IN (${NON_DIFFABLE_STATUSES_SQL})
        AND d.four_eyes_status NOT IN (${UNAUTHORIZED_STATUSES_SQL})
        AND d.commit_sha !~ '^refs/'
        AND (acting_deployment.audit_start_year IS NULL OR d.created_at >= make_date(acting_deployment.audit_start_year, 1, 1))
