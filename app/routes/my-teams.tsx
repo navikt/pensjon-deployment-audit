@@ -17,8 +17,8 @@ import {
 import { getUserDevTeamsByRole } from '~/db/role-assignments.server'
 import { getActiveGithubAccountByNavIdent } from '~/db/user-github-lookups.server'
 import { endOfDay } from '~/lib/date-utils'
-import { groupAppCardsByRepo } from '~/lib/group-app-cards'
 import { logger } from '~/lib/logger.server'
+import { mergeAppCardsByRepo } from '~/lib/merge-app-cards-by-repo'
 import { getAppDeploymentStatsBatch } from '../db/deployments.server'
 import { getAllAlertCounts, getAllMonitoredApplications } from '../db/monitored-applications.server'
 import { getEffectiveSettingsForApps } from '../db/repositories.server'
@@ -110,7 +110,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     baselineActionByKey.set(key, a.baseline_action_count)
   }
 
-  const issueAppCards = groupAppCardsByRepo(
+  const issueAppCards = mergeAppCardsByRepo(
     matchingApps.map((app) => {
       const baseStats = statsByApp.get(app.id) || {
         total: 0,

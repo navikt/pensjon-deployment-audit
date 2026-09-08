@@ -29,8 +29,8 @@ export default function MonoreposAdmin() {
           </Heading>
           <BodyShort textColor="subtle">
             Repoer som automatisk er oppdaget som monorepo fordi to eller flere aktive applikasjoner deler samme aktive
-            git-repo. Dette er uavhengig av applikasjonsgrupper, og brukes til å forstå hvilke apper som
-            produksjonssettes fra samme kodebase.
+            git-repo. Dette brukes til å forstå hvilke apper som produksjonssettes fra samme kodebase, og til å
+            propagere firøyeverifisering mellom dem.
           </BodyShort>
         </div>
         <Button as={Link} to="/admin" variant="tertiary" size="small">

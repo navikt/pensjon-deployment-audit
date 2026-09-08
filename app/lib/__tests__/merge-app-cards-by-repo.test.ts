@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { groupAppCardsByRepo } from '../group-app-cards'
+import { mergeAppCardsByRepo } from '../merge-app-cards-by-repo'
 
-describe('groupAppCardsByRepo', () => {
+describe('mergeAppCardsByRepo', () => {
   function makeRepoApp(overrides: {
     id: number
     environment_name: string
@@ -30,7 +30,7 @@ describe('groupAppCardsByRepo', () => {
       makeRepoApp({ id: 1, environment_name: 'prod-gcp' }),
       makeRepoApp({ id: 2, environment_name: 'prod-fss' }),
     ]
-    const result = groupAppCardsByRepo(apps)
+    const result = mergeAppCardsByRepo(apps)
     expect(result).toHaveLength(2)
   })
 
@@ -39,7 +39,7 @@ describe('groupAppCardsByRepo', () => {
       makeRepoApp({ id: 1, environment_name: 'prod-gcp', active_repo: 'navikt/monorepo' }),
       makeRepoApp({ id: 2, environment_name: 'prod-fss', active_repo: 'navikt/monorepo' }),
     ]
-    const result = groupAppCardsByRepo(apps)
+    const result = mergeAppCardsByRepo(apps)
     expect(result).toHaveLength(1)
     expect(result[0].siblingEnvironments).toEqual(['prod-fss'])
   })
@@ -61,7 +61,7 @@ describe('groupAppCardsByRepo', () => {
         alertCount: 2,
       }),
     ]
-    const result = groupAppCardsByRepo(apps)
+    const result = mergeAppCardsByRepo(apps)
     expect(result[0].stats.without_four_eyes).toBe(5)
     expect(result[0].stats.total).toBe(20)
     expect(result[0].alertCount).toBe(3)
@@ -72,13 +72,13 @@ describe('groupAppCardsByRepo', () => {
       makeRepoApp({ id: 1, environment_name: 'prod-gcp', active_repo: 'navikt/repo-a' }),
       makeRepoApp({ id: 2, environment_name: 'prod-fss', active_repo: 'navikt/repo-b' }),
     ]
-    const result = groupAppCardsByRepo(apps)
+    const result = mergeAppCardsByRepo(apps)
     expect(result).toHaveLength(2)
   })
 
   it('keeps a single-app repo without siblingEnvironments', () => {
     const apps = [makeRepoApp({ id: 1, environment_name: 'prod-gcp', active_repo: 'navikt/solo-repo' })]
-    const result = groupAppCardsByRepo(apps)
+    const result = mergeAppCardsByRepo(apps)
     expect(result).toHaveLength(1)
     expect(result[0].siblingEnvironments).toBeUndefined()
   })
@@ -89,7 +89,7 @@ describe('groupAppCardsByRepo', () => {
       makeRepoApp({ id: 2, environment_name: 'prod-fss', active_repo: 'navikt/monorepo' }),
       makeRepoApp({ id: 3, environment_name: 'dev-gcp' }),
     ]
-    const result = groupAppCardsByRepo(apps)
+    const result = mergeAppCardsByRepo(apps)
     expect(result).toHaveLength(2)
     const grouped = result.find((r) => r.siblingEnvironments)
     const standalone = result.find((r) => !r.siblingEnvironments)
@@ -97,36 +97,36 @@ describe('groupAppCardsByRepo', () => {
     expect(standalone?.id).toBe(3)
   })
 
-  it('sets groupApps with all member app info when repo has multiple apps', () => {
+  it('sets repoApps with all member app info when repo has multiple apps', () => {
     const apps = [
       makeRepoApp({ id: 1, environment_name: 'prod-gcp', app_name: 'pensjon-psak', active_repo: 'navikt/monorepo' }),
       makeRepoApp({ id: 2, environment_name: 'prod-fss', app_name: 'pensjon-penny', active_repo: 'navikt/monorepo' }),
     ]
-    const result = groupAppCardsByRepo(apps)
-    expect(result[0].groupApps).toEqual([
+    const result = mergeAppCardsByRepo(apps)
+    expect(result[0].repoApps).toEqual([
       { app_name: 'pensjon-psak', environment_name: 'prod-gcp' },
       { app_name: 'pensjon-penny', environment_name: 'prod-fss' },
     ])
   })
 
-  it('does not set groupApps on standalone apps', () => {
+  it('does not set repoApps on standalone apps', () => {
     const apps = [makeRepoApp({ id: 1, environment_name: 'prod-gcp' })]
-    const result = groupAppCardsByRepo(apps)
-    expect(result[0].groupApps).toBeUndefined()
+    const result = mergeAppCardsByRepo(apps)
+    expect(result[0].repoApps).toBeUndefined()
   })
 
-  it('sets groupName to the active repo when apps share a repo', () => {
+  it('sets repoDisplayName to the active repo when apps share a repo', () => {
     const apps = [
       makeRepoApp({ id: 1, environment_name: 'prod-gcp', active_repo: 'navikt/pensjon-alde' }),
       makeRepoApp({ id: 2, environment_name: 'prod-fss', active_repo: 'navikt/pensjon-alde' }),
     ]
-    const result = groupAppCardsByRepo(apps)
-    expect(result[0].groupName).toBe('navikt/pensjon-alde')
+    const result = mergeAppCardsByRepo(apps)
+    expect(result[0].repoDisplayName).toBe('navikt/pensjon-alde')
   })
 
-  it('does not set groupName on standalone apps', () => {
+  it('does not set repoDisplayName on standalone apps', () => {
     const apps = [makeRepoApp({ id: 1, environment_name: 'prod-gcp', active_repo: 'navikt/solo-repo' })]
-    const result = groupAppCardsByRepo(apps)
-    expect(result[0].groupName).toBeUndefined()
+    const result = mergeAppCardsByRepo(apps)
+    expect(result[0].repoDisplayName).toBeUndefined()
   })
 })

@@ -3,7 +3,7 @@ import { BodyShort, Box, Heading, Hide, HStack, Search, Show, Tag, VStack } from
 import { Form, Link } from 'react-router'
 
 interface SearchResult {
-  type: 'deployment' | 'user' | 'team' | 'app' | 'group' | 'dev_team'
+  type: 'deployment' | 'user' | 'team' | 'app' | 'monorepo' | 'dev_team'
   id?: number
   url: string
   title: string
@@ -76,7 +76,7 @@ export function SearchPage({ query, results }: SearchPageProps) {
                 className="search-result-item"
               >
                 <HStack gap="space-12" align="center">
-                  {result.type === 'group' ? (
+                  {result.type === 'monorepo' ? (
                     <LayersIcon style={{ fontSize: '1.25rem', color: 'var(--ax-text-neutral-subtle)' }} aria-hidden />
                   ) : result.type === 'dev_team' ? (
                     <PersonGroupIcon
@@ -97,15 +97,15 @@ export function SearchPage({ query, results }: SearchPageProps) {
                         variant={
                           result.type === 'deployment'
                             ? 'info'
-                            : result.type === 'group' || result.type === 'dev_team'
+                            : result.type === 'monorepo' || result.type === 'dev_team'
                               ? 'moderate'
                               : 'neutral'
                         }
                       >
                         {result.type === 'deployment'
                           ? 'Deployment'
-                          : result.type === 'group'
-                            ? 'Gruppe'
+                          : result.type === 'monorepo'
+                            ? 'Monorepo'
                             : result.type === 'dev_team'
                               ? 'Utviklerteam'
                               : result.type === 'team'

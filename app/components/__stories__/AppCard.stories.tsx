@@ -144,9 +144,9 @@ export const GroupedSameNames: Story = {
     app: {
       ...baseApp,
       app_name: 'pensjon-regler',
-      groupName: 'pensjon-regler',
+      repoDisplayName: 'pensjon-regler',
       siblingEnvironments: ['prod-gcp'],
-      groupApps: [
+      repoApps: [
         { app_name: 'pensjon-regler', environment_name: 'prod-fss' },
         { app_name: 'pensjon-regler', environment_name: 'prod-gcp' },
       ],
@@ -161,9 +161,9 @@ export const GroupedDistinctNames: Story = {
     app: {
       ...baseApp,
       app_name: 'pensjon-psak',
-      groupName: 'psak-og-penny',
+      repoDisplayName: 'psak-og-penny',
       siblingEnvironments: ['prod-gcp'],
-      groupApps: [
+      repoApps: [
         { app_name: 'pensjon-psak', environment_name: 'prod-fss' },
         { app_name: 'pensjon-penny', environment_name: 'prod-gcp' },
       ],
@@ -182,9 +182,9 @@ export const GroupedList: Story = {
           ...baseApp,
           id: 10,
           app_name: 'pensjon-psak',
-          groupName: 'psak-og-penny',
+          repoDisplayName: 'psak-og-penny',
           siblingEnvironments: ['prod-gcp'],
-          groupApps: [
+          repoApps: [
             { app_name: 'pensjon-psak', environment_name: 'prod-fss' },
             { app_name: 'pensjon-penny', environment_name: 'prod-gcp' },
           ],
@@ -205,9 +205,9 @@ export const GroupedList: Story = {
           ...baseApp,
           id: 12,
           app_name: 'pensjon-regler',
-          groupName: 'pensjon-regler',
+          repoDisplayName: 'pensjon-regler',
           siblingEnvironments: ['prod-gcp'],
-          groupApps: [
+          repoApps: [
             { app_name: 'pensjon-regler', environment_name: 'prod-fss' },
             { app_name: 'pensjon-regler', environment_name: 'prod-gcp' },
           ],

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 
 interface SearchResult {
-  type: 'deployment' | 'user' | 'team' | 'app' | 'dev_team' | 'group'
+  type: 'deployment' | 'user' | 'team' | 'app' | 'dev_team' | 'monorepo'
   id?: number
   url: string
   title: string
@@ -39,7 +39,7 @@ function resultTagVariant(type: SearchResult['type']): 'info' | 'neutral' | 'suc
     case 'app':
       return 'warning'
     case 'dev_team':
-    case 'group':
+    case 'monorepo':
       return 'moderate'
     default:
       return 'neutral'
@@ -58,8 +58,8 @@ function resultTagLabel(type: SearchResult['type']): string {
       return 'Utviklerteam'
     case 'app':
       return 'Applikasjon'
-    case 'group':
-      return 'Gruppe'
+    case 'monorepo':
+      return 'Monorepo'
   }
 }
 

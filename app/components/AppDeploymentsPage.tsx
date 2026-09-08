@@ -32,12 +32,12 @@ interface MonitoredApplication {
   updated_at: string | Date
 }
 
-interface ApplicationGroup {
+interface MonorepoInfo {
   github_owner: string
   github_repo_name: string
 }
 
-interface GroupSibling {
+interface MonorepoSibling {
   id: number
   team_slug: string
   environment_name: string
@@ -53,10 +53,10 @@ export interface AppDeploymentsPageProps {
   userMappings: UserMappings
   deployerOptions: FilterOption[]
   currentUserGithub: string | null
-  hasGroup: boolean
-  showGroup: boolean
-  appGroup: ApplicationGroup | null
-  groupSiblings: GroupSibling[]
+  hasMonorepoSiblings: boolean
+  showAllEnvironments: boolean
+  monorepo: MonorepoInfo | null
+  monorepoSiblings: MonorepoSibling[]
   errorReasons: Record<number, string>
   teamOptions: FilterOption[]
   teamFilterEmptyReason: 'no-user-teams' | 'no-team-members' | null
@@ -75,10 +75,10 @@ export function AppDeploymentsPage({
   userMappings,
   deployerOptions,
   currentUserGithub,
-  hasGroup,
-  showGroup,
-  appGroup,
-  groupSiblings,
+  hasMonorepoSiblings,
+  showAllEnvironments,
+  monorepo,
+  monorepoSiblings,
   errorReasons,
   teamOptions,
   teamFilterEmptyReason,
@@ -119,18 +119,18 @@ export function AppDeploymentsPage({
 
   return (
     <VStack gap="space-32">
-      {appGroup && !showGroup && (
+      {monorepo && !showAllEnvironments && (
         <Box padding="space-16" borderRadius="8" background="neutral-soft">
           <HStack gap="space-8" align="center" justify="space-between" wrap>
             <BodyShort size="small">
               Denne appen er del av monorepoet{' '}
               <strong>
-                {appGroup.github_owner}/{appGroup.github_repo_name}
+                {monorepo.github_owner}/{monorepo.github_repo_name}
               </strong>
-              {groupSiblings.length > 0 && (
+              {monorepoSiblings.length > 0 && (
                 <>
                   {' — '}
-                  {groupSiblings.map((s, i) => (
+                  {monorepoSiblings.map((s, i) => (
                     <span key={s.id}>
                       {i > 0 && ', '}
                       <Link to={`/team/${s.team_slug}/env/${s.environment_name}/app/${s.app_name}/deployments`}>
@@ -141,8 +141,8 @@ export function AppDeploymentsPage({
                 </>
               )}
             </BodyShort>
-            {hasGroup && (
-              <Button variant="tertiary" size="xsmall" onClick={() => updateFilter('group', 'true')}>
+            {hasMonorepoSiblings && (
+              <Button variant="tertiary" size="xsmall" onClick={() => updateFilter('monorepo', 'true')}>
                 Vis alle miljøer
               </Button>
             )}
@@ -173,15 +173,15 @@ export function AppDeploymentsPage({
       <HStack justify="space-between" align="center" wrap>
         <BodyShort textColor="subtle">
           {total} deployment{total !== 1 ? 's' : ''} funnet
-          {showGroup && ' (alle miljøer)'}
+          {showAllEnvironments && ' (alle miljøer)'}
         </BodyShort>
-        {hasGroup && (
+        {hasMonorepoSiblings && (
           <Button
-            variant={showGroup ? 'secondary' : 'tertiary'}
+            variant={showAllEnvironments ? 'secondary' : 'tertiary'}
             size="small"
-            onClick={() => updateFilter('group', showGroup ? '' : 'true')}
+            onClick={() => updateFilter('monorepo', showAllEnvironments ? '' : 'true')}
           >
-            {showGroup ? 'Vis kun dette miljøet' : 'Vis alle miljøer'}
+            {showAllEnvironments ? 'Vis kun dette miljøet' : 'Vis alle miljøer'}
           </Button>
         )}
       </HStack>
@@ -204,7 +204,7 @@ export function AppDeploymentsPage({
               deployment={deployment}
               userMappings={userMappings}
               errorReason={errorReasons[deployment.id]}
-              showEnv={showGroup}
+              showEnv={showAllEnvironments}
               currentEnv={app.environment_name}
               searchParams={searchParams}
             />

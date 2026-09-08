@@ -33,8 +33,8 @@ export interface AppCardData {
   stats: AppStats
   alertCount: number
   siblingEnvironments?: string[]
-  groupName?: string
-  groupApps?: { app_name: string; environment_name: string }[]
+  repoDisplayName?: string
+  repoApps?: { app_name: string; environment_name: string }[]
   monorepoSiblingCount?: number
   not_found_in_nais_at?: Date | string | null
 }
@@ -110,11 +110,11 @@ export function AppCard({ app, showEnvironment = true, appendSearchParams }: App
     : [app.environment_name]
   const extraParams = appendSearchParams ? `&${appendSearchParams}` : ''
   const isGrouped = (app.siblingEnvironments?.length ?? 0) > 0
-  const groupParam = isGrouped ? '&group=true' : ''
+  const monorepoParam = isGrouped ? '&monorepo=true' : ''
 
-  const uniqueAppNames = app.groupApps ? [...new Set(app.groupApps.map((a) => a.app_name))] : []
+  const uniqueAppNames = app.repoApps ? [...new Set(app.repoApps.map((a) => a.app_name))] : []
   const hasDistinctNames = uniqueAppNames.length > 1
-  const displayName = app.groupName ?? app.app_name
+  const displayName = app.repoDisplayName ?? app.app_name
 
   return (
     <Box padding="space-16" background="raised" className={styles.stackedListItem}>
@@ -160,7 +160,7 @@ export function AppCard({ app, showEnvironment = true, appendSearchParams }: App
             )}
             {(app.stats.unmapped_deployers ?? 0) > 0 && (
               <IssueBadge
-                to={`${appUrl}/deployments?period=all${groupParam}`}
+                to={`${appUrl}/deployments?period=all${monorepoParam}`}
                 icon={<PersonGroupIcon aria-hidden />}
                 color="warning"
               >
@@ -169,7 +169,7 @@ export function AppCard({ app, showEnvironment = true, appendSearchParams }: App
             )}
             {(app.stats.missing_goal_links ?? 0) > 0 && (
               <IssueBadge
-                to={`${appUrl}/deployments?goal=missing&period=all${groupParam}${extraParams}`}
+                to={`${appUrl}/deployments?goal=missing&period=all${monorepoParam}${extraParams}`}
                 icon={<LinkBrokenIcon aria-hidden />}
                 color="warning"
               >
@@ -178,7 +178,7 @@ export function AppCard({ app, showEnvironment = true, appendSearchParams }: App
             )}
             {(app.stats.baseline_action_count ?? 0) > 0 && (
               <IssueBadge
-                to={`${appUrl}/deployments?status=baseline_action&period=all${groupParam}`}
+                to={`${appUrl}/deployments?status=baseline_action&period=all${monorepoParam}`}
                 icon={<ClockDashedIcon aria-hidden />}
                 color="warning"
               >
@@ -188,13 +188,13 @@ export function AppCard({ app, showEnvironment = true, appendSearchParams }: App
             {getStatusBadge(app.stats, {
               failedTo:
                 app.stats.without_four_eyes > 0
-                  ? `${appUrl}/deployments?status=not_approved&period=all${groupParam}${extraParams}`
+                  ? `${appUrl}/deployments?status=not_approved&period=all${monorepoParam}${extraParams}`
                   : undefined,
               pendingTo:
                 app.stats.pending_verification > 0
-                  ? `${appUrl}/deployments?status=pending&period=all${groupParam}${extraParams}`
+                  ? `${appUrl}/deployments?status=pending&period=all${monorepoParam}${extraParams}`
                   : undefined,
-              okTo: `${appUrl}/deployments?period=all${groupParam}${extraParams}`,
+              okTo: `${appUrl}/deployments?period=all${monorepoParam}${extraParams}`,
             })}
           </HStack>
         </HStack>
