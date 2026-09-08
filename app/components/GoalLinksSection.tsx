@@ -9,7 +9,7 @@ import type { UserLookupMap } from '~/lib/user-display'
 import { ExternalLink } from './ExternalLink'
 import { type GoalSelectionBoard, GoalSelectionFields } from './GoalSelectionFields'
 
-export interface GoalLinkAppInfo {
+interface GoalLinkAppInfo {
   appName: string
   environmentName: string
 }

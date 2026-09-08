@@ -4,7 +4,7 @@ import { getMonitoredApplicationByIdentity } from '~/db/monitored-applications.s
 import { getUserRoles } from '~/db/role-assignments.server'
 import type { UserIdentity } from './auth.server'
 import { requireUser } from './auth.server'
-import type { SectionRole, TeamRole } from './authorization-types'
+import type { TeamRole } from './authorization-types'
 import { isTeamLeaderRole } from './authorization-types'
 
 function isEntraAdmin(actor: UserIdentity): boolean {
@@ -311,16 +311,6 @@ export async function isTeamMember(navIdent: string, devTeamId: number): Promise
     [navIdent, devTeamId],
   )
   return rows[0].exists
-}
-
-export async function getUserSectionRoles(navIdent: string, sectionId: number): Promise<SectionRole[]> {
-  const { rows } = await pool.query<{ role: SectionRole }>(
-    `SELECT r.role FROM section_role_assignments r
-     JOIN sections s ON s.id = r.section_id AND s.is_active = true
-     WHERE r.nav_ident = $1 AND r.section_id = $2 AND r.deleted_at IS NULL`,
-    [navIdent, sectionId],
-  )
-  return rows.map((r) => r.role)
 }
 
 export async function canSearchUsers(actor: UserIdentity): Promise<boolean> {

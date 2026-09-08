@@ -1,6 +1,6 @@
 import { createCookie } from 'react-router'
 
-export const ADMIN_ELEVATED_COOKIE = 'admin-elevated'
+const ADMIN_ELEVATED_COOKIE = 'admin-elevated'
 
 const adminElevatedCookie = createCookie(ADMIN_ELEVATED_COOKIE, {
   maxAge: 60 * 60 * 8, // 8 hours

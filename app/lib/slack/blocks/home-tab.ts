@@ -1,12 +1,12 @@
 import type { KnownBlock } from '@slack/types'
 
-export interface PersonalHomeTabKeyResult {
+interface PersonalHomeTabKeyResult {
   id: number
   title: string
   keywords: string[]
 }
 
-export interface PersonalHomeTabObjective {
+interface PersonalHomeTabObjective {
   id: number
   title: string
   keywords: string[]

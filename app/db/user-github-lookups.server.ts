@@ -529,7 +529,7 @@ export async function getUsersWithoutGithub(): Promise<{ nav_ident: string; disp
   return result.rows
 }
 
-export async function getUserByNavIdent(navIdent: string): Promise<User | null> {
+async function getUserByNavIdent(navIdent: string): Promise<User | null> {
   const result = await pool.query<User>('SELECT * FROM users WHERE nav_ident = UPPER($1) AND deleted_at IS NULL', [
     navIdent,
   ])

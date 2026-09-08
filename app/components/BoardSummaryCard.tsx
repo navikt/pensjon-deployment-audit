@@ -3,7 +3,7 @@ import { Link } from 'react-router'
 import type { BoardPeriodType } from '~/lib/board-periods'
 import { formatBoardLabel } from '~/lib/board-periods'
 
-export interface BoardSummaryObjective {
+interface BoardSummaryObjective {
   objective_id: number
   objective_title: string
   total_linked_deployments: number

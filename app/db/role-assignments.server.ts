@@ -33,18 +33,6 @@ export async function removeSectionRole(assignmentId: number, deletedBy: string)
   return (rowCount ?? 0) > 0
 }
 
-export async function getSectionRoleAssignments(sectionId: number): Promise<SectionRoleAssignment[]> {
-  const { rows } = await pool.query<SectionRoleAssignment>(
-    `SELECT r.id, r.nav_ident, r.section_id, r.role, r.assigned_by, r.assigned_at
-     FROM section_role_assignments r
-     JOIN sections s ON s.id = r.section_id AND s.is_active = true
-     WHERE r.section_id = $1 AND r.deleted_at IS NULL
-     ORDER BY r.role, r.nav_ident`,
-    [sectionId],
-  )
-  return rows
-}
-
 export async function getSectionRoleAssignmentById(assignmentId: number): Promise<SectionRoleAssignment | null> {
   const { rows } = await pool.query<SectionRoleAssignment>(
     `SELECT id, nav_ident, section_id, role, assigned_by, assigned_at

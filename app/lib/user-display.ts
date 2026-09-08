@@ -1,6 +1,6 @@
 import { getBotDisplayName } from './github-bots'
 
-export type UserRecord = {
+type UserRecord = {
   display_name: string | null
   nav_ident?: string | null
 }

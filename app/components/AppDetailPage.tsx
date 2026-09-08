@@ -41,7 +41,7 @@ import { TIME_PERIOD_OPTIONS } from '~/lib/time-periods'
 
 export type { SyncJobStatus }
 
-export interface AppDetailApp {
+interface AppDetailApp {
   id: number
   team_slug: string
   environment_name: string
@@ -51,7 +51,7 @@ export interface AppDetailApp {
   not_found_in_nais_at: string | Date | null
 }
 
-export interface AppDetailRepository {
+interface AppDetailRepository {
   id: number
   github_owner: string
   github_repo_name: string
@@ -72,7 +72,7 @@ export interface AppDetailAlert {
   created_at: string | Date
 }
 
-export interface AppDetailAuditReport {
+interface AppDetailAuditReport {
   id: number
   report_id: string
   year: number
@@ -82,7 +82,7 @@ export interface AppDetailAuditReport {
   generated_at: string | Date
 }
 
-export interface AppDetailDeploymentStats {
+interface AppDetailDeploymentStats {
   total: number
   with_four_eyes: number
   without_four_eyes: number
@@ -93,14 +93,14 @@ export interface AppDetailDeploymentStats {
   baseline_action_count?: number | null
 }
 
-export interface AppDetailSibling {
+interface AppDetailSibling {
   id: number
   team_slug: string
   environment_name: string
   app_name: string
 }
 
-export interface AppDetailMonorepoInfo {
+interface AppDetailMonorepoInfo {
   github_owner: string
   github_repo_name: string
   siblings: AppDetailSibling[]
@@ -108,7 +108,7 @@ export interface AppDetailMonorepoInfo {
   audit_year_mismatch: boolean
 }
 
-export interface AppDetailDevTeam {
+interface AppDetailDevTeam {
   id: number
   name: string
   slug: string
@@ -122,7 +122,7 @@ export interface AppDetailLatestSyncJob {
   created_at: string | Date
 }
 
-export interface AppDetailVerificationProgress {
+interface AppDetailVerificationProgress {
   total: number
   pending: number
 }

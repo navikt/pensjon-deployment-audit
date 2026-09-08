@@ -265,13 +265,7 @@ export function buildDeviationBlocks(notification: DeviationNotification): Known
   return blocks
 }
 
-export type {
-  HomeTabInput,
-  PersonalHomeTabBoard,
-  PersonalHomeTabKeyResult,
-  PersonalHomeTabObjective,
-  PersonalHomeTabTeamIssues,
-} from './blocks/home-tab'
+export type { HomeTabInput, PersonalHomeTabBoard, PersonalHomeTabTeamIssues } from './blocks/home-tab'
 export { buildHomeTabBlocks } from './blocks/home-tab'
 
 export interface ReminderDeployment {
