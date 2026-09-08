@@ -131,7 +131,7 @@ export async function seedApplicationRepository(
   return rows[0].id
 }
 
-let seedRepoIdCounter = 0
+let seedRepoIdCounter = 900000
 
 export async function seedAppWithRepo(
   pool: Pool,
@@ -153,7 +153,7 @@ export async function seedAppWithRepo(
     environment: opts.environment,
     isActive: opts.isActive,
   })
-  const githubRepoId = opts.githubRepoId ?? `test-repo-${++seedRepoIdCounter}`
+  const githubRepoId = opts.githubRepoId ?? String(++seedRepoIdCounter)
   const githubOwner = opts.githubOwner ?? 'navikt'
   const githubRepoName = opts.githubRepoName ?? opts.appName
   await seedApplicationRepository(pool, {

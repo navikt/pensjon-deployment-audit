@@ -109,6 +109,12 @@ describe('applyAuditStartYearChange', () => {
       appName: 'app-a',
       environment: 'prod',
     })
+    await seedApplicationRepository(pool, {
+      monitoredAppId: appId,
+      githubOwner: 'navikt',
+      githubRepo: 'app-a',
+      githubRepoId: '900101',
+    })
     const before = await seedDeployment(pool, {
       monitoredAppId: appId,
       teamSlug: 'team-a',
@@ -593,8 +599,18 @@ describe('applyAuditStartYearChange', () => {
       appName: 'app-g3-1',
       environment: 'prod-fss',
     })
-    await seedApplicationRepository(pool, { monitoredAppId: appA, githubOwner: 'navikt', githubRepo: 'repo-one' })
-    await seedApplicationRepository(pool, { monitoredAppId: appA, githubOwner: 'navikt', githubRepo: 'repo-two' })
+    await seedApplicationRepository(pool, {
+      monitoredAppId: appA,
+      githubOwner: 'navikt',
+      githubRepo: 'repo-one',
+      githubRepoId: '900201',
+    })
+    await seedApplicationRepository(pool, {
+      monitoredAppId: appA,
+      githubOwner: 'navikt',
+      githubRepo: 'repo-two',
+      githubRepoId: '900202',
+    })
 
     const appABaseline = await seedDeployment(pool, {
       monitoredAppId: appA,
