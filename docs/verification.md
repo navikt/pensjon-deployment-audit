@@ -543,24 +543,19 @@ Før verifisering sjekkes om deploymentets repository er registrert og godkjent 
 | **SHA** | Unik identifikator (hash) for en commit |
 | **Snapshot** | Lagret kopi av GitHub-data i databasen for caching og sporbarhet |
 | **Implisitt godkjenning** | Automatisk godkjenning basert på regler (f.eks. at merger er en annen person enn forfatter) |
-| **Applikasjonsgruppe** | Kobling mellom monitored_applications som representerer samme logiske app på tvers av NAIS-clustre |
 | **Verifikasjonspropagering** | Automatisk spredning av positiv verifiseringsstatus til søsken-deployments med samme commit SHA |
 
 ---
 
-## Applikasjonsgrupper og verifikasjonspropagering
+## Monorepo-støtte og verifikasjonspropagering
 
 ### Bakgrunn
 
-Noen applikasjoner deployes til flere NAIS-clustre (f.eks. `prod-gcp` og `prod-fss`) eller NAIS-team. Hver av disse er en separat `monitored_applications`-rad med uavhengig verifikasjonshistorikk. Uten gruppering kreves det separate gjennomganger for identiske kodeendringer.
+Noen applikasjoner deployes til flere NAIS-clustre (f.eks. `prod-gcp` og `prod-fss`) eller ligger i samme GitHub-repo som andre applikasjoner (monorepo) og produksjonssettes uavhengig av hverandre. Uten en mekanisme for å koble disse sammen kreves separate gjennomganger for identiske kodeendringer.
 
 ### Mekanisme
 
-En **applikasjonsgruppe** (`application_groups`-tabellen) kobler `monitored_applications`-rader som representerer samme logiske applikasjon. Apper i samme gruppe deler verifiseringsstatus for identiske kodeendringer.
-
-**Krav: felles git-repo.** En app kan kun legges til en applikasjonsgruppe hvis den har **nøyaktig én** registrert **aktiv** GitHub-repo (`application_repositories.status = 'active'`), og dette repoet må matche det aktive repoet til hvert av de andre gruppemedlemmene hvis gruppen ikke er tom. Apper uten et registrert aktivt repo, eller med mer enn ett aktivt repo (f.eks. ved et kappløp under repo-aktivering), avvises alltid — også når de skulle vært det første medlemmet i en tom gruppe — siden det ikke finnes noe entydig repo å bekrefte likhet mot. Tilsvarende blokkeres innlegging hvis et *eksisterende* gruppemedlem har havnet med mer enn ett aktivt repo. Det tar normalt under 10 minutter fra en ny app får sin første leveranse via Nais til repoet er kjent, så dette er ikke til hinder i praksis. Dette håndheves atomisk i databaselaget (`addAppToGroup` / `addTeamAppToGroupConditional` i [`application-groups.server.ts`](../app/db/application-groups.server.ts), som også låser gruppe-raden med `SELECT ... FOR UPDATE` for å hindre kappløp og avviser soft-slettede/ikke-eksisterende grupper), ikke bare i UI — uten denne sperren ville propagering av verifiseringsstatus (se under) vært meningsløs på tvers av urelaterte kodebaser, og et team kunne fått innsyn i en annen apps deployment-data via gruppe-tilhørighet.
-
-"Opprett gruppe fra forslag" (som foreslår gruppering basert på likt `app_name` på tvers av miljøer/team) filtrerer også kandidatene ned til den største delmengden som faktisk deler nøyaktig ett aktivt repo, via `selectAppsSharingRepository`/`computeGroupingSuggestions`. Apper med likt navn men ulikt, manglende eller flertydig (mer enn ett aktivt) repo blir dermed ikke feilaktig gruppert sammen, og vises som «hoppet over» i resultatmeldingen.
+Kobling mellom `monitored_applications`-rader som representerer samme logiske kodebase er **repo-basert**: apper som deler samme aktive GitHub-repo (identifisert med det stabile `github_repo_id` i `application_repositories`, ikke `(owner, repo)`-strengen) deler verifiseringsstatus for identiske kodeendringer. Dette dekker automatisk både «vanlig» apper (ett repo, én app) og monorepo-apper (flere apper i samme repo), uten manuell gruppe-oppretting eller -vedlikehold.
 
 **Propagering skjer når:**
 1. En deployment verifiseres (automatisk eller manuelt)
@@ -573,8 +568,6 @@ En **applikasjonsgruppe** (`application_groups`-tabellen) kobler `monitored_appl
 - Søsken-deployment har annen `commit_sha`
 - Søsken-deployment allerede er verifisert
 - Appen ikke har noe registrert aktivt repo, eller `github_repo_id` ikke er kjent ennå
-
-> **Merk:** Propagering er nå **repo-basert** (nøklet på `github_repo_id`), ikke lenger avhengig av `application_groups`. Dette dekker automatisk både «vanlig» apper (ett repo, én app) og monorepo-apper (flere apper i samme repo) uten manuell gruppe-oppretting. `application_groups`-mekanismen beskrevet ovenfor (felles-repo-krav, «opprett gruppe fra forslag») **består fortsatt** for sitt opprinnelige formål (organisatorisk kobling/team-autorisasjon på tvers av NAIS-clustre), men styrer ikke lenger verifiseringspropagering.
 
 ### Propageringspunkter
 
@@ -590,8 +583,7 @@ Propagering utløses fra:
 Den periodiske bakgrunnsjobben (`verifyDeploymentsFourEyes`) re-verifiserer normalt alle deployments med status `pending`, `error`, `unknown` osv. For `pending_baseline` er dette imidlertid bare meningsfullt hvis re-verifiseringen faktisk *kan* endre noe — enten ved å finne en søster å sammenligne mot, eller ved å avdekke en feiltilstand som bør synliggjøres. Uten denne gaten ville jobben forsøke å re-verifisere deployments som aldri kan løses på hver cron-kjøring, i evighet.
 
 En app regnes som eligible hvis **minst én** av følgende er sann:
-1. Appen har `application_group_id` satt (uavhengig av om gruppen faktisk har andre medlemmer ennå)
-2. Appen har en aktiv `application_repositories`-rad der `github_repo_id` ennå ikke er satt (backfill pågår) — re-verifisering lar da `previousDeploymentLookupFailed`-logikken i `verify.ts` sette riktig `error`-status i stedet for at deploymentet blir hengende for alltid
-3. Appen deler et aktivt `github_repo_id` med minst én annen app som selv er `is_active = true` (et ekte monorepo-søsken)
+1. Appen har en aktiv `application_repositories`-rad der `github_repo_id` ennå ikke er satt (backfill pågår) — re-verifisering lar da `previousDeploymentLookupFailed`-logikken i `verify.ts` sette riktig `error`-status i stedet for at deploymentet blir hengende for alltid
+2. Appen deler et aktivt `github_repo_id` med minst én annen app som selv er `is_active = true` (et ekte monorepo-søsken)
 
 Gaten avgjøres av den delte helperen `pendingBaselineAutoVerifyEligibleSql`/`getPendingBaselineAutoVerifyEligibleAppIds` i [`application-repositories.server.ts`](../app/db/application-repositories.server.ts). Samme sjekk brukes av `getPendingVerificationCount` (admin-side-statistikk) i [`stats.server.ts`](../app/db/deployments/stats.server.ts), slik at en ikke-eligible `pending_baseline` heller ikke telles som «venter på handling» i UI.
