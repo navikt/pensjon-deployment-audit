@@ -2,7 +2,7 @@ import { PROPAGATABLE_STATUSES, REVERIFIABLE_STATUSES } from '~/lib/four-eyes-st
 import { pool } from './connection.server'
 import { effectiveAuditStartYearSql, effectiveDefaultBranchSql } from './repository-settings-sql'
 
-export interface MonorepoAppEntry {
+interface MonorepoAppEntry {
   id: number
   app_name: string
   team_slug: string

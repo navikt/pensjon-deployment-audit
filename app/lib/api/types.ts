@@ -1,4 +1,4 @@
-export interface FourEyesCoverageData {
+interface FourEyesCoverageData {
   total: number
   approved: number
   unapproved: number
@@ -6,14 +6,14 @@ export interface FourEyesCoverageData {
   coveragePercent: number
 }
 
-export interface ChangeOriginCoverageData {
+interface ChangeOriginCoverageData {
   total: number
   linked: number
   dependabot: number
   coveragePercent: number
 }
 
-export interface LastDeploymentData {
+interface LastDeploymentData {
   createdAt: string
   deployer: string | null
   commitSha: string | null

@@ -28,7 +28,7 @@ export function isImplicitApprovalMode(value: string): value is ImplicitApproval
   return IMPLICIT_APPROVAL_MODES.includes(value as ImplicitApprovalMode)
 }
 
-export const VERIFICATION_STATUSES = [
+const VERIFICATION_STATUSES = [
   'approved',
   'implicitly_approved',
   'unverified_commits',
@@ -55,10 +55,10 @@ const _VERIFICATION_STATUS_LABELS: Record<VerificationStatus, string> = {
   error: 'Feil',
 }
 
-export const REPOSITORY_STATUSES = ['active', 'historical', 'pending_approval', 'unknown'] as const
+const REPOSITORY_STATUSES = ['active', 'historical', 'pending_approval', 'unknown'] as const
 export type RepositoryStatus = (typeof REPOSITORY_STATUSES)[number]
 
-export const UNVERIFIED_REASONS = [
+const UNVERIFIED_REASONS = [
   'no_pr',
   'no_approved_reviews',
   'approval_before_last_commit',
@@ -90,7 +90,7 @@ export const UNVERIFIED_REASON_DESCRIPTIONS: Record<UnverifiedReason, string> = 
     'Forfatteren av siste commit er ikke koblet til en verifisert GitHub-konto, så det er ikke mulig å bekrefte at godkjenneren er en annen person.',
 }
 
-export const APPROVAL_METHODS = ['pr_review', 'implicit', 'base_merge', 'no_changes', 'pending_baseline'] as const
+const APPROVAL_METHODS = ['pr_review', 'implicit', 'base_merge', 'no_changes', 'pending_baseline'] as const
 export type ApprovalMethod = (typeof APPROVAL_METHODS)[number] | null
 
 export type PrDataType = 'metadata' | 'reviews' | 'commits' | 'comments' | 'checks'

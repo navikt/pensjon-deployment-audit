@@ -19,10 +19,6 @@ export function getGitHubRateLimitRemaining(): number | null {
   return lastKnownRateLimitRemaining
 }
 
-export function getGitHubRateLimitStatus(): GitHubRateLimitStatus | null {
-  return lastKnownRateLimitStatus
-}
-
 const meter = metrics.getMeter('deployment-audit')
 
 meter

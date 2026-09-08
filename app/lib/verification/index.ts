@@ -131,7 +131,7 @@ export async function runVerification(
   return result
 }
 
-export interface ExistingVerificationStatus {
+interface ExistingVerificationStatus {
   status: string | null
   prNumber: number | null
   prUrl: string | null
