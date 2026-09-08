@@ -709,7 +709,7 @@ describe('applyAuditStartYearChange', () => {
     expect(await getAuditStartYear(appB)).toBeNull()
   })
 
-  it('does not cascade to a monorepo sibling that is inactive', async () => {
+  it('recomputes baseline only for active monorepo siblings, but repo-scoped audit_start_year applies to inactive siblings too', async () => {
     const appA = await seedApp(pool, {
       teamSlug: 'team-mono3',
       appName: 'app-mono3-active',
@@ -738,7 +738,7 @@ describe('applyAuditStartYearChange', () => {
 
     expect(result.updatedAppIds).toEqual([appA])
     expect(await getAuditStartYear(appA)).toBe(2026)
-    expect(await getAuditStartYear(appB)).toBeNull()
+    expect(await getAuditStartYear(appB)).toBe(2026)
   })
 
   it('still recomputes baseline for a sibling app when the acting app itself has no deployments yet', async () => {

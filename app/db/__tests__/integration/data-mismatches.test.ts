@@ -2,7 +2,14 @@ import { Pool } from 'pg'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { LEGACY_STATUSES_SQL } from '../../../lib/four-eyes-status'
 import { effectiveAuditStartYearSql } from '../../repository-settings-sql'
-import { seedApp, seedApplicationRepository, seedDeployment, seedRepository, truncateAllTables } from './helpers'
+import {
+  seedApp,
+  seedApplicationRepository,
+  seedAppWithRepo,
+  seedDeployment,
+  seedRepository,
+  truncateAllTables,
+} from './helpers'
 
 let pool: Pool
 
@@ -71,7 +78,7 @@ function MISSING_ROWS_SQL(limit: number, offset: number) {
 
 describe('data-mismatches: missing title rows (paginated) query', () => {
   it('returns only deployments with title IS NULL', async () => {
-    const appId = await seedApp(pool, { teamSlug: 'team-e', appName: 'app-e', environment: 'prod' })
+    const appId = await seedAppWithRepo(pool, { teamSlug: 'team-e', appName: 'app-e', environment: 'prod' })
     await seedDeployment(pool, { monitoredAppId: appId, teamSlug: 'team-e', environment: 'prod', title: 'Has title' })
     await seedDeployment(pool, { monitoredAppId: appId, teamSlug: 'team-e', environment: 'prod', title: undefined })
 
@@ -81,7 +88,7 @@ describe('data-mismatches: missing title rows (paginated) query', () => {
   })
 
   it('sets has_pr_data=true when PR title is non-empty', async () => {
-    const appId = await seedApp(pool, { teamSlug: 'team-f', appName: 'app-f', environment: 'prod' })
+    const appId = await seedAppWithRepo(pool, { teamSlug: 'team-f', appName: 'app-f', environment: 'prod' })
     await seedDeployment(pool, {
       monitoredAppId: appId,
       teamSlug: 'team-f',
@@ -96,7 +103,7 @@ describe('data-mismatches: missing title rows (paginated) query', () => {
   })
 
   it('sets has_pr_data=false for whitespace-only PR title', async () => {
-    const appId = await seedApp(pool, { teamSlug: 'team-g', appName: 'app-g', environment: 'prod' })
+    const appId = await seedAppWithRepo(pool, { teamSlug: 'team-g', appName: 'app-g', environment: 'prod' })
     await seedDeployment(pool, {
       monitoredAppId: appId,
       teamSlug: 'team-g',
@@ -110,7 +117,7 @@ describe('data-mismatches: missing title rows (paginated) query', () => {
   })
 
   it('sets has_commits=true when unverified_commits has a non-empty first-line message', async () => {
-    const appId = await seedApp(pool, { teamSlug: 'team-h', appName: 'app-h', environment: 'prod' })
+    const appId = await seedAppWithRepo(pool, { teamSlug: 'team-h', appName: 'app-h', environment: 'prod' })
     const id = await seedDeployment(pool, {
       monitoredAppId: appId,
       teamSlug: 'team-h',
@@ -128,7 +135,7 @@ describe('data-mismatches: missing title rows (paginated) query', () => {
   })
 
   it('sets has_commits=false when commit message is whitespace-only', async () => {
-    const appId = await seedApp(pool, { teamSlug: 'team-i', appName: 'app-i', environment: 'prod' })
+    const appId = await seedAppWithRepo(pool, { teamSlug: 'team-i', appName: 'app-i', environment: 'prod' })
     const id = await seedDeployment(pool, {
       monitoredAppId: appId,
       teamSlug: 'team-i',
@@ -145,7 +152,7 @@ describe('data-mismatches: missing title rows (paginated) query', () => {
   })
 
   it('paginates correctly with LIMIT and OFFSET', async () => {
-    const appId = await seedApp(pool, { teamSlug: 'team-j', appName: 'app-j', environment: 'prod' })
+    const appId = await seedAppWithRepo(pool, { teamSlug: 'team-j', appName: 'app-j', environment: 'prod' })
     for (let i = 0; i < 3; i++) {
       await seedDeployment(pool, { monitoredAppId: appId, teamSlug: 'team-j', environment: 'prod', title: undefined })
     }
@@ -162,7 +169,7 @@ describe('data-mismatches: missing title rows (paginated) query', () => {
   })
 
   it('excludes legacy deployments', async () => {
-    const appId = await seedApp(pool, { teamSlug: 'team-k', appName: 'app-k', environment: 'prod' })
+    const appId = await seedAppWithRepo(pool, { teamSlug: 'team-k', appName: 'app-k', environment: 'prod' })
     await seedDeployment(pool, {
       monitoredAppId: appId,
       teamSlug: 'team-k',
@@ -276,7 +283,7 @@ describe('data-mismatches: title missing summary query', () => {
   })
 
   it('should count deployments with missing titles correctly', async () => {
-    const appId = await seedApp(pool, { teamSlug: 'team', appName: 'app', environment: 'prod' })
+    const appId = await seedAppWithRepo(pool, { teamSlug: 'team', appName: 'app', environment: 'prod' })
 
     await seedDeployment(pool, {
       monitoredAppId: appId,
@@ -307,7 +314,7 @@ describe('data-mismatches: title missing summary query', () => {
   })
 
   it('whitespace-only PR title counts as no_fallback, not with_pr_data', async () => {
-    const appId = await seedApp(pool, { teamSlug: 'team', appName: 'app', environment: 'prod' })
+    const appId = await seedAppWithRepo(pool, { teamSlug: 'team', appName: 'app', environment: 'prod' })
 
     await seedDeployment(pool, {
       monitoredAppId: appId,
@@ -324,7 +331,7 @@ describe('data-mismatches: title missing summary query', () => {
   })
 
   it('excludes legacy deployments from summary counts', async () => {
-    const appId = await seedApp(pool, { teamSlug: 'team-s1', appName: 'app-s1', environment: 'prod' })
+    const appId = await seedAppWithRepo(pool, { teamSlug: 'team-s1', appName: 'app-s1', environment: 'prod' })
     await seedDeployment(pool, {
       monitoredAppId: appId,
       teamSlug: 'team-s1',

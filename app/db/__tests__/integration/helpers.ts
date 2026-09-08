@@ -130,3 +130,44 @@ export async function seedApplicationRepository(
   )
   return rows[0].id
 }
+
+let seedRepoIdCounter = 0
+
+export async function seedAppWithRepo(
+  pool: Pool,
+  opts: {
+    teamSlug: string
+    appName: string
+    environment: string
+    isActive?: boolean
+    auditStartYear?: number | null
+    implicitApprovalMode?: string
+    githubRepoId?: string
+    githubOwner?: string
+    githubRepoName?: string
+  },
+): Promise<number> {
+  const appId = await seedApp(pool, {
+    teamSlug: opts.teamSlug,
+    appName: opts.appName,
+    environment: opts.environment,
+    isActive: opts.isActive,
+  })
+  const githubRepoId = opts.githubRepoId ?? `test-repo-${++seedRepoIdCounter}`
+  const githubOwner = opts.githubOwner ?? 'navikt'
+  const githubRepoName = opts.githubRepoName ?? opts.appName
+  await seedApplicationRepository(pool, {
+    monitoredAppId: appId,
+    githubOwner,
+    githubRepo: githubRepoName,
+    githubRepoId,
+  })
+  await seedRepository(pool, {
+    githubRepoId,
+    githubOwner,
+    githubRepoName,
+    auditStartYear: opts.auditStartYear === undefined ? new Date().getFullYear() : opts.auditStartYear,
+    implicitApprovalMode: opts.implicitApprovalMode,
+  })
+  return appId
+}

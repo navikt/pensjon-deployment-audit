@@ -19,12 +19,8 @@ const EFFECTIVE_COLUMN_SQL = (maAlias: string, column: string, fallbackToAppWhen
 
 export function effectiveAuditStartYearSql(maAlias = 'ma'): string {
   return `(
-    SELECT r.audit_start_year
-    FROM application_repositories ar
-    JOIN repositories r ON r.github_repo_id = ar.github_repo_id
-    WHERE ar.monitored_app_id = ${maAlias}.id AND ar.status = 'active' AND ar.github_repo_id IS NOT NULL
-    ORDER BY ar.created_at DESC, ar.id DESC
-    LIMIT 1
+    SELECT linked.value
+    FROM ${LINKED_REPO_ROW_SQL(maAlias, 'audit_start_year')} AS linked
   )`
 }
 
