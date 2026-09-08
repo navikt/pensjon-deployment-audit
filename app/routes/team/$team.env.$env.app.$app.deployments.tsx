@@ -46,23 +46,23 @@ export async function loader({ params, request, url }: Route.LoaderArgs) {
   const triggerEvent = url.searchParams.get('trigger') || undefined
   const workflowPath = url.searchParams.get('workflowFile') || undefined
   const period = (url.searchParams.get('period') || 'last-week') as TimePeriod
-  const showGroup = url.searchParams.get('group') === 'true'
+  const showAllEnvironments = url.searchParams.get('monorepo') === 'true'
   const teamFilter = url.searchParams.get('team') || ''
 
   const range = getDateRangeForPeriod(period)
 
   const monorepo = await getMonorepoSiblings(app.id)
   const allSiblings = monorepo?.siblings ?? []
-  const appGroup = monorepo
+  const monorepoInfo = monorepo
     ? { github_owner: monorepo.github_owner, github_repo_name: monorepo.github_repo_name }
     : null
-  const hasGroup = allSiblings.length > 0
-  const siblings = showGroup ? allSiblings : []
+  const hasMonorepoSiblings = allSiblings.length > 0
+  const siblings = showAllEnvironments ? allSiblings : []
 
   const currentUser = await getUserIdentity(request)
 
   const owningDevTeams =
-    showGroup && hasGroup
+    showAllEnvironments && hasMonorepoSiblings
       ? await getDevTeamsForApps([
           { monitoredAppId: app.id, teamSlug: app.team_slug },
           ...allSiblings.map((s) => ({ monitoredAppId: s.id, teamSlug: s.team_slug })),
@@ -109,10 +109,11 @@ export async function loader({ params, request, url }: Route.LoaderArgs) {
 
   const isUnmappedFilter = deployer === '__unmapped__'
 
-  const effectiveAuditStartYear = showGroup && hasGroup ? null : await getEffectiveAuditStartYear(app.id)
+  const effectiveAuditStartYear =
+    showAllEnvironments && hasMonorepoSiblings ? null : await getEffectiveAuditStartYear(app.id)
 
   const filters: DeploymentFiltersType = {
-    ...(showGroup && hasGroup
+    ...(showAllEnvironments && hasMonorepoSiblings
       ? { monitored_app_ids: [app.id, ...siblings.map((s) => s.id)], per_app_audit_start_year: true }
       : { monitored_app_id: app.id, audit_start_year: effectiveAuditStartYear }),
     page,
@@ -139,7 +140,7 @@ export async function loader({ params, request, url }: Route.LoaderArgs) {
   }
 
   const errorDeploymentIds = result.deployments.filter((d) => d.four_eyes_status === 'error').map((d) => d.id)
-  const appIds = showGroup && hasGroup ? [app.id, ...siblings.map((s) => s.id)] : [app.id]
+  const appIds = showAllEnvironments && hasMonorepoSiblings ? [app.id, ...siblings.map((s) => s.id)] : [app.id]
 
   const [
     errorReasonsResult,
@@ -288,10 +289,10 @@ export async function loader({ params, request, url }: Route.LoaderArgs) {
     userMappings: serializeUserLookups(userMappings),
     deployerOptions,
     currentUserGithub,
-    hasGroup,
-    showGroup: showGroup && hasGroup,
-    appGroup,
-    groupSiblings: allSiblings,
+    hasMonorepoSiblings,
+    showAllEnvironments: showAllEnvironments && hasMonorepoSiblings,
+    monorepo: monorepoInfo,
+    monorepoSiblings: allSiblings,
     errorReasons,
     teamOptions,
     teamFilterEmptyReason,

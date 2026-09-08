@@ -57,10 +57,10 @@ export const ManyResults: Story = {
       },
       {
         id: 4,
-        type: 'group',
-        title: 'Pensjon rapportgruppe',
-        subtitle: 'Slack-gruppe for pensjon-rapportering',
-        url: '/groups/pensjon-rapportgruppe',
+        type: 'monorepo',
+        title: 'navikt/pensjon-monorepo',
+        subtitle: 'Monorepo: pensjon-selvbetjening, pensjon-rapportering',
+        url: '/team/pensjondeployer/env/prod-fss/app/pensjon-selvbetjening/deployments?monorepo=true',
       },
       {
         id: 5,

@@ -20,7 +20,7 @@ import {
 import { getSectionBySlug } from '~/db/sections.server'
 import { requireUser } from '~/lib/auth.server'
 import { canAccessTeamAdmin } from '~/lib/authorization.server'
-import { groupAppCardsByRepo } from '~/lib/group-app-cards'
+import { mergeAppCardsByRepo } from '~/lib/merge-app-cards-by-repo'
 import type { Route } from './+types/sections.$sectionSlug.teams.$devTeamSlug'
 
 export function meta({ loaderData: data }: Route.MetaArgs) {
@@ -137,7 +137,7 @@ export async function loader({ request, params, url }: Route.LoaderArgs) {
         return stats && stats.total > 0
       })
     : teamApps
-  const appCards: AppCardData[] = groupAppCardsByRepo(
+  const appCards: AppCardData[] = mergeAppCardsByRepo(
     displayApps.map((app) => ({
       ...app,
       active_repo: activeRepos.get(app.id) || null,
@@ -154,7 +154,7 @@ export async function loader({ request, params, url }: Route.LoaderArgs) {
       },
       alertCount: alertCounts.get(app.id) || 0,
     })),
-  ).sort((a, b) => (a.groupName ?? a.app_name).localeCompare(b.groupName ?? b.app_name, 'nb'))
+  ).sort((a, b) => (a.repoDisplayName ?? a.app_name).localeCompare(b.repoDisplayName ?? b.app_name, 'nb'))
 
   const unfilteredCardIds = new Set(
     appCards.filter((card) => effectiveExclusiveIds.has(card.id)).map((card) => card.id),

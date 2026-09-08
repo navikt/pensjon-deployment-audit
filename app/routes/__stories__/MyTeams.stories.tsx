@@ -175,9 +175,9 @@ const mockIssueAppsWithGroup: AppCardData[] = [
     active_repo: 'navikt/pensjon-psak',
     stats: { total: 60, without_four_eyes: 3, pending_verification: 0, missing_goal_links: 5 },
     alertCount: 1,
-    groupName: 'psak-og-penny',
+    repoDisplayName: 'psak-og-penny',
     siblingEnvironments: ['prod-gcp'],
-    groupApps: [
+    repoApps: [
       { app_name: 'pensjon-psak', environment_name: 'prod-fss' },
       { app_name: 'pensjon-penny', environment_name: 'prod-gcp' },
     ],

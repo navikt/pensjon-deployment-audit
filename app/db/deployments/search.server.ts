@@ -2,7 +2,7 @@ import { searchMonorepoGroups } from '~/db/monorepo.server'
 import { pool } from '../connection.server'
 
 export interface SearchResult {
-  type: 'deployment' | 'user' | 'team' | 'app' | 'group' | 'dev_team'
+  type: 'deployment' | 'user' | 'team' | 'app' | 'monorepo' | 'dev_team'
   id?: number
   url: string
   title: string
@@ -147,9 +147,9 @@ export async function searchDeployments(query: string, limit = 10): Promise<Sear
       undefined,
     )
     results.push({
-      type: 'group',
+      type: 'monorepo',
       url: firstApp
-        ? `/team/${firstApp.team_slug}/env/${firstApp.environment_name}/app/${firstApp.app_name}/deployments`
+        ? `/team/${firstApp.team_slug}/env/${firstApp.environment_name}/app/${firstApp.app_name}/deployments?monorepo=true`
         : '/search',
       title: `${group.github_owner}/${group.github_repo_name}`,
       subtitle: displayNames.length > 0 ? `Monorepo: ${displayNames.join(', ')}` : 'Monorepo (tom)',

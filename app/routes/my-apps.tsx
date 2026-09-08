@@ -8,7 +8,7 @@ import { getAllAlertCounts, getAllMonitoredApplications } from '~/db/monitored-a
 import { getEffectiveSettingsForApps } from '~/db/repositories.server'
 import { getUserDevTeamsByRole } from '~/db/role-assignments.server'
 import { requireUser } from '~/lib/auth.server'
-import { groupAppCardsByRepo } from '~/lib/group-app-cards'
+import { mergeAppCardsByRepo } from '~/lib/merge-app-cards-by-repo'
 import type { Route } from './+types/my-apps'
 
 export function meta(_args: Route.MetaArgs) {
@@ -52,7 +52,7 @@ export async function loader({ request }: Route.LoaderArgs) {
         )
       : new Map()
 
-  const appCards = groupAppCardsByRepo(
+  const appCards = mergeAppCardsByRepo(
     userApps.map((app) => ({
       ...app,
       active_repo: activeReposByApp.get(app.id) || null,
