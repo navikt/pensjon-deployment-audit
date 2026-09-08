@@ -16,7 +16,7 @@ vi.mock('~/lib/authorization.server', () => ({
 }))
 
 vi.mock('~/db/app-settings.server', () => ({
-  updateImplicitApprovalSettings: vi.fn(),
+  recordAppConfigAuditLog: vi.fn(),
 }))
 
 vi.mock('~/db/audit-reports.server', () => ({

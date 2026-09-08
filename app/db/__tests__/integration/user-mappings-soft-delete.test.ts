@@ -12,7 +12,7 @@ import {
   upsertUser,
   upsertUserAndGithubAccount,
 } from '../../user-github-lookups.server'
-import { seedApp, seedDeployment, truncateAllTables } from './helpers'
+import { seedApp, seedApplicationRepository, seedDeployment, seedRepository, truncateAllTables } from './helpers'
 
 let pool: Pool
 
@@ -25,8 +25,8 @@ afterAll(async () => {
 
 async function seedDeploy(pool: Pool, deployer: string) {
   const app = await pool.query<{ id: number }>(
-    `INSERT INTO monitored_applications (team_slug, app_name, environment_name, is_active, audit_start_year, default_branch)
-     VALUES ('t', $1, 'dev', true, 2025, 'main') RETURNING id`,
+    `INSERT INTO monitored_applications (team_slug, app_name, environment_name, is_active, default_branch)
+     VALUES ('t', $1, 'dev', true, 'main') RETURNING id`,
     [`a-${deployer}`],
   )
   await pool.query(
@@ -248,6 +248,17 @@ describe('getUnmappedDeployers audit_start_year filtering', () => {
       teamSlug: 't',
       appName: 'app1',
       environment: 'prod',
+    })
+    await seedApplicationRepository(pool, {
+      monitoredAppId: appId,
+      githubOwner: 'navikt',
+      githubRepo: 'app1',
+      githubRepoId: '7060',
+    })
+    await seedRepository(pool, {
+      githubRepoId: '7060',
+      githubOwner: 'navikt',
+      githubRepoName: 'app1',
       auditStartYear: 2026,
     })
     await seedDeployment(pool, {
@@ -267,6 +278,17 @@ describe('getUnmappedDeployers audit_start_year filtering', () => {
       teamSlug: 't',
       appName: 'app1',
       environment: 'prod',
+    })
+    await seedApplicationRepository(pool, {
+      monitoredAppId: appId,
+      githubOwner: 'navikt',
+      githubRepo: 'app1',
+      githubRepoId: '7061',
+    })
+    await seedRepository(pool, {
+      githubRepoId: '7061',
+      githubOwner: 'navikt',
+      githubRepoName: 'app1',
       auditStartYear: 2026,
     })
     await seedDeployment(pool, {
@@ -286,6 +308,17 @@ describe('getUnmappedDeployers audit_start_year filtering', () => {
       teamSlug: 't',
       appName: 'app1',
       environment: 'prod',
+    })
+    await seedApplicationRepository(pool, {
+      monitoredAppId: appId,
+      githubOwner: 'navikt',
+      githubRepo: 'app1',
+      githubRepoId: '7062',
+    })
+    await seedRepository(pool, {
+      githubRepoId: '7062',
+      githubOwner: 'navikt',
+      githubRepoName: 'app1',
       auditStartYear: 2026,
     })
     await seedDeployment(pool, {
@@ -318,8 +351,8 @@ describe('getUnmappedDeployers audit_start_year filtering', () => {
 
   it('excludes deployers on inactive apps', async () => {
     const { rows } = await pool.query<{ id: number }>(
-      `INSERT INTO monitored_applications (team_slug, app_name, environment_name, is_active, audit_start_year, default_branch)
-       VALUES ('t', 'inactive-app', 'prod', false, NULL, 'main') RETURNING id`,
+      `INSERT INTO monitored_applications (team_slug, app_name, environment_name, is_active, default_branch)
+       VALUES ('t', 'inactive-app', 'prod', false, 'main') RETURNING id`,
     )
     await seedDeployment(pool, {
       monitoredAppId: rows[0].id,

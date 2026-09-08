@@ -1,11 +1,10 @@
-import { recordAppConfigAuditLog, updateImplicitApprovalSettings } from '~/db/app-settings.server'
+import { recordAppConfigAuditLog } from '~/db/app-settings.server'
 import {
   archiveAuditReport,
   checkAuditReadiness,
   hasActiveReportForPeriod,
   restoreAuditReport,
 } from '~/db/audit-reports.server'
-import { applyAuditStartYearChange } from '~/db/audit-start-year-baseline.server'
 import { withTransaction } from '~/db/connection.server'
 import {
   getMonitoredApplicationById,
@@ -254,13 +253,10 @@ export async function action({ request }: { request: Request; params: Record<str
       if (result.reason === 'app_not_found') {
         return { error: 'Fant ikke applikasjonen' }
       }
-      await updateImplicitApprovalSettings({
-        monitoredAppId: appId,
-        settings: { mode: modeValue },
-        changedByNavIdent: user.navIdent,
-        changedByName: user.name || undefined,
-      })
-      return { success: `Implisitt godkjenning-innstillinger oppdatert!${REPO_NOT_LINKED_SUFFIX}` }
+      return {
+        error:
+          'Denne appen har ikke et kjent GitHub-repository koblet til seg. Uten et kjent repository er det ikke noe kode å godkjenne, så implisitt godkjenning kan ikke konfigureres.',
+      }
     }
 
     if (result.changedKeys.length === 0) {
@@ -304,33 +300,30 @@ export async function action({ request }: { request: Request; params: Record<str
       changedByName: user.name || undefined,
     })
 
-    if (!repoResult.ok && repoResult.reason === 'app_not_found') {
-      return { error: 'Fant ikke applikasjonen' }
+    if (!repoResult.ok) {
+      if (repoResult.reason === 'app_not_found') {
+        return { error: 'Fant ikke applikasjonen' }
+      }
+      return {
+        error:
+          'Denne appen har ikke et kjent GitHub-repository koblet til seg. Uten et kjent repository er det ikke noe kode å revidere, så startår for revisjon kan ikke settes.',
+      }
     }
 
-    const result = repoResult.ok
-      ? (repoResult.auditStartYearChange ?? {
-          updatedAppIds: repoResult.affectedApps.map((app) => app.id),
-          promotedDeploymentId: null,
-          demotedDeploymentIds: [],
-          recomputeLimitedToActingApp: false,
-          recomputeSkippedDueToAmbiguousRepoScope: false,
-        })
-      : await applyAuditStartYearChange(appId, auditStartYear, user.navIdent)
+    const result = repoResult.auditStartYearChange ?? {
+      updatedAppIds: repoResult.affectedApps.map((app) => app.id),
+      promotedDeploymentId: null,
+      demotedDeploymentIds: [],
+      recomputeLimitedToActingApp: false,
+      recomputeSkippedDueToAmbiguousRepoScope: false,
+    }
 
-    if (repoResult.ok && repoResult.changedKeys.length === 0) {
+    if (repoResult.changedKeys.length === 0) {
       return { success: 'Ingen endring — startår var allerede satt til denne verdien.' }
     }
 
     let success = 'Startår for revisjon oppdatert!'
-    if (!repoResult.ok) {
-      success += REPO_NOT_LINKED_SUFFIX
-    }
-    if (repoResult.ok) {
-      success += affectedAppsMessage(repoResult.affectedApps, appId, repoResult.changedKeys)
-    } else if (result.updatedAppIds.length > 1) {
-      success += ` Endringen gjelder også ${result.updatedAppIds.length - 1} andre apper i samme repo.`
-    }
+    success += affectedAppsMessage(repoResult.affectedApps, appId, repoResult.changedKeys)
     if (result.recomputeLimitedToActingApp) {
       success +=
         ' Appene har ikke ett entydig felles repo-scope registrert ennå, så baseline er kun vurdert på nytt for denne appen.'

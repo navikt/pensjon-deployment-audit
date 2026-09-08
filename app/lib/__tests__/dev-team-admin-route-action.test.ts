@@ -7,7 +7,6 @@ const {
   mockGetApplicationInfo,
   mockGetRepositoryDefaultBranch,
   mockCreateMonitoredApplication,
-  mockUpdateImplicitApprovalSettings,
   mockClientQuery,
   mockClientRelease,
   mockPoolConnect,
@@ -21,7 +20,6 @@ const {
   mockGetApplicationInfo: vi.fn(),
   mockGetRepositoryDefaultBranch: vi.fn(),
   mockCreateMonitoredApplication: vi.fn(),
-  mockUpdateImplicitApprovalSettings: vi.fn(),
   mockClientQuery: vi.fn(),
   mockClientRelease: vi.fn(),
   mockPoolConnect: vi.fn(),
@@ -60,10 +58,6 @@ vi.mock('~/lib/github/git.server', () => ({
 vi.mock('~/db/monitored-applications.server', () => ({
   createMonitoredApplication: mockCreateMonitoredApplication,
   getAllMonitoredApplications: vi.fn(),
-}))
-
-vi.mock('~/db/app-settings.server', () => ({
-  updateImplicitApprovalSettings: mockUpdateImplicitApprovalSettings,
 }))
 
 vi.mock('~/db/connection.server', () => ({
@@ -126,32 +120,13 @@ describe('sections team admin action - add_apps characterization', () => {
     })
 
     mockCreateMonitoredApplication.mockResolvedValue({ id: 101 })
-    mockUpdateImplicitApprovalSettings.mockResolvedValue({})
   })
 
-  it('returns validation error for invalid implicit mode when creating new apps', async () => {
-    const formData = new FormData()
-    formData.set('intent', 'add_apps')
-    formData.append('app_ref', 'new:pensjondeployer|prod-gcp|pensjon-api')
-    formData.set('audit_start_year', '2025')
-    formData.set('implicit_approval_mode', 'invalid_mode')
-
-    const result = await action({
-      request: makeRequest(formData),
-      params: { sectionSlug: 'pensjon', devTeamSlug: 'starte-pensjon' },
-    } as never)
-
-    expect(result).toEqual({ error: 'Ugyldig modus for implisitt godkjenning.' })
-    expect(mockPoolConnect).not.toHaveBeenCalled()
-  })
-
-  it('adds existing and new apps and applies implicit approval settings to new ones', async () => {
+  it('adds existing and new apps', async () => {
     const formData = new FormData()
     formData.set('intent', 'add_apps')
     formData.append('app_ref', 'id:42')
     formData.append('app_ref', 'new:pensjondeployer|prod-gcp|pensjon-api')
-    formData.set('audit_start_year', '2025')
-    formData.set('implicit_approval_mode', 'dependabot_only')
 
     const result = await action({
       request: makeRequest(formData),
@@ -164,7 +139,6 @@ describe('sections team admin action - add_apps characterization', () => {
         team_slug: 'pensjondeployer',
         environment_name: 'prod-gcp',
         app_name: 'pensjon-api',
-        audit_start_year: 2025,
         default_branch: 'main',
       },
       expect.objectContaining({ query: mockClientQuery, release: mockClientRelease }),
@@ -180,14 +154,6 @@ describe('sections team admin action - add_apps characterization', () => {
       ]),
     )
 
-    expect(mockUpdateImplicitApprovalSettings).toHaveBeenCalledTimes(1)
-    expect(mockUpdateImplicitApprovalSettings).toHaveBeenCalledWith({
-      monitoredAppId: 101,
-      settings: { mode: 'dependabot_only' },
-      changedByNavIdent: 'Z990010',
-      changedByName: 'Rask Elv',
-    })
-
     expect(mockClientRelease).toHaveBeenCalledTimes(1)
     expect(result).toEqual({
       success: 'La til 2 applikasjoner (1 ny app lagt til overvåking).',
@@ -200,8 +166,6 @@ describe('sections team admin action - add_apps characterization', () => {
     const formData = new FormData()
     formData.set('intent', 'add_apps')
     formData.append('app_ref', 'new:pensjondeployer|prod-gcp|pensjon-api')
-    formData.set('audit_start_year', '2025')
-    formData.set('implicit_approval_mode', 'dependabot_only')
 
     await action({
       request: makeRequest(formData),

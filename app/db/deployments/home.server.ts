@@ -4,6 +4,7 @@ import { baselineActionSql } from '../baseline-action'
 import { pool } from '../connection.server'
 import type { DeploymentWithApp } from '../deployments.server'
 import { getDevTeamApplications } from '../dev-teams.server'
+import { effectiveAuditStartYearSql } from '../repository-settings-sql'
 import { getMembersGithubUsernamesForDevTeamRoles } from '../role-assignments.server'
 import { lowerUsernames, userDeploymentMatchAnySql, userDeploymentMatchSql } from '../user-deployment-match'
 
@@ -65,7 +66,7 @@ export async function getUnmappedContributors(
          AND d.deployer_username IS NOT NULL
          AND d.deployer_username != ''
          AND d.created_at >= $3
-         AND (ma.audit_start_year IS NULL OR d.created_at >= make_date(ma.audit_start_year, 1, 1))
+         AND d.created_at >= make_date(COALESCE(${effectiveAuditStartYearSql('ma')}, 1), 1, 1)
        GROUP BY LOWER(d.deployer_username)
      ),
      mapped_usernames AS (
@@ -133,7 +134,7 @@ export async function getDevTeamAppsWithIssues(
         SUM(CASE WHEN ${baselineActionSql('d')} THEN 1 ELSE 0 END) as baseline_action_count
       FROM deployments d
       WHERE d.monitored_app_id = ma.id
-        AND (ma.audit_start_year IS NULL OR d.created_at >= make_date(ma.audit_start_year, 1, 1))
+        AND d.created_at >= make_date(COALESCE(${effectiveAuditStartYearSql('ma')}, 1), 1, 1)
     ) dep ON true
     LEFT JOIN LATERAL (
       SELECT COUNT(*) as count
@@ -175,7 +176,7 @@ export async function getPersonalDeploymentsMissingGoalLinks(githubUsername: str
      FROM deployments d
      JOIN monitored_applications ma ON d.monitored_app_id = ma.id
      WHERE ma.is_active = true
-       AND (ma.audit_start_year IS NULL OR d.created_at >= make_date(ma.audit_start_year, 1, 1))
+       AND d.created_at >= make_date(COALESCE(${effectiveAuditStartYearSql('ma')}, 1), 1, 1)
        AND ${userDeploymentMatchSql(1)}
        AND NOT EXISTS (
          SELECT 1 FROM deployment_goal_links dgl

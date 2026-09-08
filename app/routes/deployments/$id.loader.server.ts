@@ -17,6 +17,7 @@ import { getDevTeamsBySection, getDevTeamsForApp } from '~/db/dev-teams.server'
 import { getDeviationsByDeploymentId } from '~/db/deviations.server'
 import { getLatestVerificationRun } from '~/db/github-data.server'
 import { getMonitoredApplicationById } from '~/db/monitored-applications.server'
+import { getEffectiveAuditStartYear } from '~/db/repositories.server'
 import { getUserDevTeamsByRole } from '~/db/role-assignments.server'
 import { getUsersByIdentifiers } from '~/db/user-github-lookups.server'
 import { getCompareSnapshotForCommit } from '~/db/verification-diff.server'
@@ -58,6 +59,8 @@ export async function loader({ params, request, url }: Route.LoaderArgs) {
 
   const range = getDateRangeForPeriod(period)
 
+  const auditStartYear = await getEffectiveAuditStartYear(app.id)
+
   const navFilters: DeploymentNavFilters = {
     four_eyes_status: status,
     method: method && ['pr', 'direct_push', 'legacy'].includes(method) ? method : undefined,
@@ -65,7 +68,7 @@ export async function loader({ params, request, url }: Route.LoaderArgs) {
     commit_sha: sha,
     start_date: range?.startDate,
     end_date: range?.endDate,
-    audit_start_year: app.audit_start_year,
+    audit_start_year: auditStartYear,
   }
 
   const deploymentDate = new Date(deployment.created_at).toISOString().split('T')[0]
@@ -135,7 +138,7 @@ export async function loader({ params, request, url }: Route.LoaderArgs) {
     getDevTeamsForApp(deployment.monitored_app_id, app.team_slug),
     getPreviousDeploymentForNav(deploymentId, deployment.monitored_app_id, navFilters),
     getNextDeployment(deploymentId, deployment.monitored_app_id, navFilters),
-    getPreviousDeploymentForDiff(deploymentId, deployment.monitored_app_id, app.audit_start_year),
+    getPreviousDeploymentForDiff(deploymentId, deployment.monitored_app_id, auditStartYear),
     getLatestVerificationRun(deploymentId),
     nearbyDeploymentsPromise,
     deployment.four_eyes_status === 'unauthorized_repository'

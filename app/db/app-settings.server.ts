@@ -1,6 +1,5 @@
 import type { PoolClient } from 'pg'
 import { logger } from '~/lib/logger.server'
-import type { ImplicitApprovalMode } from '~/lib/verification/types'
 import { pool } from './connection.server'
 
 interface AppSetting {
@@ -21,68 +20,6 @@ interface AppConfigAuditLogEntry {
   new_value: Record<string, unknown>
   change_reason: string | null
   created_at: Date
-}
-
-export interface ImplicitApprovalSettings {
-  mode: ImplicitApprovalMode
-  [key: string]: unknown
-}
-
-export const DEFAULT_IMPLICIT_APPROVAL_SETTINGS: ImplicitApprovalSettings = {
-  mode: 'off',
-}
-
-const SETTING_KEYS = {
-  IMPLICIT_APPROVAL: 'implicit_approval',
-} as const
-
-export type { ImplicitApprovalMode }
-
-async function updateAppSetting<T extends Record<string, unknown>>(params: {
-  monitoredAppId: number
-  settingKey: string
-  newValue: T
-  changedByNavIdent: string
-  changedByName?: string
-  changeReason?: string
-}): Promise<AppSetting> {
-  const { monitoredAppId, settingKey, newValue, changedByNavIdent, changedByName, changeReason } = params
-
-  const currentResult = await pool.query<AppSetting>(
-    'SELECT * FROM app_settings WHERE monitored_app_id = $1 AND setting_key = $2',
-    [monitoredAppId, settingKey],
-  )
-  const oldValue = currentResult.rows[0]?.setting_value || null
-
-  const settingResult = await pool.query<AppSetting>(
-    `INSERT INTO app_settings (monitored_app_id, setting_key, setting_value, updated_at)
-     VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
-     ON CONFLICT (monitored_app_id, setting_key) 
-     DO UPDATE SET setting_value = $3, updated_at = CURRENT_TIMESTAMP
-     RETURNING *`,
-    [monitoredAppId, settingKey, JSON.stringify(newValue)],
-  )
-
-  await pool.query(
-    `INSERT INTO app_config_audit_log 
-     (monitored_app_id, changed_by_nav_ident, changed_by_name, setting_key, old_value, new_value, change_reason)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-    [
-      monitoredAppId,
-      changedByNavIdent,
-      changedByName || null,
-      settingKey,
-      oldValue ? JSON.stringify(oldValue) : null,
-      JSON.stringify(newValue),
-      changeReason || null,
-    ],
-  )
-
-  logger.info(
-    `📝 Setting '${settingKey}' updated for app ${monitoredAppId} by ${changedByNavIdent}: ${JSON.stringify(oldValue)} → ${JSON.stringify(newValue)}`,
-  )
-
-  return settingResult.rows[0]
 }
 
 export async function recordAppConfigAuditLog(
@@ -118,23 +55,6 @@ export async function recordAppConfigAuditLog(
   logger.info(
     `📝 Config audit log recorded for setting '${settingKey}' on app ${monitoredAppId} by ${changedByNavIdent}`,
   )
-}
-
-export async function updateImplicitApprovalSettings(params: {
-  monitoredAppId: number
-  settings: ImplicitApprovalSettings
-  changedByNavIdent: string
-  changedByName?: string
-  changeReason?: string
-}): Promise<AppSetting> {
-  return updateAppSetting({
-    monitoredAppId: params.monitoredAppId,
-    settingKey: SETTING_KEYS.IMPLICIT_APPROVAL,
-    newValue: params.settings,
-    changedByNavIdent: params.changedByNavIdent,
-    changedByName: params.changedByName,
-    changeReason: params.changeReason,
-  })
 }
 
 interface AppConfigAuditLogOptions {

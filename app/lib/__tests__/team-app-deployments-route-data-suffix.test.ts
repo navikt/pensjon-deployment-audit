@@ -6,7 +6,6 @@ vi.mock('~/db/monitored-applications.server', () => ({
     team_slug: 'plattform',
     environment_name: 'prod',
     app_name: 'nda',
-    audit_start_year: 2023,
   }),
 }))
 

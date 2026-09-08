@@ -18,7 +18,10 @@ const EFFECTIVE_COLUMN_SQL = (maAlias: string, column: string, fallbackToAppWhen
 )`
 
 export function effectiveAuditStartYearSql(maAlias = 'ma'): string {
-  return EFFECTIVE_COLUMN_SQL(maAlias, 'audit_start_year', false)
+  return `(
+    SELECT linked.value
+    FROM ${LINKED_REPO_ROW_SQL(maAlias, 'audit_start_year')} AS linked
+  )`
 }
 
 export function effectiveDefaultBranchSql(maAlias = 'ma'): string {

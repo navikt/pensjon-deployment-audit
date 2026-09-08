@@ -20,6 +20,7 @@ import { ActionAlert } from '~/components/ActionAlert'
 import { PaginationControls } from '~/components/deployments/PaginationControls'
 import { ExternalLink } from '~/components/ExternalLink'
 import { pool } from '~/db/connection.server'
+import { effectiveAuditStartYearSql } from '~/db/repository-settings-sql'
 import { requireAdmin } from '~/lib/auth.server'
 import { LEGACY_STATUSES_SQL } from '~/lib/four-eyes-status'
 import type { Route } from './+types/data-mismatches'
@@ -129,8 +130,7 @@ export async function loader({ request, url }: Route.LoaderArgs) {
          ))::int AS no_fallback
          FROM deployments d
          JOIN monitored_applications ma ON d.monitored_app_id = ma.id
-         WHERE ma.audit_start_year IS NOT NULL
-           AND d.created_at >= make_date(ma.audit_start_year, 1, 1)
+         WHERE d.created_at >= make_date(${effectiveAuditStartYearSql('ma')}, 1, 1)
            AND COALESCE(d.four_eyes_status, 'unknown') NOT IN (${LEGACY_STATUSES_SQL})`,
       ),
       pool.query<BaselineNoApprover>(
@@ -198,8 +198,7 @@ export async function loader({ request, url }: Route.LoaderArgs) {
      FROM deployments d
      JOIN monitored_applications ma ON d.monitored_app_id = ma.id
      WHERE d.title IS NULL
-       AND ma.audit_start_year IS NOT NULL
-       AND d.created_at >= make_date(ma.audit_start_year, 1, 1)
+       AND d.created_at >= make_date(${effectiveAuditStartYearSql('ma')}, 1, 1)
        AND COALESCE(d.four_eyes_status, 'unknown') NOT IN (${LEGACY_STATUSES_SQL})
      ORDER BY d.id DESC
      LIMIT $1 OFFSET $2`,

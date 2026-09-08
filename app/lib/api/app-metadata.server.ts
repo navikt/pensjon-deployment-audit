@@ -1,4 +1,5 @@
 import { getMonorepoSiblings } from '~/db/monorepo.server'
+import { getEffectiveAuditStartYear } from '~/db/repositories.server'
 import type { AuditReportAppMetadata } from '~/lib/api/types'
 
 interface MonitoredApp {
@@ -6,13 +7,18 @@ interface MonitoredApp {
   team_slug: string
   environment_name: string
   app_name: string
-  audit_start_year: number | null
 }
 
-export async function buildAppMetadata(app: MonitoredApp): Promise<AuditReportAppMetadata> {
+export async function buildAppMetadata(
+  app: MonitoredApp,
+  auditStartYear?: number | null,
+): Promise<AuditReportAppMetadata> {
   let applicationGroup: AuditReportAppMetadata['applicationGroup'] = null
 
-  const monorepo = await getMonorepoSiblings(app.id)
+  const [monorepo, resolvedAuditStartYear] = await Promise.all([
+    getMonorepoSiblings(app.id),
+    auditStartYear !== undefined ? Promise.resolve(auditStartYear) : getEffectiveAuditStartYear(app.id),
+  ])
   if (monorepo) {
     const allApps = [
       { team: app.team_slug, environment: app.environment_name, name: app.app_name },
@@ -36,7 +42,7 @@ export async function buildAppMetadata(app: MonitoredApp): Promise<AuditReportAp
     team: app.team_slug,
     environment: app.environment_name,
     name: app.app_name,
-    auditStartDate: app.audit_start_year ? `${app.audit_start_year}-01-01` : null,
+    auditStartDate: resolvedAuditStartYear ? `${resolvedAuditStartYear}-01-01` : null,
     applicationGroup,
   }
 }

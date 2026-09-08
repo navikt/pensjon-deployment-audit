@@ -1,7 +1,7 @@
 import { Pool } from 'pg'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { getPreviousDeploymentForDiff } from '~/db/verification-diff.server'
-import { seedApp, seedApplicationRepository, seedDeployment, truncateAllTables } from './helpers'
+import { seedApp, seedApplicationRepository, seedDeployment, seedRepository, truncateAllTables } from './helpers'
 
 let pool: Pool
 
@@ -26,7 +26,6 @@ describe('getPreviousDeploymentForDiff', () => {
       teamSlug: 'pensjonselvbetjening',
       appName: 'pensjon-app',
       environment: 'prod-gcp',
-      auditStartYear: 2026,
     })
     await seedApplicationRepository(pool, {
       monitoredAppId: appId,
@@ -34,6 +33,7 @@ describe('getPreviousDeploymentForDiff', () => {
       githubRepo: repo,
       githubRepoId: '9001',
     })
+    await seedRepository(pool, { githubRepoId: '9001', githubOwner: owner, githubRepoName: repo, auditStartYear: 2026 })
     await seedDeployment(pool, {
       monitoredAppId: appId,
       teamSlug: 'pensjonselvbetjening',
@@ -62,7 +62,6 @@ describe('getPreviousDeploymentForDiff', () => {
       teamSlug: 'pensjonselvbetjening',
       appName: 'pensjon-app',
       environment: 'prod-gcp',
-      auditStartYear: 2026,
     })
     await seedApplicationRepository(pool, {
       monitoredAppId: appId,
@@ -70,6 +69,7 @@ describe('getPreviousDeploymentForDiff', () => {
       githubRepo: repo,
       githubRepoId: '9001',
     })
+    await seedRepository(pool, { githubRepoId: '9001', githubOwner: owner, githubRepoName: repo, auditStartYear: 2026 })
     const firstId = await seedDeployment(pool, {
       monitoredAppId: appId,
       teamSlug: 'pensjonselvbetjening',
@@ -99,7 +99,6 @@ describe('getPreviousDeploymentForDiff', () => {
       teamSlug: 'pensjonselvbetjening',
       appName: 'pensjon-app',
       environment: 'prod-gcp',
-      auditStartYear: null,
     })
     await seedApplicationRepository(pool, {
       monitoredAppId: appId,
@@ -146,7 +145,6 @@ describe('getPreviousDeploymentForDiff', () => {
       teamSlug: 'pensjonselvbetjening',
       appName: 'pensjon-app',
       environment: 'prod-gcp',
-      auditStartYear: null,
     })
     await seedApplicationRepository(pool, {
       monitoredAppId: appId,
@@ -193,7 +191,6 @@ describe('getPreviousDeploymentForDiff', () => {
       teamSlug: 'pensjonselvbetjening',
       appName: 'pensjon-app',
       environment: 'prod-gcp',
-      auditStartYear: null,
     })
     await seedApplicationRepository(pool, {
       monitoredAppId: appId,
@@ -229,7 +226,6 @@ describe('getPreviousDeploymentForDiff', () => {
       teamSlug: 'pensjonselvbetjening',
       appName: 'pensjon-app',
       environment: 'prod-gcp',
-      auditStartYear: null,
     })
     await seedApplicationRepository(pool, {
       monitoredAppId: appId,
@@ -260,18 +256,16 @@ describe('getPreviousDeploymentForDiff', () => {
     expect(prev?.id).toBe(devId)
   })
 
-  it('uses the acting deployment app audit_start_year, not the candidate sibling app audit_start_year', async () => {
+  it('uses the shared repository audit_start_year for both acting and sibling apps', async () => {
     const actingAppId = await seedApp(pool, {
       teamSlug: 'pensjonselvbetjening',
       appName: 'acting-app',
       environment: 'prod-gcp',
-      auditStartYear: 2020,
     })
     const siblingAppId = await seedApp(pool, {
       teamSlug: 'pensjonselvbetjening',
       appName: 'sibling-app',
       environment: 'prod-gcp',
-      auditStartYear: 2030,
     })
     await seedApplicationRepository(pool, {
       monitoredAppId: actingAppId,
@@ -285,6 +279,7 @@ describe('getPreviousDeploymentForDiff', () => {
       githubRepo: repo,
       githubRepoId: '9001',
     })
+    await seedRepository(pool, { githubRepoId: '9001', githubOwner: owner, githubRepoName: repo, auditStartYear: 2020 })
     const siblingDeploymentId = await seedDeployment(pool, {
       monitoredAppId: siblingAppId,
       teamSlug: 'pensjonselvbetjening',

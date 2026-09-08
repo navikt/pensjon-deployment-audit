@@ -82,9 +82,7 @@ import { fetchVerificationDataForAllDeployments } from '~/lib/verification/fetch
 function effectiveSettingsRow() {
   return {
     monitored_app_id: 1,
-    app_audit_start_year: null,
     app_default_branch: 'main',
-    app_implicit_approval_mode: null,
     repository_id: null,
     repo_audit_start_year: null,
     repo_implicit_approval_mode: null,

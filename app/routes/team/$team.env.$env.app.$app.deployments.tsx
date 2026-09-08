@@ -6,6 +6,8 @@ import { type DeploymentFilters as DeploymentFiltersType, getDeploymentsPaginate
 import { getDevTeamBySlug, getDevTeamsForApp, getDevTeamsForApps } from '~/db/dev-teams.server'
 import { getMonitoredApplicationByIdentity } from '~/db/monitored-applications.server'
 import { getMonorepoSiblings } from '~/db/monorepo.server'
+import { getEffectiveAuditStartYear } from '~/db/repositories.server'
+import { effectiveAuditStartYearSql } from '~/db/repository-settings-sql'
 import {
   getDevTeamsForGithubUsernamesByRole,
   getMembersGithubUsernamesForDevTeamRoles,
@@ -107,10 +109,12 @@ export async function loader({ params, request, url }: Route.LoaderArgs) {
 
   const isUnmappedFilter = deployer === '__unmapped__'
 
+  const effectiveAuditStartYear = showGroup && hasGroup ? null : await getEffectiveAuditStartYear(app.id)
+
   const filters: DeploymentFiltersType = {
     ...(showGroup && hasGroup
       ? { monitored_app_ids: [app.id, ...siblings.map((s) => s.id)], per_app_audit_start_year: true }
-      : { monitored_app_id: app.id, audit_start_year: app.audit_start_year }),
+      : { monitored_app_id: app.id, audit_start_year: effectiveAuditStartYear }),
     page,
     per_page: 20,
     four_eyes_status: status,
@@ -161,7 +165,7 @@ export async function loader({ params, request, url }: Route.LoaderArgs) {
        WHERE d.monitored_app_id = ANY($1)
          AND d.deployer_username IS NOT NULL
          AND d.deployer_username != ''
-         AND (ma.audit_start_year IS NULL OR d.created_at >= make_date(ma.audit_start_year, 1, 1))
+         AND d.created_at >= make_date(COALESCE(${effectiveAuditStartYearSql('ma')}, 1), 1, 1)
        ORDER BY d.deployer_username`,
       [appIds],
     ),
@@ -172,21 +176,21 @@ export async function loader({ params, request, url }: Route.LoaderArgs) {
          INNER JOIN monitored_applications ma ON d.monitored_app_id = ma.id
          WHERE d.monitored_app_id = ANY($1)
            AND d.deployer_username IS NOT NULL AND d.deployer_username != ''
-           AND (ma.audit_start_year IS NULL OR d.created_at >= make_date(ma.audit_start_year, 1, 1))
+           AND d.created_at >= make_date(COALESCE(${effectiveAuditStartYearSql('ma')}, 1), 1, 1)
          UNION
          SELECT d.pr_creator_username
          FROM deployments d
          INNER JOIN monitored_applications ma ON d.monitored_app_id = ma.id
          WHERE d.monitored_app_id = ANY($1)
            AND d.pr_creator_username IS NOT NULL
-           AND (ma.audit_start_year IS NULL OR d.created_at >= make_date(ma.audit_start_year, 1, 1))
+           AND d.created_at >= make_date(COALESCE(${effectiveAuditStartYearSql('ma')}, 1), 1, 1)
          UNION
          SELECT d.github_pr_data->'merged_by'->>'username'
          FROM deployments d
          INNER JOIN monitored_applications ma ON d.monitored_app_id = ma.id
          WHERE d.monitored_app_id = ANY($1)
            AND d.github_pr_data->'merged_by'->>'username' IS NOT NULL
-           AND (ma.audit_start_year IS NULL OR d.created_at >= make_date(ma.audit_start_year, 1, 1))
+           AND d.created_at >= make_date(COALESCE(${effectiveAuditStartYearSql('ma')}, 1), 1, 1)
        ) sub
        WHERE username IS NOT NULL AND username != ''`,
       [appIds],
@@ -201,7 +205,7 @@ export async function loader({ params, request, url }: Route.LoaderArgs) {
        INNER JOIN monitored_applications ma ON d.monitored_app_id = ma.id
        WHERE d.monitored_app_id = ANY($1)
          AND d.workflow_trigger_config IS NOT NULL
-         AND (ma.audit_start_year IS NULL OR d.created_at >= make_date(ma.audit_start_year, 1, 1))`,
+         AND d.created_at >= make_date(COALESCE(${effectiveAuditStartYearSql('ma')}, 1), 1, 1)`,
       [appIds],
     ),
   ])

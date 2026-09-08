@@ -153,8 +153,8 @@ describe('transactions within sync context', () => {
       try {
         await client.query('BEGIN')
         await client.query(
-          `INSERT INTO monitored_applications (team_slug, environment_name, app_name, audit_start_year, default_branch)
-           VALUES ($1, $2, $3, 2025, 'main')`,
+          `INSERT INTO monitored_applications (team_slug, environment_name, app_name, default_branch)
+           VALUES ($1, $2, $3, 'main')`,
           ['test-team', 'test-env', 'test-app'],
         )
         await client.query('COMMIT')
@@ -179,8 +179,8 @@ describe('transactions within sync context', () => {
       try {
         await client.query('BEGIN')
         await client.query(
-          `INSERT INTO monitored_applications (team_slug, environment_name, app_name, audit_start_year, default_branch)
-           VALUES ($1, $2, $3, 2025, 'main')`,
+          `INSERT INTO monitored_applications (team_slug, environment_name, app_name, default_branch)
+           VALUES ($1, $2, $3, 'main')`,
           ['rollback-team', 'test-env', 'test-app'],
         )
         await client.query('ROLLBACK')

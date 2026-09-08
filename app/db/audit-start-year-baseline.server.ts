@@ -1,7 +1,6 @@
 import type { PoolClient } from 'pg'
 import { computeBaselineRecomputePlan } from '~/lib/audit-start-year-baseline'
 import { type FourEyesStatus, NON_DIFFABLE_STATUSES_SQL, UNAUTHORIZED_STATUSES_SQL } from '~/lib/four-eyes-status'
-import { withTransaction } from './connection.server'
 
 const ELIGIBLE_DEPLOYMENT_SQL = `
   d.commit_sha IS NOT NULL
@@ -22,35 +21,6 @@ interface RepoScope {
 }
 
 type RepoScopeResolution = { kind: 'none' } | { kind: 'ambiguous' } | { kind: 'scoped'; scope: RepoScope }
-
-async function getTargetAppIds(client: PoolClient, appId: number): Promise<number[]> {
-  const { rows } = await client.query<{ id: number }>(`SELECT id FROM monitored_applications WHERE id = $1`, [appId])
-  const app = rows[0]
-  if (!app) {
-    throw new Error(`Monitored application ${appId} not found`)
-  }
-
-  const targetAppIds = new Set<number>([appId])
-
-  const { rows: repoSiblings } = await client.query<{ id: number }>(
-    `SELECT ma.id
-     FROM application_repositories ar
-     JOIN monitored_applications ma ON ma.id = ar.monitored_app_id
-     WHERE ar.status = 'active'
-       AND ma.is_active = true
-       AND ar.github_repo_id IS NOT NULL
-       AND ar.github_repo_id IN (
-         SELECT github_repo_id FROM application_repositories
-         WHERE monitored_app_id = $1 AND status = 'active' AND github_repo_id IS NOT NULL
-       )`,
-    [appId],
-  )
-  for (const sibling of repoSiblings) {
-    targetAppIds.add(sibling.id)
-  }
-
-  return [...targetAppIds]
-}
 
 async function resolveRepoScope(client: PoolClient, appIds: number[]): Promise<RepoScopeResolution> {
   const { rows } = await client.query<{ github_owner: string; github_repo_name: string }>(
@@ -214,21 +184,13 @@ export async function applyAuditStartYearChangeForApps(
   client: PoolClient,
   appId: number,
   targetAppIds: number[],
+  previousAuditStartYear: number | null,
   newAuditStartYear: number | null,
   adminNavIdent: string,
 ): Promise<AuditStartYearChangeResult> {
-  const { rows: currentYearRows } = await client.query<{ id: number; audit_start_year: number | null }>(
-    `SELECT id, audit_start_year FROM monitored_applications WHERE id = ANY($1)`,
-    [targetAppIds],
-  )
   const previousAuditStartYearByAppId = new Map<number, number | null>(
-    currentYearRows.map((row) => [row.id, row.audit_start_year]),
+    targetAppIds.map((id) => [id, previousAuditStartYear]),
   )
-
-  await client.query(`UPDATE monitored_applications SET audit_start_year = $1, updated_at = now() WHERE id = ANY($2)`, [
-    newAuditStartYear,
-    targetAppIds,
-  ])
 
   const repoScopeResolution = await resolveRepoScope(client, targetAppIds)
 
@@ -262,15 +224,4 @@ export async function applyAuditStartYearChangeForApps(
     recomputeLimitedToActingApp,
     recomputeSkippedDueToAmbiguousRepoScope: false,
   }
-}
-
-export async function applyAuditStartYearChange(
-  appId: number,
-  newAuditStartYear: number | null,
-  adminNavIdent: string,
-): Promise<AuditStartYearChangeResult> {
-  return withTransaction(async (client) => {
-    const targetAppIds = await getTargetAppIds(client, appId)
-    return applyAuditStartYearChangeForApps(client, appId, targetAppIds, newAuditStartYear, adminNavIdent)
-  })
 }

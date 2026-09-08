@@ -1,7 +1,15 @@
 import { Pool } from 'pg'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { getDeploymentsPaginated } from '~/db/deployments.server'
-import { seedApp, seedDeployment, seedDevTeam, seedSection, truncateAllTables } from './helpers'
+import {
+  seedApp,
+  seedApplicationRepository,
+  seedDeployment,
+  seedDevTeam,
+  seedRepository,
+  seedSection,
+  truncateAllTables,
+} from './helpers'
 
 let pool: Pool
 
@@ -131,8 +139,32 @@ describe('getDeploymentsPaginated with monitored_app_ids', () => {
   })
 
   it('respects per_app_audit_start_year', async () => {
-    const app1 = await seedApp(pool, { teamSlug: 'team', appName: 'app-1', environment: 'prod', auditStartYear: 2026 })
-    const app2 = await seedApp(pool, { teamSlug: 'team', appName: 'app-2', environment: 'prod', auditStartYear: 2025 })
+    const app1 = await seedApp(pool, { teamSlug: 'team', appName: 'app-1', environment: 'prod' })
+    const app2 = await seedApp(pool, { teamSlug: 'team', appName: 'app-2', environment: 'prod' })
+    await seedApplicationRepository(pool, {
+      monitoredAppId: app1,
+      githubOwner: 'navikt',
+      githubRepo: 'app-1',
+      githubRepoId: '7040',
+    })
+    await seedApplicationRepository(pool, {
+      monitoredAppId: app2,
+      githubOwner: 'navikt',
+      githubRepo: 'app-2',
+      githubRepoId: '7041',
+    })
+    await seedRepository(pool, {
+      githubRepoId: '7040',
+      githubOwner: 'navikt',
+      githubRepoName: 'app-1',
+      auditStartYear: 2026,
+    })
+    await seedRepository(pool, {
+      githubRepoId: '7041',
+      githubOwner: 'navikt',
+      githubRepoName: 'app-2',
+      auditStartYear: 2025,
+    })
 
     await seedDeployment(pool, {
       monitoredAppId: app1,

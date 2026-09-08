@@ -1,5 +1,6 @@
 import { getAppChangeOriginCoverage, getAppDeploymentStats, getLastDeploymentSummary } from '~/db/deployments.server'
 import { getMonitoredApplicationByIdentity } from '~/db/monitored-applications.server'
+import { getEffectiveAuditStartYear } from '~/db/repositories.server'
 import type { VerificationSummaryResponse } from '~/lib/api/types'
 import { requireM2MToken } from '~/lib/m2m-auth.server'
 import type { Route } from './+types/v1.apps.$team.$env.$app.verification-summary'
@@ -37,9 +38,11 @@ export async function loader({ request, params, url }: Route.LoaderArgs) {
     })
   }
 
+  const auditStartYear = await getEffectiveAuditStartYear(monitoredApp.id)
+
   const [stats, changeOrigin, lastDeployment] = await Promise.all([
-    getAppDeploymentStats(monitoredApp.id, from, to, monitoredApp.audit_start_year),
-    getAppChangeOriginCoverage(monitoredApp.id, from, to, monitoredApp.audit_start_year),
+    getAppDeploymentStats(monitoredApp.id, from, to, auditStartYear),
+    getAppChangeOriginCoverage(monitoredApp.id, from, to, auditStartYear),
     getLastDeploymentSummary(monitoredApp.id),
   ])
 

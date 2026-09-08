@@ -8,8 +8,6 @@ export interface RepositoryLevelSettings {
 }
 
 export interface AppLevelSettings {
-  auditStartYear: number | null
-  implicitApprovalMode: ImplicitApprovalMode
   defaultBranch: string | null
 }
 
@@ -27,8 +25,8 @@ export function resolveEffectiveSettings(
   if (!repository) {
     return {
       repositoryId: null,
-      auditStartYear: app.auditStartYear,
-      implicitApprovalSettings: { mode: app.implicitApprovalMode },
+      auditStartYear: null,
+      implicitApprovalSettings: { mode: 'off' },
       defaultBranch: app.defaultBranch,
     }
   }

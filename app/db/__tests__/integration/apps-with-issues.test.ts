@@ -1,7 +1,7 @@
 import { Pool } from 'pg'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { getDevTeamAppsWithIssues } from '~/db/deployments/home.server'
-import { seedApp, seedDeployment, truncateAllTables } from './helpers'
+import { seedApp, seedApplicationRepository, seedDeployment, seedRepository, truncateAllTables } from './helpers'
 
 let pool: Pool
 
@@ -223,6 +223,17 @@ describe('getDevTeamAppsWithIssues - unmapped_deployer_count', () => {
       teamSlug: 'team-a',
       appName: 'svc',
       environment: 'prod',
+    })
+    await seedApplicationRepository(pool, {
+      monitoredAppId: appId,
+      githubOwner: 'navikt',
+      githubRepo: 'svc',
+      githubRepoId: '7001',
+    })
+    await seedRepository(pool, {
+      githubRepoId: '7001',
+      githubOwner: 'navikt',
+      githubRepoName: 'svc',
       auditStartYear: currentYear,
     })
     await seedDeployment(pool, {

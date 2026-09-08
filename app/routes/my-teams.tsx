@@ -21,6 +21,7 @@ import { groupAppCardsByRepo } from '~/lib/group-app-cards'
 import { logger } from '~/lib/logger.server'
 import { getAppDeploymentStatsBatch } from '../db/deployments.server'
 import { getAllAlertCounts, getAllMonitoredApplications } from '../db/monitored-applications.server'
+import { getEffectiveSettingsForApps } from '../db/repositories.server'
 import { requireUser } from '../lib/auth.server'
 import type { Route } from './+types/my-teams'
 
@@ -88,12 +89,15 @@ export async function loader({ request }: Route.LoaderArgs) {
     issueAppKeys.has(`${app.team_slug}/${app.environment_name}/${app.app_name}`),
   )
 
+  const effectiveSettings = await getEffectiveSettingsForApps(matchingApps.map((a) => a.id))
+  const matchingAppsWithAuditStartYear = matchingApps.map((a) => ({
+    id: a.id,
+    audit_start_year: effectiveSettings.get(a.id)?.auditStartYear ?? null,
+  }))
+
   const statsByApp =
     matchingApps.length > 0
-      ? await getAppDeploymentStatsBatch(
-          matchingApps.map((a) => ({ id: a.id, audit_start_year: a.audit_start_year })),
-          scope.deployerUsernames,
-        )
+      ? await getAppDeploymentStatsBatch(matchingAppsWithAuditStartYear, scope.deployerUsernames)
       : new Map()
 
   const missingGoalsByKey = new Map<string, number>()

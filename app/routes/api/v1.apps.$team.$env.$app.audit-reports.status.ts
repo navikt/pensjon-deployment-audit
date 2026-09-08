@@ -1,6 +1,7 @@
 import { getActiveReportsForPeriodM2M } from '~/db/audit-reports.server'
 import { getAppChangeOriginCoverage, getAppDeploymentStats } from '~/db/deployments.server'
 import { getMonitoredApplicationByIdentity } from '~/db/monitored-applications.server'
+import { getEffectiveAuditStartYear } from '~/db/repositories.server'
 import { buildAppMetadata } from '~/lib/api/app-metadata.server'
 import { jsonError, validateProdEnvironment } from '~/lib/api/errors'
 import { toReportSummaryM2M } from '~/lib/api/report-formatters'
@@ -41,7 +42,9 @@ export async function loader({ request, params, url }: Route.LoaderArgs) {
     throw jsonError('Application not found', 404)
   }
 
-  const resolved = resolvePeriod(periodType as ReportPeriodType, periodStartDate, monitoredApp.audit_start_year)
+  const auditStartYear = await getEffectiveAuditStartYear(monitoredApp.id)
+
+  const resolved = resolvePeriod(periodType as ReportPeriodType, periodStartDate, auditStartYear)
   if (resolved.error !== null) {
     throw jsonError(resolved.error, 400)
   }
@@ -49,9 +52,9 @@ export async function loader({ request, params, url }: Route.LoaderArgs) {
   const period = resolved.period
 
   const [appMetadata, stats, changeOrigin, existingReports] = await Promise.all([
-    buildAppMetadata(monitoredApp),
-    getAppDeploymentStats(monitoredApp.id, period.startDate, period.endDate, monitoredApp.audit_start_year),
-    getAppChangeOriginCoverage(monitoredApp.id, period.startDate, period.endDate, monitoredApp.audit_start_year),
+    buildAppMetadata(monitoredApp, auditStartYear),
+    getAppDeploymentStats(monitoredApp.id, period.startDate, period.endDate, auditStartYear),
+    getAppChangeOriginCoverage(monitoredApp.id, period.startDate, period.endDate, auditStartYear),
     getActiveReportsForPeriodM2M(monitoredApp.id, period.type, period.startDate),
   ])
 
