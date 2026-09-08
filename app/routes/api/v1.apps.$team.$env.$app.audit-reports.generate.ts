@@ -76,7 +76,7 @@ export async function action({ request, params }: Route.ActionArgs) {
       })
     }
 
-    const appMetadata = await buildAppMetadata(monitoredApp)
+    const appMetadata = await buildAppMetadata(monitoredApp, auditStartYear)
 
     let reportId: string | null = null
     if (existingJob.status === 'completed' && existingJob.audit_report_id) {
@@ -110,7 +110,7 @@ export async function action({ request, params }: Route.ActionArgs) {
   )
 
   if (!job.created) {
-    const appMetadata = await buildAppMetadata(monitoredApp)
+    const appMetadata = await buildAppMetadata(monitoredApp, auditStartYear)
     const response: AuditReportGenerateResponse = {
       app: appMetadata,
       jobId: job.jobId,
@@ -135,7 +135,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     logger.error(`Report generation failed for job ${job.jobId}:`, err)
   })
 
-  const appMetadata = await buildAppMetadata(monitoredApp)
+  const appMetadata = await buildAppMetadata(monitoredApp, auditStartYear)
 
   const response: AuditReportGenerateResponse = {
     app: appMetadata,

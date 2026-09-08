@@ -52,7 +52,7 @@ export async function loader({ request, params, url }: Route.LoaderArgs) {
   const period = resolved.period
 
   const [appMetadata, stats, changeOrigin, existingReports] = await Promise.all([
-    buildAppMetadata(monitoredApp),
+    buildAppMetadata(monitoredApp, auditStartYear),
     getAppDeploymentStats(monitoredApp.id, period.startDate, period.endDate, auditStartYear),
     getAppChangeOriginCoverage(monitoredApp.id, period.startDate, period.endDate, auditStartYear),
     getActiveReportsForPeriodM2M(monitoredApp.id, period.type, period.startDate),

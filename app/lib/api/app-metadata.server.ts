@@ -9,12 +9,15 @@ interface MonitoredApp {
   app_name: string
 }
 
-export async function buildAppMetadata(app: MonitoredApp): Promise<AuditReportAppMetadata> {
+export async function buildAppMetadata(
+  app: MonitoredApp,
+  auditStartYear?: number | null,
+): Promise<AuditReportAppMetadata> {
   let applicationGroup: AuditReportAppMetadata['applicationGroup'] = null
 
-  const [monorepo, auditStartYear] = await Promise.all([
+  const [monorepo, resolvedAuditStartYear] = await Promise.all([
     getMonorepoSiblings(app.id),
-    getEffectiveAuditStartYear(app.id),
+    auditStartYear !== undefined ? Promise.resolve(auditStartYear) : getEffectiveAuditStartYear(app.id),
   ])
   if (monorepo) {
     const allApps = [
@@ -39,7 +42,7 @@ export async function buildAppMetadata(app: MonitoredApp): Promise<AuditReportAp
     team: app.team_slug,
     environment: app.environment_name,
     name: app.app_name,
-    auditStartDate: auditStartYear ? `${auditStartYear}-01-01` : null,
+    auditStartDate: resolvedAuditStartYear ? `${resolvedAuditStartYear}-01-01` : null,
     applicationGroup,
   }
 }

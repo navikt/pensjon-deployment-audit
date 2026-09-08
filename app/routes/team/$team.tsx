@@ -14,17 +14,22 @@ export async function loader({ params: { team } }: Route.LoaderArgs) {
     throw new Response('Team not found or has no monitored applications', { status: 404 })
   }
 
-  const effectiveSettingsByApp = await getEffectiveSettingsForApps(applications.map((a) => a.id))
-
-  const [alertCountsByApp, activeRepos, statsByApp] = await Promise.all([
-    getAlertCountsByApp(),
-    getAllActiveRepositories(),
+  const effectiveSettingsPromise = getEffectiveSettingsForApps(applications.map((a) => a.id))
+  const alertCountsPromise = getAlertCountsByApp()
+  const activeReposPromise = getAllActiveRepositories()
+  const statsByAppPromise = effectiveSettingsPromise.then((effectiveSettingsByApp) =>
     getAppDeploymentStatsBatch(
       applications.map((a) => ({
         id: a.id,
         audit_start_year: effectiveSettingsByApp.get(a.id)?.auditStartYear ?? null,
       })),
     ),
+  )
+
+  const [alertCountsByApp, activeRepos, statsByApp] = await Promise.all([
+    alertCountsPromise,
+    activeReposPromise,
+    statsByAppPromise,
   ])
 
   const appsWithData: AppCardData[] = applications.map((app) => ({

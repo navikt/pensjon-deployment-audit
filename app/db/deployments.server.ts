@@ -278,7 +278,7 @@ export async function getDeploymentsPaginated(filters?: DeploymentFilters): Prom
   }
 
   if (filters?.per_app_audit_start_year) {
-    whereSql += ` AND (${effectiveAuditStartYearSql('ma')} IS NULL OR d.created_at >= make_date(${effectiveAuditStartYearSql('ma')}, 1, 1))`
+    whereSql += ` AND d.created_at >= make_date(COALESCE(${effectiveAuditStartYearSql('ma')}, 1), 1, 1)`
   } else if (filters?.audit_start_year) {
     whereSql += ` AND d.created_at >= make_date($${paramIndex}, 1, 1)`
     params.push(filters.audit_start_year)

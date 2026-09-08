@@ -89,13 +89,11 @@ export async function loader({ request }: Route.LoaderArgs) {
     issueAppKeys.has(`${app.team_slug}/${app.environment_name}/${app.app_name}`),
   )
 
-  const matchingAppsWithAuditStartYear = await (async () => {
-    const effectiveSettings = await getEffectiveSettingsForApps(matchingApps.map((a) => a.id))
-    return matchingApps.map((a) => ({
-      id: a.id,
-      audit_start_year: effectiveSettings.get(a.id)?.auditStartYear ?? null,
-    }))
-  })()
+  const effectiveSettings = await getEffectiveSettingsForApps(matchingApps.map((a) => a.id))
+  const matchingAppsWithAuditStartYear = matchingApps.map((a) => ({
+    id: a.id,
+    audit_start_year: effectiveSettings.get(a.id)?.auditStartYear ?? null,
+  }))
 
   const statsByApp =
     matchingApps.length > 0

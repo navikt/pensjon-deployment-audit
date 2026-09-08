@@ -121,6 +121,8 @@ describe('applyAuditStartYearChange', () => {
       environment: 'prod',
       createdAt: new Date('2025-06-01T00:00:00Z'),
       fourEyesStatus: 'approved_pr',
+      githubOwner: 'navikt',
+      githubRepo: 'app-a',
     })
     const firstInYear = await seedDeployment(pool, {
       monitoredAppId: appId,
@@ -128,6 +130,8 @@ describe('applyAuditStartYearChange', () => {
       environment: 'prod',
       createdAt: new Date('2026-02-01T00:00:00Z'),
       fourEyesStatus: 'approved_pr',
+      githubOwner: 'navikt',
+      githubRepo: 'app-a',
     })
 
     const result = await applyAuditStartYearChange(appId, 2026, 'Z990001')
@@ -199,6 +203,8 @@ describe('applyAuditStartYearChange', () => {
       environment: 'prod',
       createdAt: new Date('2026-01-05T00:00:00Z'),
       fourEyesStatus: 'baseline',
+      githubOwner: 'navikt',
+      githubRepo: 'app-b',
     })
 
     const result = await applyAuditStartYearChange(appId, 2026, 'Z990001')
@@ -232,6 +238,8 @@ describe('applyAuditStartYearChange', () => {
       environment: 'prod',
       createdAt: new Date('2025-03-01T00:00:00Z'),
       fourEyesStatus: 'approved_pr',
+      githubOwner: 'navikt',
+      githubRepo: 'app-c',
     })
     const oldBaseline = await seedDeployment(pool, {
       monitoredAppId: appId,
@@ -239,6 +247,8 @@ describe('applyAuditStartYearChange', () => {
       environment: 'prod',
       createdAt: new Date('2026-01-05T00:00:00Z'),
       fourEyesStatus: 'baseline',
+      githubOwner: 'navikt',
+      githubRepo: 'app-c',
     })
 
     const result = await applyAuditStartYearChange(appId, 2025, 'Z990001')
@@ -287,6 +297,8 @@ describe('applyAuditStartYearChange', () => {
       environment: 'prod',
       createdAt: new Date('2025-03-01T00:00:00Z'),
       fourEyesStatus: 'approved_pr',
+      githubOwner: 'navikt',
+      githubRepo: 'app-c2',
     })
     const staleBaseline = await seedDeployment(pool, {
       monitoredAppId: appId,
@@ -294,6 +306,8 @@ describe('applyAuditStartYearChange', () => {
       environment: 'prod',
       createdAt: new Date('2025-06-05T00:00:00Z'),
       fourEyesStatus: 'baseline',
+      githubOwner: 'navikt',
+      githubRepo: 'app-c2',
     })
     const stalePendingBaseline = await seedDeployment(pool, {
       monitoredAppId: appId,
@@ -301,6 +315,8 @@ describe('applyAuditStartYearChange', () => {
       environment: 'prod',
       createdAt: new Date('2026-01-05T00:00:00Z'),
       fourEyesStatus: 'pending_baseline',
+      githubOwner: 'navikt',
+      githubRepo: 'app-c2',
     })
 
     const result = await applyAuditStartYearChange(appId, 2025, 'Z990001')
@@ -336,6 +352,8 @@ describe('applyAuditStartYearChange', () => {
       environment: 'prod',
       createdAt: new Date('2025-03-01T00:00:00Z'),
       fourEyesStatus: 'approved_pr',
+      githubOwner: 'navikt',
+      githubRepo: 'app-d',
     })
     const oldPendingBaseline = await seedDeployment(pool, {
       monitoredAppId: appId,
@@ -343,6 +361,8 @@ describe('applyAuditStartYearChange', () => {
       environment: 'prod',
       createdAt: new Date('2026-01-05T00:00:00Z'),
       fourEyesStatus: 'pending_baseline',
+      githubOwner: 'navikt',
+      githubRepo: 'app-d',
     })
 
     const result = await applyAuditStartYearChange(appId, 2025, 'Z990001')

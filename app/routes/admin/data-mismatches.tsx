@@ -130,8 +130,7 @@ export async function loader({ request, url }: Route.LoaderArgs) {
          ))::int AS no_fallback
          FROM deployments d
          JOIN monitored_applications ma ON d.monitored_app_id = ma.id
-         WHERE ${effectiveAuditStartYearSql('ma')} IS NOT NULL
-           AND d.created_at >= make_date(${effectiveAuditStartYearSql('ma')}, 1, 1)
+         WHERE d.created_at >= make_date(${effectiveAuditStartYearSql('ma')}, 1, 1)
            AND COALESCE(d.four_eyes_status, 'unknown') NOT IN (${LEGACY_STATUSES_SQL})`,
       ),
       pool.query<BaselineNoApprover>(
@@ -199,7 +198,6 @@ export async function loader({ request, url }: Route.LoaderArgs) {
      FROM deployments d
      JOIN monitored_applications ma ON d.monitored_app_id = ma.id
      WHERE d.title IS NULL
-       AND ${effectiveAuditStartYearSql('ma')} IS NOT NULL
        AND d.created_at >= make_date(${effectiveAuditStartYearSql('ma')}, 1, 1)
        AND COALESCE(d.four_eyes_status, 'unknown') NOT IN (${LEGACY_STATUSES_SQL})
      ORDER BY d.id DESC

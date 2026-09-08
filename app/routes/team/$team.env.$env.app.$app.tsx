@@ -44,11 +44,28 @@ export async function loader({ params, request, url }: Route.LoaderArgs) {
 
   const identity = await getUserIdentity(request)
 
+  const capabilitiesPromise =
+    (app.not_found_in_nais_at || !app.is_active) && identity
+      ? resolveAppCapabilities(identity, app.id)
+      : Promise.resolve(null)
+  const canAccessAdminPromise = identity ? canAccessAppAdmin(identity, app.id) : Promise.resolve(false)
+  const repositoriesPromise = getRepositoriesByAppId(app.id)
+  const effectiveAuditStartYearPromise = getEffectiveAuditStartYear(app.id)
+  const alertsPromise = getUnresolvedAlertsByApp(app.id)
+  const auditReportsPromise = getAuditReportsForApp(app.id)
+  const monorepoPromise = getMonorepoSiblings(app.id)
+  const devTeamsPromise = getDevTeamsForApp(app.id, team)
+  const latestSyncJobPromise = getLatestSyncJob(app.id, 'nais_sync')
+  const verificationProgressPromise = getPendingVerificationCount(app.id)
+  const observedVerifyIntervalMsPromise = getObservedSyncIntervalMs(app.id, 'github_verify')
+  const deploymentStatsPromise = effectiveAuditStartYearPromise.then((effectiveAuditStartYear) =>
+    getAppDeploymentStats(app.id, startDate, endDate, effectiveAuditStartYear),
+  )
+
   const [
     capabilities,
     canAccessAdmin,
     repositories,
-    effectiveAuditStartYear,
     alerts,
     auditReports,
     monorepo,
@@ -56,21 +73,20 @@ export async function loader({ params, request, url }: Route.LoaderArgs) {
     latestSyncJob,
     verificationProgress,
     observedVerifyIntervalMs,
+    deploymentStats,
   ] = await Promise.all([
-    (app.not_found_in_nais_at || !app.is_active) && identity ? resolveAppCapabilities(identity, app.id) : null,
-    identity ? canAccessAppAdmin(identity, app.id) : false,
-    getRepositoriesByAppId(app.id),
-    getEffectiveAuditStartYear(app.id),
-    getUnresolvedAlertsByApp(app.id),
-    getAuditReportsForApp(app.id),
-    getMonorepoSiblings(app.id),
-    getDevTeamsForApp(app.id, team),
-    getLatestSyncJob(app.id, 'nais_sync'),
-    getPendingVerificationCount(app.id),
-    getObservedSyncIntervalMs(app.id, 'github_verify'),
+    capabilitiesPromise,
+    canAccessAdminPromise,
+    repositoriesPromise,
+    alertsPromise,
+    auditReportsPromise,
+    monorepoPromise,
+    devTeamsPromise,
+    latestSyncJobPromise,
+    verificationProgressPromise,
+    observedVerifyIntervalMsPromise,
+    deploymentStatsPromise,
   ])
-
-  const deploymentStats = await getAppDeploymentStats(app.id, startDate, endDate, effectiveAuditStartYear)
 
   const canDeactivate = app.not_found_in_nais_at ? (capabilities?.canDeactivate ?? false) : false
   const canReactivate = !app.is_active ? (capabilities?.canReactivate ?? false) : false

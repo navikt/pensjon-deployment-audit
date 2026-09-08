@@ -31,7 +31,6 @@ export async function action({ request }: Route.ActionArgs) {
          AND d.title IS NULL
          AND COALESCE(BTRIM(d.github_pr_data->>'title', E' \t\r\n'), '') != ''
          AND COALESCE(d.four_eyes_status, 'unknown') NOT IN (${LEGACY_STATUSES_SQL})
-         AND ${effectiveAuditStartYearSql('ma')} IS NOT NULL
          AND d.created_at >= make_date(${effectiveAuditStartYearSql('ma')}, 1, 1)`,
     )
     const count = result.rowCount ?? 0
@@ -56,7 +55,6 @@ export async function action({ request }: Route.ActionArgs) {
              AND (d.unverified_commits IS NULL OR jsonb_array_length(d.unverified_commits) = 0
                  OR COALESCE(BTRIM(SPLIT_PART(d.unverified_commits->0->>'message', E'\n', 1), E' \t\r\n'), '') = '')
              AND COALESCE(d.four_eyes_status, 'unknown') NOT IN (${LEGACY_STATUSES_SQL})
-             AND ${effectiveAuditStartYearSql('ma')} IS NOT NULL
              AND d.created_at >= make_date(${effectiveAuditStartYearSql('ma')}, 1, 1)
          )
            AND jsonb_typeof(data->'commits') = 'array'
@@ -74,7 +72,6 @@ export async function action({ request }: Route.ActionArgs) {
         AND (d.unverified_commits IS NULL OR jsonb_array_length(d.unverified_commits) = 0
              OR COALESCE(BTRIM(SPLIT_PART(d.unverified_commits->0->>'message', E'\n', 1), E' \t\r\n'), '') = '')
         AND COALESCE(d.four_eyes_status, 'unknown') NOT IN (${LEGACY_STATUSES_SQL})
-        AND ${effectiveAuditStartYearSql('ma')} IS NOT NULL
         AND d.created_at >= make_date(${effectiveAuditStartYearSql('ma')}, 1, 1)`,
     )
     const count = result.rowCount ?? 0
