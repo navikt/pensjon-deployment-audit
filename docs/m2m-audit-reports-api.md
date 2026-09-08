@@ -329,12 +329,15 @@ Alle feil returnerer JSON:
 
 ## Applikasjonsgrupper
 
-NDA bruker flat gruppering av apper (peers, ikke hierarkisk). Grupper brukes
-for å propagere verifikasjons-status på tvers av klynger
-(f.eks. `prod-gcp` + `prod-fss` for samme app).
+NDA bruker flat gruppering av apper (peers, ikke hierarkisk). Grupperingen er
+repo-basert: apper som deler samme aktive GitHub-repo grupperes sammen, enten
+det er samme app deployet til flere klynger (f.eks. `prod-gcp` + `prod-fss`)
+eller flere apper i et monorepo. Grupper brukes for å propagere
+verifikasjons-status på tvers av disse.
 
-Alle API-responser inkluderer `applicationGroup` med navn og liste over alle
-apper i gruppen. `null` hvis appen ikke tilhører en gruppe.
+Alle API-responser inkluderer `applicationGroup` med navn (`owner/repo`) og
+liste over alle apper i gruppen (inkludert appen selv). `null` hvis appen ikke
+deler repo med noen andre.
 
 KISS bruker hierarkisk gruppering — KISS sin `parent/child`-modell er ikke
 direkte mappbar til NDA sin flate modell. KISS må selv avgjøre hvordan NDA sine
